@@ -1,0 +1,3 @@
+version: "1"
+domain: pusher.com
+repo: github.com/pusher/wave
