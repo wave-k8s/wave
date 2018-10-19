@@ -18,12 +18,12 @@ package deployment
 
 import (
 	"log"
-	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"github.com/pusher/wave/pkg/apis"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -34,8 +34,15 @@ import (
 
 var cfg *rest.Config
 
-func TestMain(m *testing.M) {
-	t := &envtest.Environment{
+func TestMain(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Wave Controller Suite")
+}
+
+var t *envtest.Environment
+
+var _ = BeforeSuite(func() {
+	t = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crds")},
 	}
 	apis.AddToScheme(scheme.Scheme)
@@ -44,11 +51,11 @@ func TestMain(m *testing.M) {
 	if cfg, err = t.Start(); err != nil {
 		log.Fatal(err)
 	}
+})
 
-	code := m.Run()
+var _ = AfterSuite(func() {
 	t.Stop()
-	os.Exit(code)
-}
+})
 
 // SetupTestReconcile returns a reconcile.Reconcile implementation that delegates to inner and
 // writes the request to requests after Reconcile is finished.
@@ -63,12 +70,13 @@ func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan 
 }
 
 // StartTestManager adds recFn
-func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}, *sync.WaitGroup) {
+func StartTestManager(mgr manager.Manager) (chan struct{}, *sync.WaitGroup) {
 	stop := make(chan struct{})
 	wg := &sync.WaitGroup{}
 	go func() {
+		defer GinkgoRecover()
 		wg.Add(1)
-		g.Expect(mgr.Start(stop)).NotTo(gomega.HaveOccurred())
+		Expect(mgr.Start(stop)).NotTo(HaveOccurred())
 		wg.Done()
 	}()
 	return stop, wg

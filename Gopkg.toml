@@ -36,6 +36,29 @@ name = "gopkg.in/fsnotify.v1"
 source = "https://github.com/fsnotify/fsnotify.git"
 version="v1.4.7"
 
+# Override for azure auth provider
 [[override]]
 name = "github.com/Azure/go-autorest"
 version="v10.15.5"
+
+# Overridefor kubernetes dependencies to pin them to a particular version
+[[override]]
+name="k8s.io/api"
+version="kubernetes-1.11.0"
+
+[[override]]
+name="k8s.io/apiextensions-apiserver"
+version="kubernetes-1.11.0"
+
+[[override]]
+name="k8s.io/apimachinery"
+version="kubernetes-1.11.0"
+
+[[override]]
+name="k8s.io/client-go"
+version="kubernetes-1.11.0"
+
+# Override for testing suite
+[[constraint]]
+name="github.com/kubernetes-sigs/kubebuilder"
+version="v1.0.5"

@@ -576,7 +576,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  digest = "1:75905606c2db8d9526ccff0acf5655759afe3d901d1d64868bd87985b4a46e36"
+  digest = "1:8b350a07b9e6aad42a26123a22d94d5498081214fd776b2b0336cb5c3d62246f"
   name = "k8s.io/api"
   packages = [
     "admission/v1beta1",
@@ -611,11 +611,11 @@
     "storage/v1beta1",
   ]
   pruneopts = "T"
-  revision = "2d6f90ab1293a1fb871cf149423ebb72aa7423aa"
-  version = "kubernetes-1.11.2"
+  revision = "072894a440bdee3a891dea811fe42902311cd2a3"
+  version = "kubernetes-1.11.0"
 
 [[projects]]
-  digest = "1:3fe3cb0c5e5a140f0b40c18796b884d3432efbd690b0bda8cbd838d38a3ea585"
+  digest = "1:5dd98eb1b9b9bb0552b7afc57e72a2d93cd209a7d6b5c89922a4728d0b46a799"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
@@ -625,8 +625,8 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
   ]
   pruneopts = "T"
-  revision = "408db4a50408e2149acbd657bceb2480c13cb0a4"
-  version = "kubernetes-1.11.2"
+  revision = "3de98c57bc05a81cf463e0ad7a0af4cec8a5b510"
+  version = "kubernetes-1.11.0"
 
 [[projects]]
   digest = "1:e2035d60919705a125feeb8b13926383aff8817634b2c4550743c19ca21f3b08"
@@ -677,10 +677,10 @@
   ]
   pruneopts = "T"
   revision = "103fd098999dc9c0c88536f5c9ad2e5da39373ae"
-  version = "kubernetes-1.11.2"
+  version = "kubernetes-1.11.0"
 
 [[projects]]
-  digest = "1:0a19f9bf56ecc683569299c8c2282ee3ac70d4e32eeb170d3265761bff8d5e12"
+  digest = "1:483198a324ac2dfecf001702ccfe99c0ef4191a58a9fb67124ea91074f397aac"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -754,8 +754,8 @@
     "util/workqueue",
   ]
   pruneopts = "T"
-  revision = "1f13a808da65775f22cbf47862c4e5898d8f4ca1"
-  version = "kubernetes-1.11.2"
+  revision = "7d04d0e2a0a1a4d4a1cd6baa432a2301492e4e65"
+  version = "kubernetes-1.11.0"
 
 [[projects]]
   branch = "master"
@@ -853,15 +853,14 @@
   version = "v0.1.6"
 
 [[projects]]
-  branch = "master"
-  digest = "1:fd7fb0f1f6e3259ec03c9730c675f7c97bcbd9d2a1037364734b197eaa76eee7"
+  digest = "1:a2a1732136cc0d306a6b1a6999f71fbe0d16e9c1d2234b34d67e0ebb952e5982"
   name = "sigs.k8s.io/testing_frameworks"
   packages = [
     "integration",
     "integration/internal",
   ]
   pruneopts = "T"
-  revision = "5818a3a284a11812aaed11d5ca0bcadec2c50e83"
+  revision = "f53464b8b84b4507805a0b033a8377b225163fea"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -870,12 +869,11 @@
     "github.com/emicklei/go-restful",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
-    "golang.org/x/net/context",
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apimachinery/pkg/api/errors",
-    "k8s.io/apimachinery/pkg/apis/meta/v1",
+    "k8s.io/apimachinery/pkg/api/meta",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/client-go/kubernetes/scheme",
