@@ -20,6 +20,7 @@ import (
 	"context"
 
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,14 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
 // Add creates a new Deployment Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-// USER ACTION REQUIRED: update cmd/manager/main.go to call this apps.Add(mgr) to install this Controller
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
 }
@@ -61,10 +56,18 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create
-	// Uncomment watch a Deployment created by Deployment - change this for objects you create
-	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
+	// Watch ConfigMaps owned by a Deployment
+	err = c.Watch(&source.Kind{Type: &v1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
+		IsController: false,
+		OwnerType:    &appsv1.Deployment{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch Secrets owned by a Deployment
+	err = c.Watch(&source.Kind{Type: &v1.Secret{}}, &handler.EnqueueRequestForOwner{
+		IsController: false,
 		OwnerType:    &appsv1.Deployment{},
 	})
 	if err != nil {
@@ -82,11 +85,9 @@ type ReconcileDeployment struct {
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a Deployment object and makes changes based on the state read
-// and what is in the Deployment.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  The scaffolding writes
-// a Deployment as an example
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// Reconcile reads that state of the cluster for a Deployment object and
+// updates its PodSpec based on mounted configuration
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update;patch
 func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the Deployment instance
 	instance := &appsv1.Deployment{}
@@ -94,7 +95,6 @@ func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Re
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
-			// For additional cleanup logic use finalizers.
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.

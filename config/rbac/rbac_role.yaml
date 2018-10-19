@@ -5,6 +5,16 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - mutatingwebhookconfigurations
