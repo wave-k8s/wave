@@ -34,6 +34,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+type object interface {
+	runtime.Object
+	metav1.Object
+}
+
 var c client.Client
 
 var deployment *appsv1.Deployment
@@ -44,11 +49,29 @@ var stopMgr chan struct{}
 const timeout = time.Second * 5
 
 var _ = Describe("Wave controller Suite", func() {
-	var create = func(obj runtime.Object) {
+	var create = func(obj object) {
 		Expect(c.Create(context.TODO(), obj)).NotTo(HaveOccurred())
 	}
 
-	var waitForDeploymentReconciled = func(obj metav1.Object) {
+	var update = func(obj object) {
+		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
+	}
+
+	var delete = func(obj object) {
+		Expect(c.Delete(context.TODO(), obj)).NotTo(HaveOccurred())
+	}
+
+	var get = func(obj object) {
+		key := types.NamespacedName{
+			Name:      obj.GetName(),
+			Namespace: obj.GetNamespace(),
+		}
+		Eventually(func() error {
+			return c.Get(context.TODO(), key, obj)
+		}, timeout).Should(Succeed())
+	}
+
+	var waitForDeploymentReconciled = func(obj object) {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      obj.GetName(),
@@ -93,6 +116,138 @@ var _ = Describe("Wave controller Suite", func() {
 		)
 	})
 
-	Context("When a Deployment is reconciled", func() {})
+	Context("When a Deployment is reconciled", func() {
+		Context("And it has the required annotation", func() {
+			BeforeEach(func() {
+				annotations := deployment.GetAnnotations()
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
+				annotations["wave.pusher.com/update-on-config-change"] = "true"
+				deployment.SetAnnotations(annotations)
+
+				update(deployment)
+				waitForDeploymentReconciled(deployment)
+
+				// Get the updated Deployment
+				get(deployment)
+			})
+
+			It("Adds OwnerReferences to all children", func() {})
+
+			It("Adds a finalizer to the Deployment", func() {})
+
+			It("Adds a config hash to the Pod Template", func() {})
+
+			Context("And a child is removed", func() {
+				BeforeEach(func() {
+					// Remove "container2" which references Secret example2 and ConfigMap
+					// example2
+					containers := deployment.Spec.Template.Spec.Containers
+					Expect(containers[0].Name).To(Equal("container1"))
+					deployment.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
+					update(deployment)
+					waitForDeploymentReconciled(deployment)
+
+					// Get the updated Deployment
+					get(deployment)
+				})
+
+				It("Removes the OwnerReference from the orphaned child", func() {})
+
+				It("Updates the config hash in the Pod Template", func() {})
+			})
+
+			// TODO: Pending while Owner References not added to children
+			PContext("And a child is updated", func() {
+				Context("A ConfigMap volume is updated", func() {
+					BeforeEach(func() {
+						cm := utils.ExampleConfigMap1.DeepCopy()
+						cm.Data["key1"] = "modified"
+						update(cm)
+
+						waitForDeploymentReconciled(deployment)
+
+						// Get the updated Deployment
+						get(deployment)
+					})
+
+					It("Updates the config hash in the Pod Template", func() {})
+				})
+
+				Context("A ConfigMap EnvSource is updated", func() {
+					BeforeEach(func() {
+						cm := utils.ExampleConfigMap2.DeepCopy()
+						cm.Data["key1"] = "modified"
+						update(cm)
+
+						waitForDeploymentReconciled(deployment)
+
+						// Get the updated Deployment
+						get(deployment)
+					})
+
+					It("Updates the config hash in the Pod Template", func() {})
+				})
+
+				Context("A Secret volume is updated", func() {
+					BeforeEach(func() {
+						s := utils.ExampleSecret1.DeepCopy()
+						s.StringData["key1"] = "modified"
+						update(s)
+
+						waitForDeploymentReconciled(deployment)
+
+						// Get the updated Deployment
+						get(deployment)
+					})
+
+					It("Updates the config hash in the Pod Template", func() {})
+				})
+
+				Context("A Secret EnvSource is updated", func() {
+					BeforeEach(func() {
+						s := utils.ExampleSecret2.DeepCopy()
+						s.StringData["key1"] = "modified"
+						update(s)
+
+						waitForDeploymentReconciled(deployment)
+
+						// Get the updated Deployment
+						get(deployment)
+					})
+
+					It("Updates the config hash in the Pod Template", func() {})
+				})
+			})
+
+			// TODO: Pending while finalizer not added to deployment
+			PContext("And is deleted", func() {
+				BeforeEach(func() {
+					delete(deployment)
+					waitForDeploymentReconciled(deployment)
+
+					// Get the updated Deployment
+					get(deployment)
+				})
+				It("Removes the OwnerReference from the all children", func() {})
+
+				It("Removes the Deployment's finalizer", func() {})
+			})
+		})
+
+		Context("And it does not have the required annotation", func() {
+			BeforeEach(func() {
+				// Get the updated Deployment
+				get(deployment)
+			})
+
+			It("Doesn't add any OwnerReferences to any children", func() {})
+
+			It("Doesn't add a finalizer to the Deployment", func() {})
+
+			It("Doesn't add a config hash to the Pod Template", func() {})
+		})
+	})
 
 })
