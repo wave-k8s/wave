@@ -39,6 +39,12 @@ type object interface {
 	metav1.Object
 }
 
+const (
+	requiredAnnotation   = "wave.pusher.com/update-on-config-change"
+	configHashAnnotation = "wave.pusher.com/config-hash"
+	finalizerString      = "wave.pusher.com"
+)
+
 var c client.Client
 
 var deployment *appsv1.Deployment
@@ -47,6 +53,12 @@ var mgrStopped *sync.WaitGroup
 var stopMgr chan struct{}
 
 const timeout = time.Second * 5
+
+var ownerRef metav1.OwnerReference
+var cm1 *corev1.ConfigMap
+var cm2 *corev1.ConfigMap
+var s1 *corev1.Secret
+var s2 *corev1.Secret
 
 var _ = Describe("Wave controller Suite", func() {
 	var create = func(obj object) {
@@ -69,6 +81,19 @@ var _ = Describe("Wave controller Suite", func() {
 		Eventually(func() error {
 			return c.Get(context.TODO(), key, obj)
 		}, timeout).Should(Succeed())
+	}
+
+	var getOwnerRef = func(deployment *appsv1.Deployment) metav1.OwnerReference {
+		f := false
+		t := true
+		return metav1.OwnerReference{
+			APIVersion:         deployment.APIVersion,
+			Kind:               deployment.Kind,
+			Name:               deployment.Name,
+			UID:                deployment.UID,
+			Controller:         &f,
+			BlockOwnerDeletion: &t,
+		}
 	}
 
 	var waitForDeploymentReconciled = func(obj object) {
@@ -94,15 +119,23 @@ var _ = Describe("Wave controller Suite", func() {
 		stopMgr, mgrStopped = StartTestManager(mgr)
 
 		// Create some configmaps and secrets
-		create(utils.ExampleConfigMap1.DeepCopy())
-		create(utils.ExampleConfigMap2.DeepCopy())
-		create(utils.ExampleSecret1.DeepCopy())
-		create(utils.ExampleSecret2.DeepCopy())
+		cm1 = utils.ExampleConfigMap1.DeepCopy()
+		cm2 = utils.ExampleConfigMap2.DeepCopy()
+		s1 = utils.ExampleSecret1.DeepCopy()
+		s2 = utils.ExampleSecret2.DeepCopy()
+
+		create(cm1)
+		create(cm2)
+		create(s1)
+		create(s2)
 
 		deployment = utils.ExampleDeployment.DeepCopy()
+
 		// Create a deployment and wait for it to be reconciled
 		create(deployment)
 		waitForDeploymentReconciled(deployment)
+
+		ownerRef = getOwnerRef(deployment)
 	})
 
 	AfterEach(func() {
@@ -123,7 +156,7 @@ var _ = Describe("Wave controller Suite", func() {
 				if annotations == nil {
 					annotations = make(map[string]string)
 				}
-				annotations["wave.pusher.com/update-on-config-change"] = "true"
+				annotations[requiredAnnotation] = "true"
 				deployment.SetAnnotations(annotations)
 
 				update(deployment)
@@ -133,14 +166,37 @@ var _ = Describe("Wave controller Suite", func() {
 				get(deployment)
 			})
 
-			It("Adds OwnerReferences to all children", func() {})
+			// TODO: Add owner refs to children
+			PIt("Adds OwnerReferences to all children", func() {
+				for _, obj := range []object{cm1, cm2, s1, s2} {
+					get(obj)
+					Expect(obj.GetOwnerReferences()).To(ContainElement(ownerRef))
+				}
+			})
 
-			It("Adds a finalizer to the Deployment", func() {})
+			// TODO: Add finalizer to Deployment
+			PIt("Adds a finalizer to the Deployment", func() {
+				Expect(deployment.GetFinalizers()).To(ContainElement(finalizerString))
+			})
 
-			It("Adds a config hash to the Pod Template", func() {})
+			// TODO: add config hash to pod template
+			PIt("Adds a config hash to the Pod Template", func() {
+				annotations := deployment.GetAnnotations()
+				hash, ok := annotations[configHashAnnotation]
+				Expect(ok).To(BeTrue())
+				Expect(hash).NotTo(BeEmpty())
+			})
 
-			Context("And a child is removed", func() {
+			// TODO: waiting for config hash to be added to pod template
+			PContext("And a child is removed", func() {
+				var originalHash string
 				BeforeEach(func() {
+					get(deployment)
+					templateAnnotations := deployment.Spec.Template.GetAnnotations()
+					var ok bool
+					originalHash, ok = templateAnnotations[configHashAnnotation]
+					Expect(ok).To(BeTrue())
+
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
 					containers := deployment.Spec.Template.Spec.Containers
@@ -153,18 +209,38 @@ var _ = Describe("Wave controller Suite", func() {
 					get(deployment)
 				})
 
-				It("Removes the OwnerReference from the orphaned child", func() {})
+				It("Removes the OwnerReference from the orphaned ConfigMap", func() {
+					Expect(cm2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+				})
 
-				It("Updates the config hash in the Pod Template", func() {})
+				It("Removes the OwnerReference from the orphaned Secret", func() {
+					Expect(s2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+				})
+
+				It("Updates the config hash in the Pod Template", func() {
+					templateAnnotations := deployment.Spec.Template.GetAnnotations()
+					hash, ok := templateAnnotations[configHashAnnotation]
+					Expect(ok).To(BeTrue())
+					Expect(hash).NotTo(Equal(originalHash))
+				})
 			})
 
 			// TODO: Pending while Owner References not added to children
 			PContext("And a child is updated", func() {
+				var originalHash string
+
+				BeforeEach(func() {
+					get(deployment)
+					templateAnnotations := deployment.Spec.Template.GetAnnotations()
+					var ok bool
+					originalHash, ok = templateAnnotations[configHashAnnotation]
+					Expect(ok).To(BeTrue())
+				})
+
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
-						cm := utils.ExampleConfigMap1.DeepCopy()
-						cm.Data["key1"] = "modified"
-						update(cm)
+						cm1.Data["key1"] = "modified"
+						update(cm1)
 
 						waitForDeploymentReconciled(deployment)
 
@@ -172,14 +248,18 @@ var _ = Describe("Wave controller Suite", func() {
 						get(deployment)
 					})
 
-					It("Updates the config hash in the Pod Template", func() {})
+					It("Updates the config hash in the Pod Template", func() {
+						templateAnnotations := deployment.Spec.Template.GetAnnotations()
+						hash, ok := templateAnnotations[configHashAnnotation]
+						Expect(ok).To(BeTrue())
+						Expect(hash).NotTo(Equal(originalHash))
+					})
 				})
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
-						cm := utils.ExampleConfigMap2.DeepCopy()
-						cm.Data["key1"] = "modified"
-						update(cm)
+						cm2.Data["key1"] = "modified"
+						update(cm2)
 
 						waitForDeploymentReconciled(deployment)
 
@@ -187,14 +267,18 @@ var _ = Describe("Wave controller Suite", func() {
 						get(deployment)
 					})
 
-					It("Updates the config hash in the Pod Template", func() {})
+					It("Updates the config hash in the Pod Template", func() {
+						templateAnnotations := deployment.Spec.Template.GetAnnotations()
+						hash, ok := templateAnnotations[configHashAnnotation]
+						Expect(ok).To(BeTrue())
+						Expect(hash).NotTo(Equal(originalHash))
+					})
 				})
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
-						s := utils.ExampleSecret1.DeepCopy()
-						s.StringData["key1"] = "modified"
-						update(s)
+						s1.StringData["key1"] = "modified"
+						update(s1)
 
 						waitForDeploymentReconciled(deployment)
 
@@ -202,14 +286,18 @@ var _ = Describe("Wave controller Suite", func() {
 						get(deployment)
 					})
 
-					It("Updates the config hash in the Pod Template", func() {})
+					It("Updates the config hash in the Pod Template", func() {
+						templateAnnotations := deployment.Spec.Template.GetAnnotations()
+						hash, ok := templateAnnotations[configHashAnnotation]
+						Expect(ok).To(BeTrue())
+						Expect(hash).NotTo(Equal(originalHash))
+					})
 				})
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
-						s := utils.ExampleSecret2.DeepCopy()
-						s.StringData["key1"] = "modified"
-						update(s)
+						s2.StringData["key1"] = "modified"
+						update(s2)
 
 						waitForDeploymentReconciled(deployment)
 
@@ -217,7 +305,12 @@ var _ = Describe("Wave controller Suite", func() {
 						get(deployment)
 					})
 
-					It("Updates the config hash in the Pod Template", func() {})
+					It("Updates the config hash in the Pod Template", func() {
+						templateAnnotations := deployment.Spec.Template.GetAnnotations()
+						hash, ok := templateAnnotations[configHashAnnotation]
+						Expect(ok).To(BeTrue())
+						Expect(hash).NotTo(Equal(originalHash))
+					})
 				})
 			})
 
@@ -230,9 +323,16 @@ var _ = Describe("Wave controller Suite", func() {
 					// Get the updated Deployment
 					get(deployment)
 				})
-				It("Removes the OwnerReference from the all children", func() {})
+				It("Removes the OwnerReference from the all children", func() {
+					for _, obj := range []object{cm1, cm2, s1, s2} {
+						get(obj)
+						Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+					}
+				})
 
-				It("Removes the Deployment's finalizer", func() {})
+				It("Removes the Deployment's finalizer", func() {
+					Expect(deployment.GetFinalizers()).NotTo(ContainElement(finalizerString))
+				})
 			})
 		})
 
@@ -242,11 +342,22 @@ var _ = Describe("Wave controller Suite", func() {
 				get(deployment)
 			})
 
-			It("Doesn't add any OwnerReferences to any children", func() {})
+			It("Doesn't add any OwnerReferences to any children", func() {
+				for _, obj := range []object{cm1, cm2, s1, s2} {
+					get(obj)
+					Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+				}
+			})
 
-			It("Doesn't add a finalizer to the Deployment", func() {})
+			It("Doesn't add a finalizer to the Deployment", func() {
+				Expect(deployment.GetFinalizers()).NotTo(ContainElement(finalizerString))
+			})
 
-			It("Doesn't add a config hash to the Pod Template", func() {})
+			It("Doesn't add a config hash to the Pod Template", func() {
+				annotations := deployment.GetAnnotations()
+				_, ok := annotations[configHashAnnotation]
+				Expect(ok).NotTo(BeTrue())
+			})
 		})
 	})
 
