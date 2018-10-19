@@ -64,7 +64,8 @@ var ExampleDeployment = &appsv1.Deployment{
 				},
 				Containers: []corev1.Container{
 					{
-						Name: "container1",
+						Name:  "container1",
+						Image: "container1",
 						EnvFrom: []corev1.EnvFromSource{
 							{
 								ConfigMapRef: &corev1.ConfigMapEnvSource{
@@ -83,7 +84,8 @@ var ExampleDeployment = &appsv1.Deployment{
 						},
 					},
 					{
-						Name: "container2",
+						Name:  "container2",
+						Image: "container2",
 						EnvFrom: []corev1.EnvFromSource{
 							{
 								ConfigMapRef: &corev1.ConfigMapEnvSource{
