@@ -22,7 +22,7 @@ import (
 	"github.com/pusher/wave/pkg/apis"
 	"github.com/pusher/wave/pkg/controller"
 	"github.com/pusher/wave/pkg/webhook"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
