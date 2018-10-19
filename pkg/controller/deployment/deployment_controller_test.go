@@ -17,12 +17,17 @@ limitations under the License.
 package deployment
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pusher/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -32,7 +37,6 @@ import (
 var c client.Client
 
 var deployment *appsv1.Deployment
-var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
 var requests <-chan reconcile.Request
 var mgrStopped *sync.WaitGroup
 var stopMgr chan struct{}
@@ -40,6 +44,20 @@ var stopMgr chan struct{}
 const timeout = time.Second * 5
 
 var _ = Describe("Wave controller Suite", func() {
+	var create = func(obj runtime.Object) {
+		Expect(c.Create(context.TODO(), obj)).NotTo(HaveOccurred())
+	}
+
+	var waitForDeploymentReconciled = func(obj metav1.Object) {
+		request := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      obj.GetName(),
+				Namespace: obj.GetNamespace(),
+			},
+		}
+		// wait for reconcile for creating the Deployment
+		Eventually(requests, timeout).Should(Receive(Equal(request)))
+	}
 
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{})
@@ -51,11 +69,28 @@ var _ = Describe("Wave controller Suite", func() {
 		Expect(add(mgr, recFn)).NotTo(HaveOccurred())
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
+
+		// Create some configmaps and secrets
+		create(utils.ExampleConfigMap1.DeepCopy())
+		create(utils.ExampleConfigMap2.DeepCopy())
+		create(utils.ExampleSecret1.DeepCopy())
+		create(utils.ExampleSecret2.DeepCopy())
+
+		deployment = utils.ExampleDeployment.DeepCopy()
+		// Create a deployment and wait for it to be reconciled
+		create(deployment)
+		waitForDeploymentReconciled(deployment)
 	})
 
 	AfterEach(func() {
 		close(stopMgr)
 		mgrStopped.Wait()
+
+		utils.DeleteAll(cfg, timeout,
+			&appsv1.DeploymentList{},
+			&corev1.ConfigMapList{},
+			&corev1.SecretList{},
+		)
 	})
 
 	Context("When a Deployment is reconciled", func() {})
