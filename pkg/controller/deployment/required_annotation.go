@@ -20,6 +20,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 )
 
+const requiredAnnotation = "wave.pusher.com/update-on-config-change"
+
 // hasRequiredAnnotation returns true if the given Deployment has the wave
 // annotation present
 func hasRequiredAnnotation(obj *appsv1.Deployment) bool {

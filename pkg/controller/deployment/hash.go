@@ -21,6 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const configHashAnnotation = "wave.pusher.com/config-hash"
+
 // calculateConfigHash uses sha256 to hash the configuration within the child
 // objects and returns a hash as a string
 func calculateConfigHash(children []metav1.Object) (string, error) {
