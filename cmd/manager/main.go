@@ -17,11 +17,14 @@ limitations under the License.
 package main
 
 import (
+	goflag "flag"
 	"os"
+	"time"
 
 	"github.com/pusher/wave/pkg/apis"
 	"github.com/pusher/wave/pkg/controller"
 	"github.com/pusher/wave/pkg/webhook"
+	flag "github.com/spf13/pflag"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -29,7 +32,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 )
 
+var (
+	leaderElection           = flag.Bool("leader-election", false, "Should the controller use leader election")
+	leaderElectionID         = flag.String("leader-election-id", "", "Name of the configmap used by the leader election system")
+	leaederElectionNamespace = flag.String("leader-election-namespace", "", "Namespace for the configmap used by the leader election system")
+	syncPeriod               = flag.Duration("sync-period", 5*time.Minute, "Reconcile sync period")
+)
+
 func main() {
+	// Setup flags
+	goflag.Lookup("logtostderr").Value.Set("true")
+	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
+	flag.Parse()
+
 	logf.SetLogger(logf.ZapLogger(false))
 	log := logf.Log.WithName("entrypoint")
 
@@ -43,7 +58,12 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	log.Info("setting up manager")
-	mgr, err := manager.New(cfg, manager.Options{})
+	mgr, err := manager.New(cfg, manager.Options{
+		LeaderElection:          *leaderElection,
+		LeaderElectionID:        *leaderElectionID,
+		LeaderElectionNamespace: *leaederElectionNamespace,
+		SyncPeriod:              syncPeriod,
+	})
 	if err != nil {
 		log.Error(err, "unable to set up overall controller manager")
 		os.Exit(1)
