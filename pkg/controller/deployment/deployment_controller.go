@@ -18,6 +18,8 @@ package deployment
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
@@ -99,6 +101,52 @@ func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Re
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	// If the required annotation isn't present, ignore the instance
+	if !hasRequiredAnnotation(instance) {
+		return reconcile.Result{}, nil
+	}
+
+	// If the instance is marked for deletion, run cleanup process
+	if toBeDeleted(instance) {
+		return r.handleDelete(instance)
+	}
+
+	// Get all children that have an OwnerReference pointing to this instance
+	existing, err := r.getExistingChildren(instance)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("error fetching existing children: %v", err)
+	}
+
+	// Get all children that the instance currently references
+	current, err := r.getCurrentChildren(instance)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("error fetching current children: %v", err)
+	}
+
+	// Reconcile the OwnerReferences on the existing and current chilren
+	err = r.updateOwnerReferences(instance, existing, current)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("error updating OwnerReferences: %v", err)
+	}
+
+	hash, err := calculateConfigHash(current)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("error calculating configuration hash: %v", err)
+	}
+
+	// Update the desired state of the Deployment in a DeepCopy
+	copy := instance.DeepCopy()
+	updateHash(copy, hash)
+	addFinalizer(copy)
+
+	// If the desired state doesn't match the existing state, update it
+	if !reflect.DeepEqual(instance, copy) {
+		err := r.Update(context.TODO(), copy)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("error updating instance %s/%s: %v", instance.GetNamespace(), instance.GetName(), err)
+		}
 	}
 
 	return reconcile.Result{}, nil
