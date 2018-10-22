@@ -25,12 +25,25 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pusher/wave/pkg/apis"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+const (
+	requiredAnnotation   = "wave.pusher.com/update-on-config-change"
+	configHashAnnotation = "wave.pusher.com/config-hash"
+	finalizerString      = "wave.pusher.com"
+)
+
+type object interface {
+	runtime.Object
+	metav1.Object
+}
 
 var cfg *rest.Config
 

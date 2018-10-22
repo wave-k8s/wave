@@ -27,40 +27,28 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type object interface {
-	runtime.Object
-	metav1.Object
-}
-
-const (
-	requiredAnnotation   = "wave.pusher.com/update-on-config-change"
-	configHashAnnotation = "wave.pusher.com/config-hash"
-	finalizerString      = "wave.pusher.com"
-)
-
-var c client.Client
-
-var deployment *appsv1.Deployment
-var requests <-chan reconcile.Request
-var mgrStopped *sync.WaitGroup
-var stopMgr chan struct{}
-
-const timeout = time.Second * 5
-
-var ownerRef metav1.OwnerReference
-var cm1 *corev1.ConfigMap
-var cm2 *corev1.ConfigMap
-var s1 *corev1.Secret
-var s2 *corev1.Secret
-
 var _ = Describe("Wave controller Suite", func() {
+	var c client.Client
+
+	var deployment *appsv1.Deployment
+	var requests <-chan reconcile.Request
+	var mgrStopped *sync.WaitGroup
+	var stopMgr chan struct{}
+
+	const timeout = time.Second * 5
+
+	var ownerRef metav1.OwnerReference
+	var cm1 *corev1.ConfigMap
+	var cm2 *corev1.ConfigMap
+	var s1 *corev1.Secret
+	var s2 *corev1.Secret
+
 	var create = func(obj object) {
 		Expect(c.Create(context.TODO(), obj)).NotTo(HaveOccurred())
 	}
@@ -87,8 +75,8 @@ var _ = Describe("Wave controller Suite", func() {
 		f := false
 		t := true
 		return metav1.OwnerReference{
-			APIVersion:         deployment.APIVersion,
-			Kind:               deployment.Kind,
+			APIVersion:         "apps/v1",
+			Kind:               "Deployment",
 			Name:               deployment.Name,
 			UID:                deployment.UID,
 			Controller:         &f,
