@@ -17,6 +17,8 @@ limitations under the License.
 package deployment
 
 import (
+	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
 )
 
@@ -25,6 +27,10 @@ const finalizerString = "wave.pusher.com"
 // addFinalizer adds the wave finalizer to the given Deployment
 func addFinalizer(obj *appsv1.Deployment) {
 	// TODO: implement this
+
+	// TODO: remove this print: This is so the linter doesn't complain while this
+	// method isn't implemented
+	fmt.Printf("Finalizer String: %s", finalizerString)
 	return
 }
 

@@ -17,6 +17,8 @@ limitations under the License.
 package deployment
 
 import (
+	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -27,6 +29,10 @@ const configHashAnnotation = "wave.pusher.com/config-hash"
 // objects and returns a hash as a string
 func calculateConfigHash(children []metav1.Object) (string, error) {
 	// TODO: implement this
+
+	// TODO: remove this print: This is so the linter doesn't complain while this
+	// method isn't implemented
+	fmt.Printf("Config Hash Annotation: %s", configHashAnnotation)
 	return "", nil
 }
 
