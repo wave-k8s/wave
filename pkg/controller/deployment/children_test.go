@@ -173,6 +173,41 @@ var _ = Describe("Wave children Suite", func() {
 		})
 	})
 
+	Context("getChildNamesByType", func() {
+		var configMaps map[string]struct{}
+		var secrets map[string]struct{}
+
+		BeforeEach(func() {
+			configMaps, secrets = getChildNamesByType(deployment)
+		})
+
+		It("returns ConfigMaps referenced in Volumes", func() {
+			cm := utils.ExampleConfigMap1.DeepCopy()
+			Expect(configMaps).To(HaveKey(cm.GetName()))
+		})
+
+		It("returns ConfigMaps referenced in EnvFromSource", func() {
+			cm := utils.ExampleConfigMap2.DeepCopy()
+			Expect(configMaps).To(HaveKey(cm.GetName()))
+		})
+
+		It("returns Secrets referenced in Volumes", func() {
+			s := utils.ExampleSecret1.DeepCopy()
+			Expect(secrets).To(HaveKey(s.GetName()))
+		})
+
+		It("returns Secrets referenced in EnvFromSource", func() {
+			s := utils.ExampleSecret2.DeepCopy()
+			get(s)
+			Expect(secrets).To(HaveKey(s.GetName()))
+		})
+
+		It("does not return extra children", func() {
+			Expect(configMaps).To(HaveLen(2))
+			Expect(secrets).To(HaveLen(2))
+		})
+	})
+
 	Context("getExistingChildren", func() {
 		BeforeEach(func() {
 			get(deployment)

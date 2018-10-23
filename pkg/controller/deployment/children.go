@@ -29,8 +29,19 @@ import (
 // getCurrentChildren returns a list of all Secrets and ConfigMaps that are
 // referenced in the Deployment's spec
 func (r *ReconcileDeployment) getCurrentChildren(obj *appsv1.Deployment) ([]metav1.Object, error) {
-	// TODO: implement this
+
 	return []metav1.Object{}, nil
+}
+
+// getChildNamesByType parses the Depoyment object and returns two sets,
+// the first containing the names of all referenced ConfigMaps,
+// the second containing the names of all referenced Secrets
+func getChildNamesByType(obj *appsv1.Deployment) (map[string]struct{}, map[string]struct{}) {
+	// Create sets for storing the names fo the ConfigMaps/Secrets
+	configMaps := make(map[string]struct{})
+	secrets := make(map[string]struct{})
+
+	return configMaps, secrets
 }
 
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are
