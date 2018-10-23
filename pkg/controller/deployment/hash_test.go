@@ -31,8 +31,6 @@ import (
 )
 
 var _ = Describe("Wave hash Suite", func() {
-
-	// Waiting for calculateConfigHash to be implemented
 	Context("calculateConfigHash", func() {
 		var c client.Client
 
