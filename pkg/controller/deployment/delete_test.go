@@ -98,6 +98,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		ownerRef = getOwnerRef(deployment)
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
+		get(deployment)
 	})
 
 	AfterEach(func() {
