@@ -17,26 +17,71 @@ limitations under the License.
 package deployment
 
 import (
+	"context"
+	"sync"
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pusher/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var _ = Describe("Wave hash Suite", func() {
+
 	// Waiting for calculateConfigHash to be implemented
-	PContext("calculateConfigHash", func() {
+	Context("calculateConfigHash", func() {
+		var c client.Client
+
+		var mgrStopped *sync.WaitGroup
+		var stopMgr chan struct{}
+
+		const timeout = time.Second * 5
+
 		var cm1 *corev1.ConfigMap
 		var cm2 *corev1.ConfigMap
 		var s1 *corev1.Secret
 		var s2 *corev1.Secret
 
+		var create = func(obj object) {
+			Expect(c.Create(context.TODO(), obj)).NotTo(HaveOccurred())
+		}
+
+		var update = func(obj object) {
+			Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
+		}
+
 		BeforeEach(func() {
+			mgr, err := manager.New(cfg, manager.Options{})
+			Expect(err).NotTo(HaveOccurred())
+			c = mgr.GetClient()
+			Expect(add(mgr, newReconciler(mgr))).NotTo(HaveOccurred())
+
+			stopMgr, mgrStopped = StartTestManager(mgr)
+
 			cm1 = utils.ExampleConfigMap1.DeepCopy()
 			cm2 = utils.ExampleConfigMap2.DeepCopy()
 			s1 = utils.ExampleSecret1.DeepCopy()
 			s2 = utils.ExampleSecret2.DeepCopy()
+
+			create(cm1)
+			create(cm2)
+			create(s1)
+			create(s2)
+		})
+
+		AfterEach(func() {
+			close(stopMgr)
+			mgrStopped.Wait()
+
+			utils.DeleteAll(cfg, timeout,
+				&appsv1.DeploymentList{},
+				&corev1.ConfigMapList{},
+				&corev1.SecretList{},
+			)
 		})
 
 		It("returns a different hash when a child's data is updated", func() {
@@ -46,6 +91,7 @@ var _ = Describe("Wave hash Suite", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			cm1.Data["key1"] = "modified"
+			update(cm1)
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -59,6 +105,7 @@ var _ = Describe("Wave hash Suite", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			s1.Annotations = map[string]string{"new": "annotations"}
+			update(s1)
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
