@@ -20,8 +20,10 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"reflect"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const configHashAnnotation = "wave.pusher.com/config-hash"
@@ -36,6 +38,22 @@ func calculateConfigHash(children []object) (string, error) {
 	}{
 		ConfigMaps: make(map[string]map[string]string),
 		Secrets:    make(map[string]map[string][]byte),
+	}
+
+	// Add the data from each child to the hashSource
+	// All children should be in the same namespace so each one should have a
+	// unique name
+	for _, obj := range children {
+		switch child := obj.(type) {
+		case *corev1.ConfigMap:
+			cm := corev1.ConfigMap(*child)
+			hashSource.ConfigMaps[child.GetName()] = cm.Data
+		case *corev1.Secret:
+			s := corev1.Secret(*child)
+			hashSource.Secrets[child.GetName()] = s.Data
+		default:
+			return "", fmt.Errorf("passed unknown type: %v", reflect.TypeOf(child))
+		}
 	}
 
 	// Convert the hashSource to a byte slice so that it can be hashed
