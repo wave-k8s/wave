@@ -25,8 +25,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// object is used as a helper interface when passing Kubernetes resources
+// between methods.
+// All Kubernetes resources should implement both of these interfaces
+type object interface {
+	runtime.Object
+	metav1.Object
+}
 
 // getResult is returned from the getObject method as a helper struct to be
 // passed into a channel
@@ -124,8 +133,13 @@ func (r *ReconcileDeployment) getSecret(namespace, name string) getResult {
 
 // getObject gets the Object with the given name and namespace from the API
 // server
-func (r *ReconcileDeployment) getObject(namespace, name string, obj runtime.Object) getResult {
-	return getResult{err: fmt.Errorf("NOT YET IMPLEMENTED")}
+func (r *ReconcileDeployment) getObject(namespace, name string, obj object) getResult {
+	key := types.NamespacedName{Namespace: namespace, Name: name}
+	err := r.Get(context.TODO(), key, obj)
+	if err != nil {
+		return getResult{err: err}
+	}
+	return getResult{obj: obj}
 }
 
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are
