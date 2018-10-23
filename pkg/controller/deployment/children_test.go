@@ -182,24 +182,19 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns ConfigMaps referenced in Volumes", func() {
-			cm := utils.ExampleConfigMap1.DeepCopy()
-			Expect(configMaps).To(HaveKey(cm.GetName()))
+			Expect(configMaps).To(HaveKey(cm1.GetName()))
 		})
 
 		It("returns ConfigMaps referenced in EnvFromSource", func() {
-			cm := utils.ExampleConfigMap2.DeepCopy()
-			Expect(configMaps).To(HaveKey(cm.GetName()))
+			Expect(configMaps).To(HaveKey(cm2.GetName()))
 		})
 
 		It("returns Secrets referenced in Volumes", func() {
-			s := utils.ExampleSecret1.DeepCopy()
-			Expect(secrets).To(HaveKey(s.GetName()))
+			Expect(secrets).To(HaveKey(s1.GetName()))
 		})
 
 		It("returns Secrets referenced in EnvFromSource", func() {
-			s := utils.ExampleSecret2.DeepCopy()
-			get(s)
-			Expect(secrets).To(HaveKey(s.GetName()))
+			Expect(secrets).To(HaveKey(s2.GetName()))
 		})
 
 		It("does not return extra children", func() {
