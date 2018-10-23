@@ -17,8 +17,6 @@ limitations under the License.
 package deployment
 
 import (
-	"fmt"
-
 	appsv1 "k8s.io/api/apps/v1"
 )
 
@@ -27,10 +25,11 @@ const requiredAnnotation = "wave.pusher.com/update-on-config-change"
 // hasRequiredAnnotation returns true if the given Deployment has the wave
 // annotation present
 func hasRequiredAnnotation(obj *appsv1.Deployment) bool {
-	// TODO: implement this
-
-	// TODO: remove this print: This is so the linter doesn't complain while this
-	// method isn't implemented
-	fmt.Printf("Required Annotation: %s", requiredAnnotation)
+	annotations := obj.GetAnnotations()
+	if value, ok := annotations[requiredAnnotation]; ok {
+		if value == "true" {
+			return true
+		}
+	}
 	return false
 }
