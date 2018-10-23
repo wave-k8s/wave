@@ -129,8 +129,7 @@ var _ = Describe("Wave children Suite", func() {
 		)
 	})
 
-	// Waiting for getCurrentChildren to be implemented
-	PContext("getCurrentChildren", func() {
+	Context("getCurrentChildren", func() {
 		BeforeEach(func() {
 			var err error
 			children, err = r.getCurrentChildren(deployment)
