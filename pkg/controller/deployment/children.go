@@ -41,6 +41,30 @@ func getChildNamesByType(obj *appsv1.Deployment) (map[string]struct{}, map[strin
 	configMaps := make(map[string]struct{})
 	secrets := make(map[string]struct{})
 
+	// Range through all Volumes and check the VolumeSources for ConfigMaps
+	// and Secrets
+	for _, vol := range obj.Spec.Template.Spec.Volumes {
+		if cm := vol.VolumeSource.ConfigMap; cm != nil {
+			configMaps[cm.Name] = struct{}{}
+		}
+		if s := vol.VolumeSource.Secret; s != nil {
+			secrets[s.SecretName] = struct{}{}
+		}
+	}
+
+	// Range through all Containers and their respective EnvFrom,
+	// then check the EnvFromSources for ConfigMaps and Secrets
+	for _, container := range obj.Spec.Template.Spec.Containers {
+		for _, env := range container.EnvFrom {
+			if cm := env.ConfigMapRef; cm != nil {
+				configMaps[cm.Name] = struct{}{}
+			}
+			if s := env.SecretRef; s != nil {
+				secrets[s.Name] = struct{}{}
+			}
+		}
+	}
+
 	return configMaps, secrets
 }
 
