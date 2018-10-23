@@ -19,18 +19,60 @@ package deployment
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// getResult is returned from the getObject method as a helper struct to be
+// passed into a channel
+type getResult struct {
+	err error
+	obj metav1.Object
+}
 
 // getCurrentChildren returns a list of all Secrets and ConfigMaps that are
 // referenced in the Deployment's spec
 func (r *ReconcileDeployment) getCurrentChildren(obj *appsv1.Deployment) ([]metav1.Object, error) {
+	configMaps, secrets := getChildNamesByType(obj)
 
-	return []metav1.Object{}, nil
+	// get all of ConfigMaps and Secrets
+	resultsChan := make(chan getResult)
+	for name := range configMaps {
+		go func(name string) {
+			resultsChan <- r.getConfigMap(obj.GetNamespace(), name)
+		}(name)
+	}
+	for name := range secrets {
+		go func(name string) {
+			resultsChan <- r.getSecret(obj.GetNamespace(), name)
+		}(name)
+	}
+
+	// Range over and collect results from the gets
+	var errs []string
+	var children []metav1.Object
+	for i := 0; i < len(configMaps)+len(secrets); i++ {
+		result := <-resultsChan
+		if result.err != nil {
+			errs = append(errs, result.err.Error())
+		}
+		if result.obj != nil {
+			children = append(children, result.obj)
+		}
+	}
+
+	// If there were any errors, don't return any children
+	if len(errs) > 0 {
+		return []metav1.Object{}, fmt.Errorf("error(s) encountered when geting children: %s", strings.Join(errs, ", "))
+	}
+
+	// No errors, return the list of children
+	return children, nil
 }
 
 // getChildNamesByType parses the Depoyment object and returns two sets,
@@ -66,6 +108,24 @@ func getChildNamesByType(obj *appsv1.Deployment) (map[string]struct{}, map[strin
 	}
 
 	return configMaps, secrets
+}
+
+// getConfigMap gets a ConfigMap with the given name and namespace from the
+// API server.
+func (r *ReconcileDeployment) getConfigMap(namespace, name string) getResult {
+	return r.getObject(namespace, name, &corev1.ConfigMap{})
+}
+
+// getSecret gets a Secret with the given name and namespace from the
+// API server.
+func (r *ReconcileDeployment) getSecret(namespace, name string) getResult {
+	return r.getObject(namespace, name, &corev1.Secret{})
+}
+
+// getObject gets the Object with the given name and namespace from the API
+// server
+func (r *ReconcileDeployment) getObject(namespace, name string, obj runtime.Object) getResult {
+	return getResult{err: fmt.Errorf("NOT YET IMPLEMENTED")}
 }
 
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are
