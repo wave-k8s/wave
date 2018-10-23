@@ -17,6 +17,8 @@ limitations under the License.
 package deployment
 
 import (
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,12 +29,23 @@ const configHashAnnotation = "wave.pusher.com/config-hash"
 // calculateConfigHash uses sha256 to hash the configuration within the child
 // objects and returns a hash as a string
 func calculateConfigHash(children []object) (string, error) {
-	// TODO: implement this
+	// hashSource contains all the data to be hashed
+	hashSource := struct {
+		ConfigMaps map[string]map[string]string `json:"configMaps"`
+		Secrets    map[string]map[string][]byte `json:"secrets"`
+	}{
+		ConfigMaps: make(map[string]map[string]string),
+		Secrets:    make(map[string]map[string][]byte),
+	}
 
-	// TODO: remove this print: This is so the linter doesn't complain while this
-	// method isn't implemented
-	fmt.Printf("Config Hash Annotation: %s", configHashAnnotation)
-	return "", nil
+	// Convert the hashSource to a byte slice so that it can be hashed
+	hashSourceBytes, err := json.Marshal(hashSource)
+	if err != nil {
+		return "", fmt.Errorf("unable to marshal JSON: %v", err)
+	}
+
+	hashBytes := sha256.Sum256(hashSourceBytes)
+	return fmt.Sprintf("%x", hashBytes), nil
 }
 
 // setConfigHash upates the configuration hash of the given Deployment to the
