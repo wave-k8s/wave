@@ -151,7 +151,7 @@ var _ = Describe("Wave owner references Suite", func() {
 	})
 
 	// Waiting for toBeDeleted to be implemented
-	PContext("toBeDeleted", func() {
+	Context("toBeDeleted", func() {
 		It("returns true if deletion timestamp is non-nil", func() {
 			t := metav1.NewTime(time.Now())
 			deployment.SetDeletionTimestamp(&t)
