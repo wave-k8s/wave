@@ -120,31 +120,40 @@ var _ = Describe("Wave owner references Suite", func() {
 		)
 	})
 
-	// Wainting for removeOwnerReferences to be implemented
-	PContext("removeOwnerReferences", func() {
+	Context("removeOwnerReferences", func() {
 		BeforeEach(func() {
 			for _, obj := range []object{cm1, cm2, s1, s2} {
-				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+				otherRef := ownerRef.DeepCopy()
+				otherRef.UID = obj.GetUID()
+				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef, *otherRef})
 				update(obj)
 			}
 
 			children := []metav1.Object{cm1, s1}
 			err := r.removeOwnerReferences(deployment, children)
 			Expect(err).NotTo(HaveOccurred())
+
+			get(cm1)
+			get(cm2)
+			get(s1)
+			get(s2)
 		})
 
 		It("removes owner references from the list of children given", func() {
-			get(cm1)
-			Expect(cm1.GetOwnerReferences()).To(BeEmpty())
-			get(s1)
-			Expect(s1.GetOwnerReferences()).To(BeEmpty())
+			Expect(cm1.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+			Expect(s1.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
 		})
 
 		It("doesn't remove owner references from children not listed", func() {
-			get(cm2)
 			Expect(cm2.GetOwnerReferences()).To(ContainElement(ownerRef))
-			get(s2)
 			Expect(s2.GetOwnerReferences()).To(ContainElement(ownerRef))
+		})
+
+		It("doesn't remove owner references pointing to other owners", func() {
+			Expect(cm1.GetOwnerReferences()).To(ContainElement(Not(Equal(ownerRef))))
+			Expect(cm2.GetOwnerReferences()).To(ContainElement(Not(Equal(ownerRef))))
+			Expect(s1.GetOwnerReferences()).To(ContainElement(Not(Equal(ownerRef))))
+			Expect(s2.GetOwnerReferences()).To(ContainElement(Not(Equal(ownerRef))))
 		})
 	})
 
