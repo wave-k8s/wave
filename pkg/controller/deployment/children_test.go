@@ -173,8 +173,7 @@ var _ = Describe("Wave children Suite", func() {
 		})
 	})
 
-	// Waiting for getCurrentChildren to be implemented
-	PContext("getExistingChildren", func() {
+	Context("getExistingChildren", func() {
 		BeforeEach(func() {
 			get(deployment)
 			ownerRef := getOwnerRef(deployment)
@@ -186,7 +185,7 @@ var _ = Describe("Wave children Suite", func() {
 			}
 
 			var err error
-			children, err = r.getCurrentChildren(deployment)
+			children, err = r.getExistingChildren(deployment)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
