@@ -18,6 +18,7 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -127,6 +128,18 @@ var _ = Describe("Wave owner references Suite", func() {
 				otherRef.UID = obj.GetUID()
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef, *otherRef})
 				update(obj)
+
+				Eventually(func() error {
+					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+					err := c.Get(context.TODO(), key, obj)
+					if err != nil {
+						return err
+					}
+					if len(obj.GetOwnerReferences()) != 2 {
+						return fmt.Errorf("OwnerReferences not updated")
+					}
+					return nil
+				}, timeout).Should(Succeed())
 			}
 
 			children := []object{cm1, s1}
