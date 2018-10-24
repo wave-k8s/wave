@@ -72,5 +72,10 @@ func (r *ReconcileDeployment) getExistingChildren(obj *appsv1.Deployment) ([]met
 // isOwnedBy returns true if the child has an owner reference that points to
 // the owner object
 func isOwnedBy(child, owner metav1.Object) bool {
+	for _, ref := range child.GetOwnerReferences() {
+		if ref.UID == owner.GetUID() {
+			return true
+		}
+	}
 	return false
 }
