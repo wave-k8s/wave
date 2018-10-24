@@ -18,6 +18,7 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -182,6 +183,18 @@ var _ = Describe("Wave children Suite", func() {
 				get(obj)
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 				update(obj)
+
+				Eventually(func() error {
+					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+					err := c.Get(context.TODO(), key, obj)
+					if err != nil {
+						return err
+					}
+					if len(obj.GetOwnerReferences()) != 1 {
+						return fmt.Errorf("OwnerReferences not updated")
+					}
+					return nil
+				}, timeout).Should(Succeed())
 			}
 
 			var err error
@@ -207,6 +220,32 @@ var _ = Describe("Wave children Suite", func() {
 
 		It("does not return duplicate children", func() {
 			Expect(children).To(HaveLen(2))
+		})
+	})
+
+	Context("isOwnedBy", func() {
+		var ownerRef metav1.OwnerReference
+		BeforeEach(func() {
+			get(deployment)
+			ownerRef = getOwnerRef(deployment)
+		})
+
+		It("returns true when the child has a single owner reference pointing to the owner", func() {
+			cm1.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+			Expect(isOwnedBy(cm1, deployment)).To(BeTrue())
+		})
+
+		It("returns true when the child has multiple owner references, with one pointing to the owner", func() {
+			otherRef := ownerRef
+			otherRef.UID = cm1.GetUID()
+			cm1.SetOwnerReferences([]metav1.OwnerReference{ownerRef, otherRef})
+			Expect(isOwnedBy(cm1, deployment)).To(BeTrue())
+		})
+
+		It("returns false when the child has no owner reference pointing to the owner", func() {
+			ownerRef.UID = cm1.GetUID()
+			cm1.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+			Expect(isOwnedBy(cm1, deployment)).To(BeFalse())
 		})
 	})
 
