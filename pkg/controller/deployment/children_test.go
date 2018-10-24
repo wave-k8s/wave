@@ -37,7 +37,7 @@ var _ = Describe("Wave children Suite", func() {
 	var c client.Client
 	var deployment *appsv1.Deployment
 	var r *ReconcileDeployment
-	var children []metav1.Object
+	var children []object
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 

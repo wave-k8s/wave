@@ -20,14 +20,13 @@ import (
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const configHashAnnotation = "wave.pusher.com/config-hash"
 
 // calculateConfigHash uses sha256 to hash the configuration within the child
 // objects and returns a hash as a string
-func calculateConfigHash(children []metav1.Object) (string, error) {
+func calculateConfigHash(children []object) (string, error) {
 	// TODO: implement this
 
 	// TODO: remove this print: This is so the linter doesn't complain while this

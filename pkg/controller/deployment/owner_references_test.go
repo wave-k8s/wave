@@ -129,7 +129,7 @@ var _ = Describe("Wave owner references Suite", func() {
 				update(obj)
 			}
 
-			children := []metav1.Object{cm1, s1}
+			children := []object{cm1, s1}
 			err := r.removeOwnerReferences(deployment, children)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -165,8 +165,8 @@ var _ = Describe("Wave owner references Suite", func() {
 				update(obj)
 			}
 
-			existing := []metav1.Object{cm2, s1, s2}
-			current := []metav1.Object{cm1, s1}
+			existing := []object{cm2, s1, s2}
+			current := []object{cm1, s1}
 			err := r.updateOwnerReferences(deployment, existing, current)
 			Expect(err).NotTo(HaveOccurred())
 		})
