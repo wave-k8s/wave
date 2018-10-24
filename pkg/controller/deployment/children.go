@@ -17,8 +17,13 @@ limitations under the License.
 package deployment
 
 import (
+	"context"
+	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // getCurrentChildren returns a list of all Secrets and ConfigMaps that are
@@ -31,6 +36,41 @@ func (r *ReconcileDeployment) getCurrentChildren(obj *appsv1.Deployment) ([]meta
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are
 // owned by the Deployment instance
 func (r *ReconcileDeployment) getExistingChildren(obj *appsv1.Deployment) ([]metav1.Object, error) {
-	// TODO: implement this
-	return []metav1.Object{}, nil
+	opts := client.InNamespace(obj.GetNamespace())
+
+	// List all ConfigMaps in the Deployment's namespace
+	configMaps := &corev1.ConfigMapList{}
+	err := r.List(context.TODO(), opts, configMaps)
+	if err != nil {
+		return []metav1.Object{}, fmt.Errorf("error listing ConfigMaps: %v", err)
+	}
+
+	// List all Secrets in the Deployment's namespcae
+	secrets := &corev1.SecretList{}
+	err = r.List(context.TODO(), opts, secrets)
+	if err != nil {
+		return []metav1.Object{}, fmt.Errorf("error listing Secrets: %v", err)
+	}
+
+	// Iterate over the ConfigMaps/Secrets and add the ones owned by the
+	// Deployment to the ouput list children
+	children := []metav1.Object{}
+	for _, cm := range configMaps.Items {
+		if isOwnedBy(&cm, obj) {
+			children = append(children, cm.DeepCopy())
+		}
+	}
+	for _, s := range secrets.Items {
+		if isOwnedBy(&s, obj) {
+			children = append(children, s.DeepCopy())
+		}
+	}
+
+	return children, nil
+}
+
+// isOwnedBy returns true if the child has an owner reference that points to
+// the owner object
+func isOwnedBy(child, owner metav1.Object) bool {
+	return false
 }
