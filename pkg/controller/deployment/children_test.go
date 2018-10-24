@@ -42,6 +42,11 @@ var _ = Describe("Wave children Suite", func() {
 
 	const timeout = time.Second * 5
 
+	var cm1 *corev1.ConfigMap
+	var cm2 *corev1.ConfigMap
+	var s1 *corev1.Secret
+	var s2 *corev1.Secret
+
 	var create = func(obj object) {
 		Expect(c.Create(context.TODO(), obj)).NotTo(HaveOccurred())
 	}
@@ -90,15 +95,26 @@ var _ = Describe("Wave children Suite", func() {
 		Expect(ok).To(BeTrue())
 
 		// Create some configmaps and secrets
-		create(utils.ExampleConfigMap1.DeepCopy())
-		create(utils.ExampleConfigMap2.DeepCopy())
-		create(utils.ExampleSecret1.DeepCopy())
-		create(utils.ExampleSecret2.DeepCopy())
+		cm1 = utils.ExampleConfigMap1.DeepCopy()
+		cm2 = utils.ExampleConfigMap2.DeepCopy()
+		s1 = utils.ExampleSecret1.DeepCopy()
+		s2 = utils.ExampleSecret2.DeepCopy()
+
+		create(cm1)
+		create(cm2)
+		create(s1)
+		create(s2)
 
 		deployment = utils.ExampleDeployment.DeepCopy()
 		create(deployment)
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
+
+		// Ensure the caches have synced
+		get(cm1)
+		get(cm2)
+		get(s1)
+		get(s2)
 	})
 
 	AfterEach(func() {
@@ -121,27 +137,19 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns ConfigMaps referenced in Volumes", func() {
-			cm := utils.ExampleConfigMap1.DeepCopy()
-			get(cm)
-			Expect(children).To(ContainElement(cm))
+			Expect(children).To(ContainElement(cm1))
 		})
 
 		It("returns ConfigMaps referenced in EnvFromSource", func() {
-			cm := utils.ExampleConfigMap2.DeepCopy()
-			get(cm)
-			Expect(children).To(ContainElement(cm))
+			Expect(children).To(ContainElement(cm2))
 		})
 
 		It("returns Secrets referenced in Volumes", func() {
-			s := utils.ExampleSecret1.DeepCopy()
-			get(s)
-			Expect(children).To(ContainElement(s))
+			Expect(children).To(ContainElement(s1))
 		})
 
 		It("returns Secrets referenced in EnvFromSource", func() {
-			s := utils.ExampleSecret2.DeepCopy()
-			get(s)
-			Expect(children).To(ContainElement(s))
+			Expect(children).To(ContainElement(s2))
 		})
 
 		It("does not return duplicate children", func() {
@@ -149,8 +157,15 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns an error if one of the referenced children is missing", func() {
-			s := utils.ExampleSecret2.DeepCopy()
-			delete(s)
+			// Delete s2 and wait for the cache to sync
+			delete(s2)
+			key := types.NamespacedName{
+				Name:      s2.GetName(),
+				Namespace: s2.GetNamespace(),
+			}
+			Eventually(func() error {
+				return c.Get(context.TODO(), key, s2)
+			}, timeout).ShouldNot(Succeed())
 
 			current, err := r.getCurrentChildren(deployment)
 			Expect(err).To(HaveOccurred())
@@ -164,10 +179,7 @@ var _ = Describe("Wave children Suite", func() {
 			get(deployment)
 			ownerRef := getOwnerRef(deployment)
 
-			cm := utils.ExampleConfigMap1.DeepCopy()
-			s := utils.ExampleSecret1.DeepCopy()
-
-			for _, obj := range []object{cm, s} {
+			for _, obj := range []object{cm1, s1} {
 				get(obj)
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 				update(obj)
@@ -179,27 +191,19 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns ConfigMaps with the correct OwnerReference", func() {
-			cm := utils.ExampleConfigMap1.DeepCopy()
-			get(cm)
-			Expect(children).To(ContainElement(cm))
+			Expect(children).To(ContainElement(cm1))
 		})
 
 		It("doesn't return ConfigMaps without OwnerReferences", func() {
-			cm := utils.ExampleConfigMap2.DeepCopy()
-			get(cm)
-			Expect(children).NotTo(ContainElement(cm))
+			Expect(children).NotTo(ContainElement(cm2))
 		})
 
 		It("returns Secrets with the correct OwnerReference", func() {
-			s := utils.ExampleSecret1.DeepCopy()
-			get(s)
-			Expect(children).To(ContainElement(s))
+			Expect(children).To(ContainElement(s1))
 		})
 
 		It("doesn't return Secrets without OwnerReferences", func() {
-			s := utils.ExampleSecret2.DeepCopy()
-			get(s)
-			Expect(children).NotTo(ContainElement(s))
+			Expect(children).NotTo(ContainElement(s2))
 		})
 
 		It("does not return duplicate children", func() {
