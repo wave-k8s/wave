@@ -55,6 +55,6 @@ func (r *ReconcileDeployment) handleDelete(obj *appsv1.Deployment) (reconcile.Re
 
 // toBeDeleted checks whether the object has been marked for deletion
 func toBeDeleted(obj metav1.Object) bool {
-	// TODO: implement this
-	return false
+	// IsZero means that the object hasn't been marked for deletion
+	return !obj.GetDeletionTimestamp().IsZero()
 }
