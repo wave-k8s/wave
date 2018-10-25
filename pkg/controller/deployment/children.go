@@ -24,29 +24,20 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-// object is used as a helper interface when passing Kubernetes resources
-// between methods.
-// All Kubernetes resources should implement both of these interfaces
-type object interface {
-	runtime.Object
-	metav1.Object
-}
 
 // getResult is returned from the getObject method as a helper struct to be
 // passed into a channel
 type getResult struct {
 	err error
-	obj metav1.Object
+	obj object
 }
 
 // getCurrentChildren returns a list of all Secrets and ConfigMaps that are
 // referenced in the Deployment's spec
-func (r *ReconcileDeployment) getCurrentChildren(obj *appsv1.Deployment) ([]metav1.Object, error) {
+func (r *ReconcileDeployment) getCurrentChildren(obj *appsv1.Deployment) ([]object, error) {
 	configMaps, secrets := getChildNamesByType(obj)
 
 	// get all of ConfigMaps and Secrets
@@ -64,7 +55,7 @@ func (r *ReconcileDeployment) getCurrentChildren(obj *appsv1.Deployment) ([]meta
 
 	// Range over and collect results from the gets
 	var errs []string
-	var children []metav1.Object
+	var children []object
 	for i := 0; i < len(configMaps)+len(secrets); i++ {
 		result := <-resultsChan
 		if result.err != nil {
@@ -77,7 +68,7 @@ func (r *ReconcileDeployment) getCurrentChildren(obj *appsv1.Deployment) ([]meta
 
 	// If there were any errors, don't return any children
 	if len(errs) > 0 {
-		return []metav1.Object{}, fmt.Errorf("error(s) encountered when geting children: %s", strings.Join(errs, ", "))
+		return []object{}, fmt.Errorf("error(s) encountered when geting children: %s", strings.Join(errs, ", "))
 	}
 
 	// No errors, return the list of children
@@ -144,26 +135,26 @@ func (r *ReconcileDeployment) getObject(namespace, name string, obj object) getR
 
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are
 // owned by the Deployment instance
-func (r *ReconcileDeployment) getExistingChildren(obj *appsv1.Deployment) ([]metav1.Object, error) {
+func (r *ReconcileDeployment) getExistingChildren(obj *appsv1.Deployment) ([]object, error) {
 	opts := client.InNamespace(obj.GetNamespace())
 
 	// List all ConfigMaps in the Deployment's namespace
 	configMaps := &corev1.ConfigMapList{}
 	err := r.List(context.TODO(), opts, configMaps)
 	if err != nil {
-		return []metav1.Object{}, fmt.Errorf("error listing ConfigMaps: %v", err)
+		return []object{}, fmt.Errorf("error listing ConfigMaps: %v", err)
 	}
 
 	// List all Secrets in the Deployment's namespcae
 	secrets := &corev1.SecretList{}
 	err = r.List(context.TODO(), opts, secrets)
 	if err != nil {
-		return []metav1.Object{}, fmt.Errorf("error listing Secrets: %v", err)
+		return []object{}, fmt.Errorf("error listing Secrets: %v", err)
 	}
 
 	// Iterate over the ConfigMaps/Secrets and add the ones owned by the
 	// Deployment to the ouput list children
-	children := []metav1.Object{}
+	children := []object{}
 	for _, cm := range configMaps.Items {
 		if isOwnedBy(&cm, obj) {
 			children = append(children, cm.DeepCopy())

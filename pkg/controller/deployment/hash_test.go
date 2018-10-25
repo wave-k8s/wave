@@ -22,7 +22,6 @@ import (
 	"github.com/pusher/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Wave hash Suite", func() {
@@ -41,7 +40,7 @@ var _ = Describe("Wave hash Suite", func() {
 		})
 
 		It("returns a different hash when a child's data is updated", func() {
-			c := []metav1.Object{cm1, cm2, s1, s2}
+			c := []object{cm1, cm2, s1, s2}
 
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
@@ -54,7 +53,7 @@ var _ = Describe("Wave hash Suite", func() {
 		})
 
 		It("returns the same hash when a child's metadata is updated", func() {
-			c := []metav1.Object{cm1, cm2, s1, s2}
+			c := []object{cm1, cm2, s1, s2}
 
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
@@ -67,8 +66,8 @@ var _ = Describe("Wave hash Suite", func() {
 		})
 
 		It("returns the same hash independent of child ordering", func() {
-			c1 := []metav1.Object{cm1, cm2, s1, s2}
-			c2 := []metav1.Object{cm1, s2, cm2, s1}
+			c1 := []object{cm1, cm2, s1, s2}
+			c2 := []object{cm1, s2, cm2, s1}
 
 			h1, err := calculateConfigHash(c1)
 			Expect(err).NotTo(HaveOccurred())
