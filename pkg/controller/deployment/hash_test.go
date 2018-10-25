@@ -96,5 +96,26 @@ var _ = Describe("Wave hash Suite", func() {
 			Expect(ok).To(BeTrue())
 			Expect(hash).To(Equal("1234"))
 		})
+
+		It("leaves existing annotations in place", func() {
+			// Add an annotation to the pod spec
+			podAnnotations := deployment.Spec.Template.GetAnnotations()
+			if podAnnotations == nil {
+				podAnnotations = make(map[string]string)
+			}
+			podAnnotations["existing"] = "annotation"
+			deployment.Spec.Template.SetAnnotations(podAnnotations)
+
+			// Update the hash
+			updateHash(deployment, "1234")
+
+			// Check the existing annotation is still in place
+			podAnnotations = deployment.Spec.Template.GetAnnotations()
+			Expect(podAnnotations).NotTo(BeNil())
+
+			hash, ok := podAnnotations["existing"]
+			Expect(ok).To(BeTrue())
+			Expect(hash).To(Equal("annotation"))
+		})
 	})
 })
