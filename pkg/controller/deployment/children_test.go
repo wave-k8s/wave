@@ -140,7 +140,7 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(children).To(ContainElement(cm1))
 		})
 
-		It("returns ConfigMaps referenced in EnvFromSource", func() {
+		It("returns ConfigMaps referenced in EnvFrom", func() {
 			Expect(children).To(ContainElement(cm2))
 		})
 
@@ -148,7 +148,7 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(children).To(ContainElement(s1))
 		})
 
-		It("returns Secrets referenced in EnvFromSource", func() {
+		It("returns Secrets referenced in EnvFrom", func() {
 			Expect(children).To(ContainElement(s2))
 		})
 
@@ -185,7 +185,7 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(configMaps).To(HaveKey(cm1.GetName()))
 		})
 
-		It("returns ConfigMaps referenced in EnvFromSource", func() {
+		It("returns ConfigMaps referenced in EnvFrom", func() {
 			Expect(configMaps).To(HaveKey(cm2.GetName()))
 		})
 
@@ -193,7 +193,7 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(secrets).To(HaveKey(s1.GetName()))
 		})
 
-		It("returns Secrets referenced in EnvFromSource", func() {
+		It("returns Secrets referenced in EnvFrom", func() {
 			Expect(secrets).To(HaveKey(s2.GetName()))
 		})
 
