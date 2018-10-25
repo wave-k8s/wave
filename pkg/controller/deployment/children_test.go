@@ -129,8 +129,7 @@ var _ = Describe("Wave children Suite", func() {
 		)
 	})
 
-	// Waiting for getCurrentChildren to be implemented
-	PContext("getCurrentChildren", func() {
+	Context("getCurrentChildren", func() {
 		BeforeEach(func() {
 			var err error
 			children, err = r.getCurrentChildren(deployment)
@@ -141,7 +140,7 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(children).To(ContainElement(cm1))
 		})
 
-		It("returns ConfigMaps referenced in EnvFromSource", func() {
+		It("returns ConfigMaps referenced in EnvFrom", func() {
 			Expect(children).To(ContainElement(cm2))
 		})
 
@@ -149,7 +148,7 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(children).To(ContainElement(s1))
 		})
 
-		It("returns Secrets referenced in EnvFromSource", func() {
+		It("returns Secrets referenced in EnvFrom", func() {
 			Expect(children).To(ContainElement(s2))
 		})
 
@@ -171,6 +170,36 @@ var _ = Describe("Wave children Suite", func() {
 			current, err := r.getCurrentChildren(deployment)
 			Expect(err).To(HaveOccurred())
 			Expect(current).To(BeEmpty())
+		})
+	})
+
+	Context("getChildNamesByType", func() {
+		var configMaps map[string]struct{}
+		var secrets map[string]struct{}
+
+		BeforeEach(func() {
+			configMaps, secrets = getChildNamesByType(deployment)
+		})
+
+		It("returns ConfigMaps referenced in Volumes", func() {
+			Expect(configMaps).To(HaveKey(cm1.GetName()))
+		})
+
+		It("returns ConfigMaps referenced in EnvFrom", func() {
+			Expect(configMaps).To(HaveKey(cm2.GetName()))
+		})
+
+		It("returns Secrets referenced in Volumes", func() {
+			Expect(secrets).To(HaveKey(s1.GetName()))
+		})
+
+		It("returns Secrets referenced in EnvFrom", func() {
+			Expect(secrets).To(HaveKey(s2.GetName()))
+		})
+
+		It("does not return extra children", func() {
+			Expect(configMaps).To(HaveLen(2))
+			Expect(secrets).To(HaveLen(2))
 		})
 	})
 

@@ -19,18 +19,127 @@ package deployment
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// object is used as a helper interface when passing Kubernetes resources
+// between methods.
+// All Kubernetes resources should implement both of these interfaces
+type object interface {
+	runtime.Object
+	metav1.Object
+}
+
+// getResult is returned from the getObject method as a helper struct to be
+// passed into a channel
+type getResult struct {
+	err error
+	obj metav1.Object
+}
 
 // getCurrentChildren returns a list of all Secrets and ConfigMaps that are
 // referenced in the Deployment's spec
 func (r *ReconcileDeployment) getCurrentChildren(obj *appsv1.Deployment) ([]metav1.Object, error) {
-	// TODO: implement this
-	return []metav1.Object{}, nil
+	configMaps, secrets := getChildNamesByType(obj)
+
+	// get all of ConfigMaps and Secrets
+	resultsChan := make(chan getResult)
+	for name := range configMaps {
+		go func(name string) {
+			resultsChan <- r.getConfigMap(obj.GetNamespace(), name)
+		}(name)
+	}
+	for name := range secrets {
+		go func(name string) {
+			resultsChan <- r.getSecret(obj.GetNamespace(), name)
+		}(name)
+	}
+
+	// Range over and collect results from the gets
+	var errs []string
+	var children []metav1.Object
+	for i := 0; i < len(configMaps)+len(secrets); i++ {
+		result := <-resultsChan
+		if result.err != nil {
+			errs = append(errs, result.err.Error())
+		}
+		if result.obj != nil {
+			children = append(children, result.obj)
+		}
+	}
+
+	// If there were any errors, don't return any children
+	if len(errs) > 0 {
+		return []metav1.Object{}, fmt.Errorf("error(s) encountered when geting children: %s", strings.Join(errs, ", "))
+	}
+
+	// No errors, return the list of children
+	return children, nil
+}
+
+// getChildNamesByType parses the Depoyment object and returns two sets,
+// the first containing the names of all referenced ConfigMaps,
+// the second containing the names of all referenced Secrets
+func getChildNamesByType(obj *appsv1.Deployment) (map[string]struct{}, map[string]struct{}) {
+	// Create sets for storing the names fo the ConfigMaps/Secrets
+	configMaps := make(map[string]struct{})
+	secrets := make(map[string]struct{})
+
+	// Range through all Volumes and check the VolumeSources for ConfigMaps
+	// and Secrets
+	for _, vol := range obj.Spec.Template.Spec.Volumes {
+		if cm := vol.VolumeSource.ConfigMap; cm != nil {
+			configMaps[cm.Name] = struct{}{}
+		}
+		if s := vol.VolumeSource.Secret; s != nil {
+			secrets[s.SecretName] = struct{}{}
+		}
+	}
+
+	// Range through all Containers and their respective EnvFrom,
+	// then check the EnvFromSources for ConfigMaps and Secrets
+	for _, container := range obj.Spec.Template.Spec.Containers {
+		for _, env := range container.EnvFrom {
+			if cm := env.ConfigMapRef; cm != nil {
+				configMaps[cm.Name] = struct{}{}
+			}
+			if s := env.SecretRef; s != nil {
+				secrets[s.Name] = struct{}{}
+			}
+		}
+	}
+
+	return configMaps, secrets
+}
+
+// getConfigMap gets a ConfigMap with the given name and namespace from the
+// API server.
+func (r *ReconcileDeployment) getConfigMap(namespace, name string) getResult {
+	return r.getObject(namespace, name, &corev1.ConfigMap{})
+}
+
+// getSecret gets a Secret with the given name and namespace from the
+// API server.
+func (r *ReconcileDeployment) getSecret(namespace, name string) getResult {
+	return r.getObject(namespace, name, &corev1.Secret{})
+}
+
+// getObject gets the Object with the given name and namespace from the API
+// server
+func (r *ReconcileDeployment) getObject(namespace, name string, obj object) getResult {
+	key := types.NamespacedName{Namespace: namespace, Name: name}
+	err := r.Get(context.TODO(), key, obj)
+	if err != nil {
+		return getResult{err: err}
+	}
+	return getResult{obj: obj}
 }
 
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are
