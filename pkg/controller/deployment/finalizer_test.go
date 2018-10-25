@@ -30,8 +30,7 @@ var _ = Describe("Wave finalizer Suite", func() {
 		deployment = utils.ExampleDeployment.DeepCopy()
 	})
 
-	// Waiting for addFinalizer to be implemented
-	PContext("addFinalizer", func() {
+	Context("addFinalizer", func() {
 		It("adds the wave finalizer to the deployment", func() {
 			addFinalizer(deployment)
 
