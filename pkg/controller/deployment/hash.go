@@ -39,6 +39,13 @@ func calculateConfigHash(children []metav1.Object) (string, error) {
 // updateHash upates the configuration hash of the given Deployment to the
 // given string
 func updateHash(obj *appsv1.Deployment, hash string) {
-	//TODO: implement this
-	return
+	// Get the existing annotations
+	annotations := obj.Spec.Template.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	// Update the annotations
+	annotations[configHashAnnotation] = hash
+	obj.Spec.Template.SetAnnotations(annotations)
 }
