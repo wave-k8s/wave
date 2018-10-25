@@ -79,8 +79,7 @@ var _ = Describe("Wave hash Suite", func() {
 		})
 	})
 
-	// Waiting for updateHash to be implemented
-	PContext("updateHash", func() {
+	Context("updateHash", func() {
 		var deployment *appsv1.Deployment
 
 		BeforeEach(func() {
