@@ -138,7 +138,7 @@ func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// Update the desired state of the Deployment in a DeepCopy
 	copy := instance.DeepCopy()
-	updateHash(copy, hash)
+	setConfigHash(copy, hash)
 	addFinalizer(copy)
 
 	// If the desired state doesn't match the existing state, update it
