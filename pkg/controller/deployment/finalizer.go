@@ -39,6 +39,16 @@ func addFinalizer(obj *appsv1.Deployment) {
 
 // removeFinalizer removes the wave finalizer from the given Deployment
 func removeFinalizer(obj *appsv1.Deployment) {
-	// TODO: implement this
-	return
+	finalizers := obj.GetFinalizers()
+
+	// Filter existing finalizers removing any that match the finalizerString
+	newFinalizers := []string{}
+	for _, finalizer := range finalizers {
+		if finalizer != finalizerString {
+			newFinalizers = append(newFinalizers, finalizer)
+		}
+	}
+
+	// Update the object's finalizers
+	obj.SetFinalizers(newFinalizers)
 }

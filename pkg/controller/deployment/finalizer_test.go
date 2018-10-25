@@ -47,8 +47,7 @@ var _ = Describe("Wave finalizer Suite", func() {
 		})
 	})
 
-	// Waiting for removeFinalizer to be implemented
-	PContext("removeFinalizer", func() {
+	Context("removeFinalizer", func() {
 		It("removes the wave finalizer from the deployment", func() {
 			f := deployment.GetFinalizers()
 			f = append(f, finalizerString)
