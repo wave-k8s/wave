@@ -86,7 +86,7 @@ func (r *ReconcileDeployment) updateOwnerReferences(owner *appsv1.Deployment, ex
 
 // updateOwnerReference ensures that the child object has an OwnerReference
 // pointing to the owner
-func (r *ReconcileDeployment) updateOwnerReference(owner, child object) error {
+func (r *ReconcileDeployment) updateOwnerReference(owner *appsv1.Deployment, child object) error {
 	ownerRef := getOwnerReference(owner)
 	for _, ref := range child.GetOwnerReferences() {
 		// Owner Reference already exists, do nothing
@@ -112,6 +112,15 @@ func getOrphans(existing, current []object) []object {
 }
 
 // getOwnerReference constructs an OwnerReference pointing to the object given
-func getOwnerReference(obj object) metav1.OwnerReference {
-	return metav1.OwnerReference{}
+func getOwnerReference(obj *appsv1.Deployment) metav1.OwnerReference {
+	t := true
+	f := false
+	return metav1.OwnerReference{
+		APIVersion:         "apps/v1",
+		Kind:               "Deployment",
+		Name:               obj.GetName(),
+		UID:                obj.GetUID(),
+		BlockOwnerDeletion: &t,
+		Controller:         &f,
+	}
 }
