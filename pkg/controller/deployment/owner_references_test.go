@@ -150,6 +150,21 @@ var _ = Describe("Wave owner references Suite", func() {
 			get(cm2)
 			get(s1)
 			get(s2)
+
+			// Updates should propogate
+			for _, obj := range []object{cm1, s1} {
+				Eventually(func() error {
+					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+					err := c.Get(context.TODO(), key, obj)
+					if err != nil {
+						return err
+					}
+					if len(obj.GetOwnerReferences()) != 1 {
+						return fmt.Errorf("OwnerReferences not updated")
+					}
+					return nil
+				}, timeout).Should(Succeed())
+			}
 		})
 
 		It("removes owner references from the list of children given", func() {
