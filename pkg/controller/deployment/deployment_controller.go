@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -91,6 +92,8 @@ type ReconcileDeployment struct {
 // updates its PodSpec based on mounted configuration
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update;patch
 func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	log := logf.Log.WithName("wave")
+
 	// Fetch the Deployment instance
 	instance := &appsv1.Deployment{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
@@ -110,6 +113,7 @@ func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// If the instance is marked for deletion, run cleanup process
 	if toBeDeleted(instance) {
+		log.V(0).Info("Instance marked for deletion, cleaning up orphans", "namespace", instance.GetNamespace(), "name", instance.GetName())
 		return r.handleDelete(instance)
 	}
 
@@ -143,6 +147,7 @@ func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// If the desired state doesn't match the existing state, update it
 	if !reflect.DeepEqual(instance, copy) {
+		log.V(0).Info("Updating instance hash", "namespace", instance.GetNamespace(), "name", instance.GetName(), "hash", hash)
 		err := r.Update(context.TODO(), copy)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("error updating instance %s/%s: %v", instance.GetNamespace(), instance.GetName(), err)
