@@ -18,6 +18,7 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/pusher/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -68,6 +70,39 @@ var _ = Describe("Wave controller Suite", func() {
 		}
 		Eventually(func() error {
 			return c.Get(context.TODO(), key, obj)
+		}, timeout).Should(Succeed())
+	}
+
+	var eventuallyEqual = func(obj object, actual func(object) interface{}, expected interface{}, msg string) {
+		Eventually(func() error {
+			key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+			err := c.Get(context.TODO(), key, obj)
+			if err != nil {
+				return err
+			}
+			if actual(obj) != expected {
+				return fmt.Errorf(msg)
+			}
+			return nil
+		}, timeout).Should(Succeed())
+	}
+
+	var eventuallyConfigHashUpdates = func(deployment *appsv1.Deployment, originalHash string) {
+		Eventually(func() error {
+			key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
+			err := c.Get(context.TODO(), key, deployment)
+			if err != nil {
+				return err
+			}
+			annotations := deployment.Spec.Template.GetAnnotations()
+			hash, ok := annotations[configHashAnnotation]
+			if !ok {
+				return fmt.Errorf("annotation not set")
+			}
+			if hash == originalHash {
+				return fmt.Errorf("annotation not updated")
+			}
+			return nil
 		}, timeout).Should(Succeed())
 	}
 
@@ -116,6 +151,10 @@ var _ = Describe("Wave controller Suite", func() {
 		create(cm2)
 		create(s1)
 		create(s2)
+		get(cm1)
+		get(cm2)
+		get(s1)
+		get(s2)
 
 		deployment = utils.ExampleDeployment.DeepCopy()
 
@@ -127,6 +166,35 @@ var _ = Describe("Wave controller Suite", func() {
 	})
 
 	AfterEach(func() {
+		// Make sure to delete any finalizers (if the deployment exists)
+		Eventually(func() error {
+			key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
+			err := c.Get(context.TODO(), key, deployment)
+			if err != nil && errors.IsNotFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			deployment.SetFinalizers([]string{})
+			return c.Update(context.TODO(), deployment)
+		}, timeout).Should(Succeed())
+
+		Eventually(func() error {
+			key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
+			err := c.Get(context.TODO(), key, deployment)
+			if err != nil && errors.IsNotFound(err) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			if len(deployment.GetFinalizers()) > 0 {
+				return fmt.Errorf("Finalizers not upated")
+			}
+			return nil
+		}, timeout).Should(Succeed())
+
 		close(stopMgr)
 		mgrStopped.Wait()
 
@@ -154,29 +222,30 @@ var _ = Describe("Wave controller Suite", func() {
 				get(deployment)
 			})
 
-			// TODO: Add owner refs to children
-			PIt("Adds OwnerReferences to all children", func() {
+			It("Adds OwnerReferences to all children", func() {
 				for _, obj := range []object{cm1, cm2, s1, s2} {
-					get(obj)
+					eventuallyEqual(obj, func(obj object) interface{} {
+						return len(obj.GetOwnerReferences())
+					}, 1, "OwnerReferences not updated")
 					Expect(obj.GetOwnerReferences()).To(ContainElement(ownerRef))
 				}
 			})
 
-			// TODO: Add finalizer to Deployment
-			PIt("Adds a finalizer to the Deployment", func() {
+			It("Adds a finalizer to the Deployment", func() {
+				eventuallyEqual(deployment, func(obj object) interface{} {
+					return len(obj.GetFinalizers())
+				}, 1, "Finalizers not updated")
 				Expect(deployment.GetFinalizers()).To(ContainElement(finalizerString))
 			})
 
-			// TODO: add config hash to pod template
-			PIt("Adds a config hash to the Pod Template", func() {
-				annotations := deployment.GetAnnotations()
+			It("Adds a config hash to the Pod Template", func() {
+				annotations := deployment.Spec.Template.GetAnnotations()
 				hash, ok := annotations[configHashAnnotation]
 				Expect(ok).To(BeTrue())
 				Expect(hash).NotTo(BeEmpty())
 			})
 
-			// TODO: waiting for config hash to be added to pod template
-			PContext("And a child is removed", func() {
+			Context("And a child is removed", func() {
 				var originalHash string
 				BeforeEach(func() {
 					get(deployment)
@@ -198,23 +267,25 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 
 				It("Removes the OwnerReference from the orphaned ConfigMap", func() {
+					eventuallyEqual(cm2, func(obj object) interface{} {
+						return len(obj.GetOwnerReferences())
+					}, 0, "OwnerReferences not updated")
 					Expect(cm2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
 				})
 
 				It("Removes the OwnerReference from the orphaned Secret", func() {
+					eventuallyEqual(s2, func(obj object) interface{} {
+						return len(obj.GetOwnerReferences())
+					}, 0, "OwnerReferences not updated")
 					Expect(s2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
 				})
 
 				It("Updates the config hash in the Pod Template", func() {
-					templateAnnotations := deployment.Spec.Template.GetAnnotations()
-					hash, ok := templateAnnotations[configHashAnnotation]
-					Expect(ok).To(BeTrue())
-					Expect(hash).NotTo(Equal(originalHash))
+					eventuallyConfigHashUpdates(deployment, originalHash)
 				})
 			})
 
-			// TODO: Pending while Owner References not added to children
-			PContext("And a child is updated", func() {
+			Context("And a child is updated", func() {
 				var originalHash string
 
 				BeforeEach(func() {
@@ -227,6 +298,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
+						get(cm1)
 						cm1.Data["key1"] = "modified"
 						update(cm1)
 
@@ -237,15 +309,13 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						templateAnnotations := deployment.Spec.Template.GetAnnotations()
-						hash, ok := templateAnnotations[configHashAnnotation]
-						Expect(ok).To(BeTrue())
-						Expect(hash).NotTo(Equal(originalHash))
+						eventuallyConfigHashUpdates(deployment, originalHash)
 					})
 				})
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
+						get(cm2)
 						cm2.Data["key1"] = "modified"
 						update(cm2)
 
@@ -256,15 +326,16 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						templateAnnotations := deployment.Spec.Template.GetAnnotations()
-						hash, ok := templateAnnotations[configHashAnnotation]
-						Expect(ok).To(BeTrue())
-						Expect(hash).NotTo(Equal(originalHash))
+						eventuallyConfigHashUpdates(deployment, originalHash)
 					})
 				})
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
+						get(s1)
+						if s1.StringData == nil {
+							s1.StringData = make(map[string]string)
+						}
 						s1.StringData["key1"] = "modified"
 						update(s1)
 
@@ -275,15 +346,16 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						templateAnnotations := deployment.Spec.Template.GetAnnotations()
-						hash, ok := templateAnnotations[configHashAnnotation]
-						Expect(ok).To(BeTrue())
-						Expect(hash).NotTo(Equal(originalHash))
+						eventuallyConfigHashUpdates(deployment, originalHash)
 					})
 				})
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
+						get(s2)
+						if s2.StringData == nil {
+							s2.StringData = make(map[string]string)
+						}
 						s2.StringData["key1"] = "modified"
 						update(s2)
 
@@ -294,16 +366,12 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						templateAnnotations := deployment.Spec.Template.GetAnnotations()
-						hash, ok := templateAnnotations[configHashAnnotation]
-						Expect(ok).To(BeTrue())
-						Expect(hash).NotTo(Equal(originalHash))
+						eventuallyConfigHashUpdates(deployment, originalHash)
 					})
 				})
 			})
 
-			// TODO: Pending while finalizer not added to deployment
-			PContext("And is deleted", func() {
+			Context("And is deleted", func() {
 				BeforeEach(func() {
 					delete(deployment)
 					waitForDeploymentReconciled(deployment)
@@ -313,13 +381,22 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []object{cm1, cm2, s1, s2} {
-						get(obj)
+						eventuallyEqual(obj, func(obj object) interface{} {
+							return len(obj.GetOwnerReferences())
+						}, 0, "OwnerReferenced not updated")
 						Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
 					}
 				})
 
 				It("Removes the Deployment's finalizer", func() {
-					Expect(deployment.GetFinalizers()).NotTo(ContainElement(finalizerString))
+					Eventually(func() error {
+						key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
+						err := c.Get(context.TODO(), key, deployment)
+						if err != nil && errors.IsNotFound(err) {
+							return nil
+						}
+						return fmt.Errorf("Deployment not deleted")
+					})
 				})
 			})
 		})
