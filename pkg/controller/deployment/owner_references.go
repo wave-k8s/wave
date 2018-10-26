@@ -87,11 +87,31 @@ func (r *ReconcileDeployment) updateOwnerReferences(owner *appsv1.Deployment, ex
 // updateOwnerReference ensures that the child object has an OwnerReference
 // pointing to the owner
 func (r *ReconcileDeployment) updateOwnerReference(owner, child object) error {
-	return fmt.Errorf("NOT YET IMPLEMENTED")
+	ownerRef := getOwnerReference(owner)
+	for _, ref := range child.GetOwnerReferences() {
+		// Owner Reference already exists, do nothing
+		if reflect.DeepEqual(ref, ownerRef) {
+			return nil
+		}
+	}
+
+	// Append the new OwnerReference and update the child
+	ownerRefs := append(child.GetOwnerReferences(), ownerRef)
+	child.SetOwnerReferences(ownerRefs)
+	err := r.Update(context.TODO(), child)
+	if err != nil {
+		return fmt.Errorf("error updating child: %v", err)
+	}
+	return nil
 }
 
 // getOrphans creates a slice of orphaned child objects that need their
 // OwnerReferences removing
 func getOrphans(existing, current []object) []object {
 	return []object{}
+}
+
+// getOwnerReference constructs an OwnerReference pointing to the object given
+func getOwnerReference(obj object) metav1.OwnerReference {
+	return metav1.OwnerReference{}
 }
