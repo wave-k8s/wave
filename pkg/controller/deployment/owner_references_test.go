@@ -185,8 +185,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		})
 	})
 
-	// Waiting for updateOwnerRefernces to be implemented
-	PContext("updateOwnerReferences", func() {
+	Context("updateOwnerReferences", func() {
 		BeforeEach(func() {
 			for _, obj := range []object{cm2, s1, s2} {
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
