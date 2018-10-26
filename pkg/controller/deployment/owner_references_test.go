@@ -226,4 +226,86 @@ var _ = Describe("Wave owner references Suite", func() {
 		})
 	})
 
+	Context("updateOwnerReference", func() {
+		BeforeEach(func() {
+			// Add an OwnerReference to cm2
+			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+			update(cm2)
+			Eventually(func() error {
+				key := types.NamespacedName{Namespace: cm2.GetNamespace(), Name: cm2.GetName()}
+				err := c.Get(context.TODO(), key, cm2)
+				if err != nil {
+					return err
+				}
+				if len(cm2.GetOwnerReferences()) != 1 {
+					return fmt.Errorf("OwnerReferences not updated")
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
+			get(cm1)
+			get(cm2)
+		})
+
+		It("adds an OwnerReference if not present", func() {
+			// Add an OwnerReference to cm1
+			otherRef := ownerRef
+			otherRef.UID = cm1.GetUID()
+			cm1.SetOwnerReferences([]metav1.OwnerReference{otherRef})
+			update(cm1)
+			Eventually(func() error {
+				key := types.NamespacedName{Namespace: cm1.GetNamespace(), Name: cm1.GetName()}
+				err := c.Get(context.TODO(), key, cm1)
+				if err != nil {
+					return err
+				}
+				if len(cm1.GetOwnerReferences()) != 2 {
+					return fmt.Errorf("OwnerReferences not updated")
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
+			get(cm1)
+			Expect(r.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
+			Eventually(func() error {
+				key := types.NamespacedName{Namespace: cm1.GetNamespace(), Name: cm1.GetName()}
+				err := c.Get(context.TODO(), key, cm1)
+				if err != nil {
+					return err
+				}
+				if len(cm1.GetOwnerReferences()) != 1 {
+					return fmt.Errorf("OwnerReferences not updated")
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
+			Expect(cm1.GetOwnerReferences()).Should(ContainElement(ownerRef))
+		})
+
+		It("doesn't update the child object if there is already and OwnerReference present", func() {
+			// Add an OwnerReference to cm2
+			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+			update(cm2)
+			Eventually(func() error {
+				key := types.NamespacedName{Namespace: cm2.GetNamespace(), Name: cm2.GetName()}
+				err := c.Get(context.TODO(), key, cm2)
+				if err != nil {
+					return err
+				}
+				if len(cm2.GetOwnerReferences()) != 1 {
+					return fmt.Errorf("OwnerReferences not updated")
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
+			// Get the original version
+			get(cm2)
+			originalVersion := cm2.GetResourceVersion()
+			Expect(r.updateOwnerReference(deployment, cm2)).NotTo(HaveOccurred())
+
+			// Compare current version
+			get(cm2)
+			Expect(cm2.GetResourceVersion()).To(Equal(originalVersion))
+		})
+	})
 })
