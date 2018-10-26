@@ -259,7 +259,7 @@ var _ = Describe("Wave owner references Suite", func() {
 				if err != nil {
 					return err
 				}
-				if len(cm1.GetOwnerReferences()) != 2 {
+				if len(cm1.GetOwnerReferences()) != 1 {
 					return fmt.Errorf("OwnerReferences not updated")
 				}
 				return nil
@@ -273,12 +273,13 @@ var _ = Describe("Wave owner references Suite", func() {
 				if err != nil {
 					return err
 				}
-				if len(cm1.GetOwnerReferences()) != 1 {
+				if len(cm1.GetOwnerReferences()) != 2 {
 					return fmt.Errorf("OwnerReferences not updated")
 				}
 				return nil
 			}, timeout).Should(Succeed())
 
+			get(cm1)
 			Expect(cm1.GetOwnerReferences()).Should(ContainElement(ownerRef))
 		})
 
