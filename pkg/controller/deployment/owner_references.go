@@ -108,7 +108,13 @@ func (r *ReconcileDeployment) updateOwnerReference(owner *appsv1.Deployment, chi
 // getOrphans creates a slice of orphaned child objects that need their
 // OwnerReferences removing
 func getOrphans(existing, current []object) []object {
-	return []object{}
+	orphans := []object{}
+	for _, child := range existing {
+		if !isIn(current, child) {
+			orphans = append(orphans, child)
+		}
+	}
+	return orphans
 }
 
 // getOwnerReference constructs an OwnerReference pointing to the object given
@@ -123,4 +129,14 @@ func getOwnerReference(obj *appsv1.Deployment) metav1.OwnerReference {
 		BlockOwnerDeletion: &t,
 		Controller:         &f,
 	}
+}
+
+// isIn checks whether a child object exists within a slice of objects
+func isIn(list []object, child object) bool {
+	for _, obj := range list {
+		if obj.GetUID() == child.GetUID() {
+			return true
+		}
+	}
+	return false
 }
