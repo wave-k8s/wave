@@ -330,4 +330,37 @@ var _ = Describe("Wave owner references Suite", func() {
 			Expect(orphans).To(ContainElement(s1))
 		})
 	})
+
+	Context("getOwnerReference", func() {
+		var ref metav1.OwnerReference
+		BeforeEach(func() {
+			ref = getOwnerReference(deployment)
+		})
+
+		It("sets the APIVersion", func() {
+			Expect(ref.APIVersion).To(Equal("apps/v1"))
+		})
+
+		It("sets the Kind", func() {
+			Expect(ref.Kind).To(Equal("Deployment"))
+		})
+
+		It("sets the UID", func() {
+			Expect(ref.UID).To(Equal(deployment.UID))
+		})
+
+		It("sets the Name", func() {
+			Expect(ref.Name).To(Equal(deployment.Name))
+		})
+
+		It("sets Controller to false", func() {
+			Expect(ref.Controller).NotTo(BeNil())
+			Expect(*ref.Controller).To(BeFalse())
+		})
+
+		It("sets BlockOwnerDeletion to true", func() {
+			Expect(ref.BlockOwnerDeletion).NotTo(BeNil())
+			Expect(*ref.BlockOwnerDeletion).To(BeTrue())
+		})
+	})
 })
