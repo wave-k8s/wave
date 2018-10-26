@@ -239,6 +239,10 @@ var _ = Describe("Wave controller Suite", func() {
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
+				eventuallyEqual(deployment, func(obj object) interface{} {
+					dep := obj.(*appsv1.Deployment)
+					return len(dep.Spec.Template.GetAnnotations())
+				}, 1, "Hash not updated")
 				annotations := deployment.Spec.Template.GetAnnotations()
 				hash, ok := annotations[configHashAnnotation]
 				Expect(ok).To(BeTrue())
@@ -248,7 +252,10 @@ var _ = Describe("Wave controller Suite", func() {
 			Context("And a child is removed", func() {
 				var originalHash string
 				BeforeEach(func() {
-					get(deployment)
+					eventuallyEqual(deployment, func(obj object) interface{} {
+						dep := obj.(*appsv1.Deployment)
+						return len(dep.Spec.Template.GetAnnotations())
+					}, 1, "Hash not updated")
 					templateAnnotations := deployment.Spec.Template.GetAnnotations()
 					var ok bool
 					originalHash, ok = templateAnnotations[configHashAnnotation]
@@ -289,7 +296,10 @@ var _ = Describe("Wave controller Suite", func() {
 				var originalHash string
 
 				BeforeEach(func() {
-					get(deployment)
+					eventuallyEqual(deployment, func(obj object) interface{} {
+						dep := obj.(*appsv1.Deployment)
+						return len(dep.Spec.Template.GetAnnotations())
+					}, 1, "Hash not updated")
 					templateAnnotations := deployment.Spec.Template.GetAnnotations()
 					var ok bool
 					originalHash, ok = templateAnnotations[configHashAnnotation]
