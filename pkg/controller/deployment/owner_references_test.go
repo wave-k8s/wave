@@ -308,4 +308,26 @@ var _ = Describe("Wave owner references Suite", func() {
 			Expect(cm2.GetResourceVersion()).To(Equal(originalVersion))
 		})
 	})
+
+	Context("getOrphans", func() {
+		It("returns an empty list when current and existing match", func() {
+			current := []object{cm1, cm2, s1, s2}
+			existing := current
+			Expect(getOrphans(existing, current)).To(BeEmpty())
+		})
+
+		It("returns an empty list when existing is a subset of current", func() {
+			existing := []object{cm1, s2}
+			current := append(existing, cm2, s1)
+			Expect(getOrphans(existing, current)).To(BeEmpty())
+		})
+
+		It("returns the correct objects when current is a subset of existing", func() {
+			current := []object{cm1, s2}
+			existing := append(current, cm2, s1)
+			orphans := getOrphans(existing, current)
+			Expect(orphans).To(ContainElement(cm2))
+			Expect(orphans).To(ContainElement(s1))
+		})
+	})
 })
