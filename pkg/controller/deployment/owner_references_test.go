@@ -219,11 +219,39 @@ var _ = Describe("Wave owner references Suite", func() {
 		})
 
 		It("removes owner references from those not in current", func() {
+			for _, obj := range []object{cm2, s2} {
+				Eventually(func() error {
+					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+					err := c.Get(context.TODO(), key, obj)
+					if err != nil {
+						return err
+					}
+					if len(obj.GetOwnerReferences()) != 0 {
+						return fmt.Errorf("OwnerReferences not updated")
+					}
+					return nil
+				}, timeout).Should(Succeed())
+			}
+
 			Expect(cm2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
 			Expect(s2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
 		})
 
 		It("adds owner references to those in current", func() {
+			for _, obj := range []object{cm1, s1} {
+				Eventually(func() error {
+					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+					err := c.Get(context.TODO(), key, obj)
+					if err != nil {
+						return err
+					}
+					if len(obj.GetOwnerReferences()) != 1 {
+						return fmt.Errorf("OwnerReferences not updated")
+					}
+					return nil
+				}, timeout).Should(Succeed())
+			}
+
 			Expect(cm1.GetOwnerReferences()).To(ContainElement(ownerRef))
 			Expect(s1.GetOwnerReferences()).To(ContainElement(ownerRef))
 		})
