@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,7 +53,45 @@ func (r *ReconcileDeployment) removeOwnerReferences(obj *appsv1.Deployment, chil
 // updateOwnerReferences determines which children need to have their
 // OwnerReferences added/updated and which need to have their OwnerReferences
 // removed and then performs all updates
-func (r *ReconcileDeployment) updateOwnerReferences(obj *appsv1.Deployment, existing, current []object) error {
-	// TODO: implement this
+func (r *ReconcileDeployment) updateOwnerReferences(owner *appsv1.Deployment, existing, current []object) error {
+	// Add an owner reference to each child object
+	errChan := make(chan error)
+	for _, obj := range current {
+		go func(child object) {
+			errChan <- r.updateOwnerReference(owner, child)
+		}(obj)
+	}
+
+	// Return any errors encountered updating the child objects
+	errs := []string{}
+	for range current {
+		err := <-errChan
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("error(s) encountered updating children: %s", strings.Join(errs, ", "))
+	}
+
+	// Get the orphaned children and remove their OwnerReferences
+	orphans := getOrphans(existing, current)
+	err := r.removeOwnerReferences(owner, orphans)
+	if err != nil {
+		return fmt.Errorf("error removing Owner References: %v", err)
+	}
+
 	return nil
+}
+
+// updateOwnerReference ensures that the child object has an OwnerReference
+// pointing to the owner
+func (r *ReconcileDeployment) updateOwnerReference(owner, child object) error {
+	return fmt.Errorf("NOT YET IMPLEMENTED")
+}
+
+// getOrphans creates a slice of orphaned child objects that need their
+// OwnerReferences removing
+func getOrphans(existing, current []object) []object {
+	return []object{}
 }
