@@ -108,6 +108,11 @@ func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// If the required annotation isn't present, ignore the instance
 	if !hasRequiredAnnotation(instance) {
+		// Perform deletion logic if the finalizer is present on the object
+		if hasFinalizer(instance) {
+			log.V(0).Info("Required annotation removed from instance, cleaning up orphans", "namespace", instance.GetNamespace(), "name", instance.GetName())
+			return r.handleDelete(instance)
+		}
 		return reconcile.Result{}, nil
 	}
 

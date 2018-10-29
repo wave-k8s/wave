@@ -381,6 +381,43 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 			})
 
+			Context("And the annotation is removed", func() {
+				BeforeEach(func() {
+					annotations := deployment.GetAnnotations()
+					if annotations == nil {
+						annotations = make(map[string]string)
+					}
+					annotations[requiredAnnotation] = ""
+					deployment.SetAnnotations(annotations)
+
+					update(deployment)
+					waitForDeploymentReconciled(deployment)
+
+					// Get the updated Deployment
+					get(deployment)
+				})
+
+				It("Removes the OwnerReference from the all children", func() {
+					for _, obj := range []object{cm1, cm2, s1, s2} {
+						eventuallyEqual(obj, func(obj object) interface{} {
+							return len(obj.GetOwnerReferences())
+						}, 0, "OwnerReferenced not updated")
+						Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+					}
+				})
+
+				It("Removes the Deployment's finalizer", func() {
+					Eventually(func() error {
+						key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
+						err := c.Get(context.TODO(), key, deployment)
+						if err != nil && errors.IsNotFound(err) {
+							return nil
+						}
+						return fmt.Errorf("Deployment not deleted")
+					})
+				})
+			})
+
 			Context("And is deleted", func() {
 				BeforeEach(func() {
 					delete(deployment)
