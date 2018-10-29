@@ -383,18 +383,16 @@ var _ = Describe("Wave controller Suite", func() {
 
 			Context("And the annotation is removed", func() {
 				BeforeEach(func() {
-					annotations := deployment.GetAnnotations()
-					if annotations == nil {
-						annotations = make(map[string]string)
-					}
-					annotations[requiredAnnotation] = ""
-					deployment.SetAnnotations(annotations)
-
+					get(deployment)
+					deployment.SetAnnotations(make(map[string]string))
 					update(deployment)
 					waitForDeploymentReconciled(deployment)
 
-					// Get the updated Deployment
-					get(deployment)
+					eventuallyEqual(deployment, func(obj object) interface{} {
+						a := obj.GetAnnotations()
+						_, ok := a[requiredAnnotation]
+						return ok
+					}, false, "Annotations not updated")
 				})
 
 				It("Removes the OwnerReference from the all children", func() {
