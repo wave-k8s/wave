@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,7 +53,90 @@ func (r *ReconcileDeployment) removeOwnerReferences(obj *appsv1.Deployment, chil
 // updateOwnerReferences determines which children need to have their
 // OwnerReferences added/updated and which need to have their OwnerReferences
 // removed and then performs all updates
-func (r *ReconcileDeployment) updateOwnerReferences(obj *appsv1.Deployment, existing, current []object) error {
-	// TODO: implement this
+func (r *ReconcileDeployment) updateOwnerReferences(owner *appsv1.Deployment, existing, current []object) error {
+	// Add an owner reference to each child object
+	errChan := make(chan error)
+	for _, obj := range current {
+		go func(child object) {
+			errChan <- r.updateOwnerReference(owner, child)
+		}(obj)
+	}
+
+	// Return any errors encountered updating the child objects
+	errs := []string{}
+	for range current {
+		err := <-errChan
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("error(s) encountered updating children: %s", strings.Join(errs, ", "))
+	}
+
+	// Get the orphaned children and remove their OwnerReferences
+	orphans := getOrphans(existing, current)
+	err := r.removeOwnerReferences(owner, orphans)
+	if err != nil {
+		return fmt.Errorf("error removing Owner References: %v", err)
+	}
+
 	return nil
+}
+
+// updateOwnerReference ensures that the child object has an OwnerReference
+// pointing to the owner
+func (r *ReconcileDeployment) updateOwnerReference(owner *appsv1.Deployment, child object) error {
+	ownerRef := getOwnerReference(owner)
+	for _, ref := range child.GetOwnerReferences() {
+		// Owner Reference already exists, do nothing
+		if reflect.DeepEqual(ref, ownerRef) {
+			return nil
+		}
+	}
+
+	// Append the new OwnerReference and update the child
+	ownerRefs := append(child.GetOwnerReferences(), ownerRef)
+	child.SetOwnerReferences(ownerRefs)
+	err := r.Update(context.TODO(), child)
+	if err != nil {
+		return fmt.Errorf("error updating child: %v", err)
+	}
+	return nil
+}
+
+// getOrphans creates a slice of orphaned child objects that need their
+// OwnerReferences removing
+func getOrphans(existing, current []object) []object {
+	orphans := []object{}
+	for _, child := range existing {
+		if !isIn(current, child) {
+			orphans = append(orphans, child)
+		}
+	}
+	return orphans
+}
+
+// getOwnerReference constructs an OwnerReference pointing to the object given
+func getOwnerReference(obj *appsv1.Deployment) metav1.OwnerReference {
+	t := true
+	f := false
+	return metav1.OwnerReference{
+		APIVersion:         "apps/v1",
+		Kind:               "Deployment",
+		Name:               obj.GetName(),
+		UID:                obj.GetUID(),
+		BlockOwnerDeletion: &t,
+		Controller:         &f,
+	}
+}
+
+// isIn checks whether a child object exists within a slice of objects
+func isIn(list []object, child object) bool {
+	for _, obj := range list {
+		if obj.GetUID() == child.GetUID() {
+			return true
+		}
+	}
+	return false
 }

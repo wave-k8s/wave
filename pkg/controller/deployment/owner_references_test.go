@@ -108,6 +108,9 @@ var _ = Describe("Wave owner references Suite", func() {
 		ownerRef = getOwnerRef(deployment)
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
+
+		// Make sure caches have synced
+		get(deployment)
 	})
 
 	AfterEach(func() {
@@ -185,33 +188,211 @@ var _ = Describe("Wave owner references Suite", func() {
 		})
 	})
 
-	// Waiting for updateOwnerRefernces to be implemented
-	PContext("updateOwnerReferences", func() {
+	Context("updateOwnerReferences", func() {
 		BeforeEach(func() {
 			for _, obj := range []object{cm2, s1, s2} {
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 				update(obj)
+
+				Eventually(func() error {
+					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+					err := c.Get(context.TODO(), key, obj)
+					if err != nil {
+						return err
+					}
+					if len(obj.GetOwnerReferences()) != 1 {
+						return fmt.Errorf("OwnerReferences not updated")
+					}
+					return nil
+				}, timeout).Should(Succeed())
 			}
 
 			existing := []object{cm2, s1, s2}
 			current := []object{cm1, s1}
 			err := r.updateOwnerReferences(deployment, existing, current)
 			Expect(err).NotTo(HaveOccurred())
+
+			get(cm1)
+			get(cm2)
+			get(s1)
+			get(s2)
 		})
 
 		It("removes owner references from those not in current", func() {
-			get(cm2)
+			for _, obj := range []object{cm2, s2} {
+				Eventually(func() error {
+					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+					err := c.Get(context.TODO(), key, obj)
+					if err != nil {
+						return err
+					}
+					if len(obj.GetOwnerReferences()) != 0 {
+						return fmt.Errorf("OwnerReferences not updated")
+					}
+					return nil
+				}, timeout).Should(Succeed())
+			}
+
 			Expect(cm2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
-			get(s2)
 			Expect(s2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
 		})
 
 		It("adds owner references to those in current", func() {
-			get(cm1)
+			for _, obj := range []object{cm1, s1} {
+				Eventually(func() error {
+					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+					err := c.Get(context.TODO(), key, obj)
+					if err != nil {
+						return err
+					}
+					if len(obj.GetOwnerReferences()) != 1 {
+						return fmt.Errorf("OwnerReferences not updated")
+					}
+					return nil
+				}, timeout).Should(Succeed())
+			}
+
 			Expect(cm1.GetOwnerReferences()).To(ContainElement(ownerRef))
-			get(s1)
 			Expect(s1.GetOwnerReferences()).To(ContainElement(ownerRef))
 		})
 	})
 
+	Context("updateOwnerReference", func() {
+		BeforeEach(func() {
+			// Add an OwnerReference to cm2
+			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+			update(cm2)
+			Eventually(func() error {
+				key := types.NamespacedName{Namespace: cm2.GetNamespace(), Name: cm2.GetName()}
+				err := c.Get(context.TODO(), key, cm2)
+				if err != nil {
+					return err
+				}
+				if len(cm2.GetOwnerReferences()) != 1 {
+					return fmt.Errorf("OwnerReferences not updated")
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
+			get(cm1)
+			get(cm2)
+		})
+
+		It("adds an OwnerReference if not present", func() {
+			// Add an OwnerReference to cm1
+			otherRef := ownerRef
+			otherRef.UID = cm1.GetUID()
+			cm1.SetOwnerReferences([]metav1.OwnerReference{otherRef})
+			update(cm1)
+			Eventually(func() error {
+				key := types.NamespacedName{Namespace: cm1.GetNamespace(), Name: cm1.GetName()}
+				err := c.Get(context.TODO(), key, cm1)
+				if err != nil {
+					return err
+				}
+				if len(cm1.GetOwnerReferences()) != 1 {
+					return fmt.Errorf("OwnerReferences not updated")
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
+			get(cm1)
+			Expect(r.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
+			Eventually(func() error {
+				key := types.NamespacedName{Namespace: cm1.GetNamespace(), Name: cm1.GetName()}
+				err := c.Get(context.TODO(), key, cm1)
+				if err != nil {
+					return err
+				}
+				if len(cm1.GetOwnerReferences()) != 2 {
+					return fmt.Errorf("OwnerReferences not updated")
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
+			get(cm1)
+			Expect(cm1.GetOwnerReferences()).Should(ContainElement(ownerRef))
+		})
+
+		It("doesn't update the child object if there is already and OwnerReference present", func() {
+			// Add an OwnerReference to cm2
+			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+			update(cm2)
+			Eventually(func() error {
+				key := types.NamespacedName{Namespace: cm2.GetNamespace(), Name: cm2.GetName()}
+				err := c.Get(context.TODO(), key, cm2)
+				if err != nil {
+					return err
+				}
+				if len(cm2.GetOwnerReferences()) != 1 {
+					return fmt.Errorf("OwnerReferences not updated")
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
+			// Get the original version
+			get(cm2)
+			originalVersion := cm2.GetResourceVersion()
+			Expect(r.updateOwnerReference(deployment, cm2)).NotTo(HaveOccurred())
+
+			// Compare current version
+			get(cm2)
+			Expect(cm2.GetResourceVersion()).To(Equal(originalVersion))
+		})
+	})
+
+	Context("getOrphans", func() {
+		It("returns an empty list when current and existing match", func() {
+			current := []object{cm1, cm2, s1, s2}
+			existing := current
+			Expect(getOrphans(existing, current)).To(BeEmpty())
+		})
+
+		It("returns an empty list when existing is a subset of current", func() {
+			existing := []object{cm1, s2}
+			current := append(existing, cm2, s1)
+			Expect(getOrphans(existing, current)).To(BeEmpty())
+		})
+
+		It("returns the correct objects when current is a subset of existing", func() {
+			current := []object{cm1, s2}
+			existing := append(current, cm2, s1)
+			orphans := getOrphans(existing, current)
+			Expect(orphans).To(ContainElement(cm2))
+			Expect(orphans).To(ContainElement(s1))
+		})
+	})
+
+	Context("getOwnerReference", func() {
+		var ref metav1.OwnerReference
+		BeforeEach(func() {
+			ref = getOwnerReference(deployment)
+		})
+
+		It("sets the APIVersion", func() {
+			Expect(ref.APIVersion).To(Equal("apps/v1"))
+		})
+
+		It("sets the Kind", func() {
+			Expect(ref.Kind).To(Equal("Deployment"))
+		})
+
+		It("sets the UID", func() {
+			Expect(ref.UID).To(Equal(deployment.UID))
+		})
+
+		It("sets the Name", func() {
+			Expect(ref.Name).To(Equal(deployment.Name))
+		})
+
+		It("sets Controller to false", func() {
+			Expect(ref.Controller).NotTo(BeNil())
+			Expect(*ref.Controller).To(BeFalse())
+		})
+
+		It("sets BlockOwnerDeletion to true", func() {
+			Expect(ref.BlockOwnerDeletion).NotTo(BeNil())
+			Expect(*ref.BlockOwnerDeletion).To(BeTrue())
+		})
+	})
 })
