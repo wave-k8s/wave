@@ -52,3 +52,16 @@ func removeFinalizer(obj *appsv1.Deployment) {
 	// Update the object's finalizers
 	obj.SetFinalizers(newFinalizers)
 }
+
+// hasFinalizer checks for the presence of the Wave finalizer
+func hasFinalizer(obj *appsv1.Deployment) bool {
+	finalizers := obj.GetFinalizers()
+	for _, finalizer := range finalizers {
+		if finalizer == finalizerString {
+			// Deployment already contains the finalizer
+			return true
+		}
+	}
+
+	return false
+}
