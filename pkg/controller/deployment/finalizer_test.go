@@ -66,4 +66,25 @@ var _ = Describe("Wave finalizer Suite", func() {
 			Expect(deployment.GetFinalizers()).To(ContainElement("kubernetes"))
 		})
 	})
+
+	Context("hasFinalizer", func() {
+		It("returns true if the deployment has the finalizer", func() {
+			f := deployment.GetFinalizers()
+			f = append(f, finalizerString)
+			deployment.SetFinalizers(f)
+
+			Expect(hasFinalizer(deployment)).To(BeTrue())
+		})
+
+		It("returns false if the deployment doesn't have the finalizer", func() {
+			// Test without any finalizers
+			Expect(hasFinalizer(deployment)).To(BeFalse())
+
+			// Test with a different finalizer
+			f := deployment.GetFinalizers()
+			f = append(f, "kubernetes")
+			deployment.SetFinalizers(f)
+			Expect(hasFinalizer(deployment)).To(BeFalse())
+		})
+	})
 })
