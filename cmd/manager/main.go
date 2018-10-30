@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-logr/glogr"
 	"github.com/pusher/wave/pkg/apis"
 	"github.com/pusher/wave/pkg/controller"
 	"github.com/pusher/wave/pkg/webhook"
@@ -45,7 +46,7 @@ func main() {
 	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 	flag.Parse()
 
-	logf.SetLogger(logf.ZapLogger(false))
+	logf.SetLogger(glogr.New())
 	log := logf.Log.WithName("entrypoint")
 
 	// Get a config to talk to the apiserver

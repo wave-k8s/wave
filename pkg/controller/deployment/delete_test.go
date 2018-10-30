@@ -18,6 +18,7 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/pusher/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -74,6 +76,20 @@ var _ = Describe("Wave owner references Suite", func() {
 		}
 	}
 
+	var eventuallyEqual = func(obj object, actual func(object) interface{}, expected interface{}, msg string) {
+		Eventually(func() error {
+			key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+			err := c.Get(context.TODO(), key, obj)
+			if err != nil {
+				return err
+			}
+			if actual(obj) != expected {
+				return fmt.Errorf(msg)
+			}
+			return nil
+		}, timeout).Should(Succeed())
+	}
+
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
@@ -112,8 +128,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		)
 	})
 
-	// Waiting for handleDelete to be implemented
-	PContext("handleDelete", func() {
+	Context("handleDelete", func() {
 		var cm1 *corev1.ConfigMap
 		var cm2 *corev1.ConfigMap
 		var s1 *corev1.Secret
@@ -132,11 +147,43 @@ var _ = Describe("Wave owner references Suite", func() {
 
 			f := deployment.GetFinalizers()
 			f = append(f, finalizerString)
+			f = append(f, "keep.me.around/finalizer")
 			deployment.SetFinalizers(f)
 			update(deployment)
 
 			_, err := r.handleDelete(deployment)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			// Make sure to delete any finalizers (if the deployment exists)
+			Eventually(func() error {
+				key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
+				err := c.Get(context.TODO(), key, deployment)
+				if err != nil && errors.IsNotFound(err) {
+					return nil
+				}
+				if err != nil {
+					return err
+				}
+				deployment.SetFinalizers([]string{})
+				return c.Update(context.TODO(), deployment)
+			}, timeout).Should(Succeed())
+
+			Eventually(func() error {
+				key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
+				err := c.Get(context.TODO(), key, deployment)
+				if err != nil && errors.IsNotFound(err) {
+					return nil
+				}
+				if err != nil {
+					return err
+				}
+				if len(deployment.GetFinalizers()) > 0 {
+					return fmt.Errorf("Finalizers not upated")
+				}
+				return nil
+			}, timeout).Should(Succeed())
 		})
 
 		It("removes owner references from all children", func() {
@@ -147,6 +194,9 @@ var _ = Describe("Wave owner references Suite", func() {
 		})
 
 		It("removes the finalizer from the deployment", func() {
+			eventuallyEqual(deployment, func(obj object) interface{} {
+				return len(obj.GetFinalizers())
+			}, 1, "Finalizers not updated")
 			Expect(deployment.GetFinalizers()).NotTo(ContainElement(finalizerString))
 		})
 	})
