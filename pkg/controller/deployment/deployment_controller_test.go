@@ -45,6 +45,7 @@ var _ = Describe("Wave controller Suite", func() {
 	var stopMgr chan struct{}
 
 	const timeout = time.Second * 5
+	const consistentlyTimeout = time.Second
 
 	var ownerRef metav1.OwnerReference
 	var cm1 *corev1.ConfigMap
@@ -175,14 +176,12 @@ var _ = Describe("Wave controller Suite", func() {
 				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(configHashAnnotation)))
 
 				events := &corev1.EventList{}
-				m.Eventually(events, timeout).Should(utils.WithItems(HaveLen(5)))
-
-				eventMessage := func(event corev1.Event) string {
+				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
 
 				hashMessage := "Configuration hash updated to 198df8455a4fd702fc0c7fdfa4bdb213363b96240bfd48b7b098d936499315a1"
-				Expect(events.Items).To(ContainElement(WithTransform(eventMessage, Equal(hashMessage))))
+				m.Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
 
 			Context("And a child is removed", func() {
@@ -316,14 +315,7 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 
 				It("Removes the Deployment's finalizer", func() {
-					Eventually(func() error {
-						key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-						err := c.Get(context.TODO(), key, deployment)
-						if err != nil && errors.IsNotFound(err) {
-							return nil
-						}
-						return fmt.Errorf("Deployment not deleted")
-					})
+					m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(finalizerString)))
 				})
 			})
 
@@ -342,14 +334,8 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 
 				It("Removes the Deployment's finalizer", func() {
-					Eventually(func() error {
-						key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-						err := c.Get(context.TODO(), key, deployment)
-						if err != nil && errors.IsNotFound(err) {
-							return nil
-						}
-						return fmt.Errorf("Deployment not deleted")
-					})
+					// Removing the finalizer causes the deployment to be deleted
+					m.Get(deployment, timeout).ShouldNot(Succeed())
 				})
 			})
 		})
@@ -362,19 +348,16 @@ var _ = Describe("Wave controller Suite", func() {
 
 			It("Doesn't add any OwnerReferences to any children", func() {
 				for _, obj := range []object{cm1, cm2, s1, s2} {
-					m.Get(obj, timeout).Should(Succeed())
-					Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+					m.Consistently(obj, consistentlyTimeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
 
 			It("Doesn't add a finalizer to the Deployment", func() {
-				Expect(deployment.GetFinalizers()).NotTo(ContainElement(finalizerString))
+				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithFinalizers(ContainElement(finalizerString)))
 			})
 
 			It("Doesn't add a config hash to the Pod Template", func() {
-				annotations := deployment.GetAnnotations()
-				_, ok := annotations[configHashAnnotation]
-				Expect(ok).NotTo(BeTrue())
+				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(configHashAnnotation)))
 			})
 		})
 	})
