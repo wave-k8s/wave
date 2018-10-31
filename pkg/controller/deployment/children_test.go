@@ -17,8 +17,6 @@ limitations under the License.
 package deployment
 
 import (
-	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -28,7 +26,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -126,13 +123,7 @@ var _ = Describe("Wave children Suite", func() {
 		It("returns an error if one of the referenced children is missing", func() {
 			// Delete s2 and wait for the cache to sync
 			m.Delete(s2).Should(Succeed())
-			key := types.NamespacedName{
-				Name:      s2.GetName(),
-				Namespace: s2.GetNamespace(),
-			}
-			Eventually(func() error {
-				return c.Get(context.TODO(), key, s2)
-			}, timeout).ShouldNot(Succeed())
+			m.Get(s2, timeout).ShouldNot(Succeed())
 
 			current, err := r.getCurrentChildren(deployment)
 			Expect(err).To(HaveOccurred())
@@ -179,18 +170,7 @@ var _ = Describe("Wave children Suite", func() {
 				m.Get(obj, timeout).Should(Succeed())
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 				m.Update(obj).Should(Succeed())
-
-				Eventually(func() error {
-					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-					err := c.Get(context.TODO(), key, obj)
-					if err != nil {
-						return err
-					}
-					if len(obj.GetOwnerReferences()) != 1 {
-						return fmt.Errorf("OwnerReferences not updated")
-					}
-					return nil
-				}, timeout).Should(Succeed())
+				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 
 			var err error
