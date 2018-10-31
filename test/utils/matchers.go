@@ -54,9 +54,11 @@ func (m *Matcher) Delete(obj Object, extras ...interface{}) gomega.GomegaAsserti
 }
 
 // Update udpates the object on the API server
-func (m *Matcher) Update(obj Object, extras ...interface{}) gomega.GomegaAssertion {
-	err := m.Client.Update(context.TODO(), obj)
-	return gomega.Expect(err, extras)
+func (m *Matcher) Update(obj Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
+	update := func() error {
+		return m.Client.Update(context.TODO(), obj)
+	}
+	return gomega.Eventually(update, intervals...)
 }
 
 // Get gets the object from the API server
