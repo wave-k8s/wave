@@ -71,19 +71,6 @@ var _ = Describe("Wave controller Suite", func() {
 		}, timeout).Should(Succeed())
 	}
 
-	var getOwnerRef = func(deployment *appsv1.Deployment) metav1.OwnerReference {
-		f := false
-		t := true
-		return metav1.OwnerReference{
-			APIVersion:         "apps/v1",
-			Kind:               "Deployment",
-			Name:               deployment.Name,
-			UID:                deployment.UID,
-			Controller:         &f,
-			BlockOwnerDeletion: &t,
-		}
-	}
-
 	var waitForDeploymentReconciled = func(obj object) {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -128,7 +115,7 @@ var _ = Describe("Wave controller Suite", func() {
 		m.Create(deployment).Should(Succeed())
 		waitForDeploymentReconciled(deployment)
 
-		ownerRef = getOwnerRef(deployment)
+		ownerRef = utils.GetOwnerRef(deployment)
 	})
 
 	AfterEach(func() {

@@ -49,19 +49,6 @@ var _ = Describe("Wave children Suite", func() {
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
 
-	var getOwnerRef = func(deployment *appsv1.Deployment) metav1.OwnerReference {
-		f := false
-		t := true
-		return metav1.OwnerReference{
-			APIVersion:         "apps/v1",
-			Kind:               "Deployment",
-			Name:               deployment.Name,
-			UID:                deployment.UID,
-			Controller:         &f,
-			BlockOwnerDeletion: &t,
-		}
-	}
-
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
@@ -186,7 +173,7 @@ var _ = Describe("Wave children Suite", func() {
 	Context("getExistingChildren", func() {
 		BeforeEach(func() {
 			m.Get(deployment, timeout).Should(Succeed())
-			ownerRef := getOwnerRef(deployment)
+			ownerRef := utils.GetOwnerRef(deployment)
 
 			for _, obj := range []object{cm1, s1} {
 				m.Get(obj, timeout).Should(Succeed())
@@ -236,7 +223,7 @@ var _ = Describe("Wave children Suite", func() {
 		var ownerRef metav1.OwnerReference
 		BeforeEach(func() {
 			m.Get(deployment, timeout).Should(Succeed())
-			ownerRef = getOwnerRef(deployment)
+			ownerRef = utils.GetOwnerRef(deployment)
 		})
 
 		It("returns true when the child has a single owner reference pointing to the owner", func() {

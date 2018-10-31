@@ -46,19 +46,6 @@ var _ = Describe("Wave owner references Suite", func() {
 
 	var ownerRef metav1.OwnerReference
 
-	var getOwnerRef = func(deployment *appsv1.Deployment) metav1.OwnerReference {
-		f := false
-		t := true
-		return metav1.OwnerReference{
-			APIVersion:         "apps/v1",
-			Kind:               "Deployment",
-			Name:               deployment.Name,
-			UID:                deployment.UID,
-			Controller:         &f,
-			BlockOwnerDeletion: &t,
-		}
-	}
-
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
@@ -81,7 +68,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		deployment = utils.ExampleDeployment.DeepCopy()
 		m.Create(deployment).Should(Succeed())
 
-		ownerRef = getOwnerRef(deployment)
+		ownerRef = utils.GetOwnerRef(deployment)
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
 		m.Get(deployment, timeout).Should(Succeed())
