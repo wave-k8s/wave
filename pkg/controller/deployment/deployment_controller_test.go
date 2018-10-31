@@ -52,25 +52,6 @@ var _ = Describe("Wave controller Suite", func() {
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
 
-	var eventuallyConfigHashUpdates = func(deployment *appsv1.Deployment, originalHash string) {
-		Eventually(func() error {
-			key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-			err := c.Get(context.TODO(), key, deployment)
-			if err != nil {
-				return err
-			}
-			annotations := deployment.Spec.Template.GetAnnotations()
-			hash, ok := annotations[configHashAnnotation]
-			if !ok {
-				return fmt.Errorf("annotation not set")
-			}
-			if hash == originalHash {
-				return fmt.Errorf("annotation not updated")
-			}
-			return nil
-		}, timeout).Should(Succeed())
-	}
-
 	var waitForDeploymentReconciled = func(obj object) {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -231,7 +212,7 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 
 				It("Updates the config hash in the Pod Template", func() {
-					eventuallyConfigHashUpdates(deployment, originalHash)
+					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(configHashAnnotation, originalHash)))
 				})
 			})
 
@@ -256,7 +237,7 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						eventuallyConfigHashUpdates(deployment, originalHash)
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(configHashAnnotation, originalHash)))
 					})
 				})
 
@@ -273,7 +254,7 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						eventuallyConfigHashUpdates(deployment, originalHash)
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(configHashAnnotation, originalHash)))
 					})
 				})
 
@@ -293,7 +274,7 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						eventuallyConfigHashUpdates(deployment, originalHash)
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(configHashAnnotation, originalHash)))
 					})
 				})
 
@@ -313,7 +294,7 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						eventuallyConfigHashUpdates(deployment, originalHash)
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(configHashAnnotation, originalHash)))
 					})
 				})
 			})
