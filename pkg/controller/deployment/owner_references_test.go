@@ -17,8 +17,6 @@ limitations under the License.
 package deployment
 
 import (
-	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -28,7 +26,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -42,6 +39,7 @@ var _ = Describe("Wave owner references Suite", func() {
 	var stopMgr chan struct{}
 
 	const timeout = time.Second * 5
+	const consistentlyTimeout = time.Second
 
 	var cm1 *corev1.ConfigMap
 	var cm2 *corev1.ConfigMap
@@ -104,75 +102,41 @@ var _ = Describe("Wave owner references Suite", func() {
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef, *otherRef})
 				m.Update(obj).Should(Succeed())
 
-				Eventually(func() error {
-					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-					err := c.Get(context.TODO(), key, obj)
-					if err != nil {
-						return err
-					}
-					if len(obj.GetOwnerReferences()) != 2 {
-						return fmt.Errorf("OwnerReferences not updated")
-					}
-					return nil
-				}, timeout).Should(Succeed())
+				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ConsistOf(ownerRef, *otherRef)))
 			}
 
 			children := []object{cm1, s1}
 			err := r.removeOwnerReferences(deployment, children)
 			Expect(err).NotTo(HaveOccurred())
-
-			m.Get(cm1, timeout).Should(Succeed())
-			m.Get(cm2, timeout).Should(Succeed())
-			m.Get(s1, timeout).Should(Succeed())
-			m.Get(s2, timeout).Should(Succeed())
-
-			// Updates should propogate
-			for _, obj := range []object{cm1, s1} {
-				Eventually(func() error {
-					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-					err := c.Get(context.TODO(), key, obj)
-					if err != nil {
-						return err
-					}
-					if len(obj.GetOwnerReferences()) != 1 {
-						return fmt.Errorf("OwnerReferences not updated")
-					}
-					return nil
-				}, timeout).Should(Succeed())
-			}
 		})
 
 		It("removes owner references from the list of children given", func() {
-			Expect(cm1.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
-			Expect(s1.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+			m.Eventually(cm1, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+			m.Eventually(s1, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 		})
 
 		It("doesn't remove owner references from children not listed", func() {
-			Expect(cm2.GetOwnerReferences()).To(ContainElement(ownerRef))
-			Expect(s2.GetOwnerReferences()).To(ContainElement(ownerRef))
+			m.Consistently(cm2, consistentlyTimeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
+			m.Consistently(s2, consistentlyTimeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 		})
 
 		It("doesn't remove owner references pointing to other owners", func() {
-			Expect(cm1.GetOwnerReferences()).To(ContainElement(Not(Equal(ownerRef))))
-			Expect(cm2.GetOwnerReferences()).To(ContainElement(Not(Equal(ownerRef))))
-			Expect(s1.GetOwnerReferences()).To(ContainElement(Not(Equal(ownerRef))))
-			Expect(s2.GetOwnerReferences()).To(ContainElement(Not(Equal(ownerRef))))
+			m.Consistently(cm1, consistentlyTimeout).Should(utils.WithOwnerReferences(ContainElement(Not(Equal(ownerRef)))))
+			m.Consistently(cm2, consistentlyTimeout).Should(utils.WithOwnerReferences(ContainElement(Not(Equal(ownerRef)))))
+			m.Consistently(s1, consistentlyTimeout).Should(utils.WithOwnerReferences(ContainElement(Not(Equal(ownerRef)))))
+			m.Consistently(s2, consistentlyTimeout).Should(utils.WithOwnerReferences(ContainElement(Not(Equal(ownerRef)))))
 		})
 
 		It("sends events for removing each owner reference", func() {
 			events := &corev1.EventList{}
-			Expect(c.List(context.TODO(), &client.ListOptions{}, events)).NotTo(HaveOccurred())
-
-			Expect(events.Items).To(HaveLen(2))
-
-			eventMessage := func(event corev1.Event) string {
+			cmMessage := "Removing watch for ConfigMap example1"
+			sMessage := "Removing watch for Secret example1"
+			eventMessage := func(event *corev1.Event) string {
 				return event.Message
 			}
 
-			cmMessage := "Removing watch for ConfigMap example1"
-			Expect(events.Items).To(ContainElement(WithTransform(eventMessage, Equal(cmMessage))))
-			sMessage := "Removing watch for Secret example1"
-			Expect(events.Items).To(ContainElement(WithTransform(eventMessage, Equal(sMessage))))
+			m.Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(cmMessage)))))
+			m.Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(sMessage)))))
 		})
 	})
 
@@ -182,66 +146,23 @@ var _ = Describe("Wave owner references Suite", func() {
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 				m.Update(obj).Should(Succeed())
 
-				Eventually(func() error {
-					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-					err := c.Get(context.TODO(), key, obj)
-					if err != nil {
-						return err
-					}
-					if len(obj.GetOwnerReferences()) != 1 {
-						return fmt.Errorf("OwnerReferences not updated")
-					}
-					return nil
-				}, timeout).Should(Succeed())
+				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 
 			existing := []object{cm2, s1, s2}
 			current := []object{cm1, s1}
 			err := r.updateOwnerReferences(deployment, existing, current)
 			Expect(err).NotTo(HaveOccurred())
-
-			m.Get(cm1, timeout).Should(Succeed())
-			m.Get(cm2, timeout).Should(Succeed())
-			m.Get(s1, timeout).Should(Succeed())
-			m.Get(s2, timeout).Should(Succeed())
 		})
 
 		It("removes owner references from those not in current", func() {
-			for _, obj := range []object{cm2, s2} {
-				Eventually(func() error {
-					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-					err := c.Get(context.TODO(), key, obj)
-					if err != nil {
-						return err
-					}
-					if len(obj.GetOwnerReferences()) != 0 {
-						return fmt.Errorf("OwnerReferences not updated")
-					}
-					return nil
-				}, timeout).Should(Succeed())
-			}
-
-			Expect(cm2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
-			Expect(s2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+			m.Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+			m.Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 		})
 
 		It("adds owner references to those in current", func() {
-			for _, obj := range []object{cm1, s1} {
-				Eventually(func() error {
-					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-					err := c.Get(context.TODO(), key, obj)
-					if err != nil {
-						return err
-					}
-					if len(obj.GetOwnerReferences()) != 1 {
-						return fmt.Errorf("OwnerReferences not updated")
-					}
-					return nil
-				}, timeout).Should(Succeed())
-			}
-
-			Expect(cm1.GetOwnerReferences()).To(ContainElement(ownerRef))
-			Expect(s1.GetOwnerReferences()).To(ContainElement(ownerRef))
+			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
+			m.Eventually(s1, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 		})
 	})
 
@@ -250,17 +171,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			// Add an OwnerReference to cm2
 			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 			m.Update(cm2).Should(Succeed())
-			Eventually(func() error {
-				key := types.NamespacedName{Namespace: cm2.GetNamespace(), Name: cm2.GetName()}
-				err := c.Get(context.TODO(), key, cm2)
-				if err != nil {
-					return err
-				}
-				if len(cm2.GetOwnerReferences()) != 1 {
-					return fmt.Errorf("OwnerReferences not updated")
-				}
-				return nil
-			}, timeout).Should(Succeed())
+			m.Eventually(cm2, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 
 			m.Get(cm1, timeout).Should(Succeed())
 			m.Get(cm2, timeout).Should(Succeed())
@@ -272,51 +183,18 @@ var _ = Describe("Wave owner references Suite", func() {
 			otherRef.UID = cm1.GetUID()
 			cm1.SetOwnerReferences([]metav1.OwnerReference{otherRef})
 			m.Update(cm1).Should(Succeed())
-			Eventually(func() error {
-				key := types.NamespacedName{Namespace: cm1.GetNamespace(), Name: cm1.GetName()}
-				err := c.Get(context.TODO(), key, cm1)
-				if err != nil {
-					return err
-				}
-				if len(cm1.GetOwnerReferences()) != 1 {
-					return fmt.Errorf("OwnerReferences not updated")
-				}
-				return nil
-			}, timeout).Should(Succeed())
+			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(otherRef)))
 
 			m.Get(cm1, timeout).Should(Succeed())
 			Expect(r.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
-			Eventually(func() error {
-				key := types.NamespacedName{Namespace: cm1.GetNamespace(), Name: cm1.GetName()}
-				err := c.Get(context.TODO(), key, cm1)
-				if err != nil {
-					return err
-				}
-				if len(cm1.GetOwnerReferences()) != 2 {
-					return fmt.Errorf("OwnerReferences not updated")
-				}
-				return nil
-			}, timeout).Should(Succeed())
-
-			m.Get(cm1, timeout).Should(Succeed())
-			Expect(cm1.GetOwnerReferences()).Should(ContainElement(ownerRef))
+			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 		})
 
 		It("doesn't update the child object if there is already and OwnerReference present", func() {
 			// Add an OwnerReference to cm2
 			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 			m.Update(cm2).Should(Succeed())
-			Eventually(func() error {
-				key := types.NamespacedName{Namespace: cm2.GetNamespace(), Name: cm2.GetName()}
-				err := c.Get(context.TODO(), key, cm2)
-				if err != nil {
-					return err
-				}
-				if len(cm2.GetOwnerReferences()) != 1 {
-					return fmt.Errorf("OwnerReferences not updated")
-				}
-				return nil
-			}, timeout).Should(Succeed())
+			m.Eventually(cm2, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 
 			// Get the original version
 			m.Get(cm2, timeout).Should(Succeed())
@@ -331,29 +209,15 @@ var _ = Describe("Wave owner references Suite", func() {
 		It("sends events for adding each owner reference", func() {
 			m.Get(cm1, timeout).Should(Succeed())
 			Expect(r.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
-			Eventually(func() error {
-				key := types.NamespacedName{Namespace: cm1.GetNamespace(), Name: cm1.GetName()}
-				err := c.Get(context.TODO(), key, cm1)
-				if err != nil {
-					return err
-				}
-				if len(cm1.GetOwnerReferences()) != 1 {
-					return fmt.Errorf("OwnerReferences not updated")
-				}
-				return nil
-			}, timeout).Should(Succeed())
+			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 
 			events := &corev1.EventList{}
-			Expect(c.List(context.TODO(), &client.ListOptions{}, events)).NotTo(HaveOccurred())
-
-			Expect(events.Items).To(HaveLen(1))
-
-			eventMessage := func(event corev1.Event) string {
+			cmMessage := "Adding watch for ConfigMap example1"
+			eventMessage := func(event *corev1.Event) string {
 				return event.Message
 			}
 
-			cmMessage := "Adding watch for ConfigMap example1"
-			Expect(events.Items).To(ContainElement(WithTransform(eventMessage, Equal(cmMessage))))
+			m.Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(cmMessage)))))
 		})
 	})
 
