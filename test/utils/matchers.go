@@ -86,6 +86,13 @@ func (m *Matcher) Eventually(obj Object, intervals ...interface{}) gomega.Gomega
 	return gomega.Eventually(get, intervals...)
 }
 
+// WithAnnotations returns the object's Annotations
+func WithAnnotations(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
+	return gomega.WithTransform(func(obj Object) map[string]string {
+		return obj.GetAnnotations()
+	}, matcher)
+}
+
 // WithFinalizers returns the object's Finalizers
 func WithFinalizers(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
 	return gomega.WithTransform(func(obj Object) []string {

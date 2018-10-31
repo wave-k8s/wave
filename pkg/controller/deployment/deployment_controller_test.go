@@ -52,20 +52,6 @@ var _ = Describe("Wave controller Suite", func() {
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
 
-	var eventuallyEqual = func(obj object, actual func(object) interface{}, expected interface{}, msg string) {
-		Eventually(func() error {
-			key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-			err := c.Get(context.TODO(), key, obj)
-			if err != nil {
-				return err
-			}
-			if actual(obj) != expected {
-				return fmt.Errorf(msg)
-			}
-			return nil
-		}, timeout).Should(Succeed())
-	}
-
 	var eventuallyConfigHashUpdates = func(deployment *appsv1.Deployment, originalHash string) {
 		Eventually(func() error {
 			key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
@@ -361,11 +347,7 @@ var _ = Describe("Wave controller Suite", func() {
 					m.Update(deployment).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
-					eventuallyEqual(deployment, func(obj object) interface{} {
-						a := obj.GetAnnotations()
-						_, ok := a[requiredAnnotation]
-						return ok
-					}, false, "Annotations not updated")
+					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(requiredAnnotation)))
 				})
 
 				It("Removes the OwnerReference from the all children", func() {
