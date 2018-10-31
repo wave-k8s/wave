@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/onsi/gomega"
+	gtypes "github.com/onsi/gomega/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -66,4 +67,27 @@ func (m *Matcher) Get(obj Object, intervals ...interface{}) gomega.GomegaAsyncAs
 		return m.Client.Get(context.TODO(), key, obj)
 	}
 	return gomega.Eventually(get, intervals...)
+}
+
+// Eventually continually gets the object from the API for comparison
+func (m *Matcher) Eventually(obj Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
+	key := types.NamespacedName{
+		Name:      obj.GetName(),
+		Namespace: obj.GetNamespace(),
+	}
+	get := func() Object {
+		err := m.Client.Get(context.TODO(), key, obj)
+		if err != nil {
+			gomega.Panic()
+		}
+		return obj
+	}
+	return gomega.Eventually(get, intervals...)
+}
+
+// WithOwnerReferences returns the object's OwnerReferences
+func WithOwnerReferences(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
+	return gomega.WithTransform(func(obj Object) []metav1.OwnerReference {
+		return obj.GetOwnerReferences()
+	}, matcher)
 }

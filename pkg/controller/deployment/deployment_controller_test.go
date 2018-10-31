@@ -205,10 +205,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 			It("Adds OwnerReferences to all children", func() {
 				for _, obj := range []object{cm1, cm2, s1, s2} {
-					eventuallyEqual(obj, func(obj object) interface{} {
-						return len(obj.GetOwnerReferences())
-					}, 1, "OwnerReferences not updated")
-					Expect(obj.GetOwnerReferences()).To(ContainElement(ownerRef))
+					m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
 
@@ -281,17 +278,11 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 
 				It("Removes the OwnerReference from the orphaned ConfigMap", func() {
-					eventuallyEqual(cm2, func(obj object) interface{} {
-						return len(obj.GetOwnerReferences())
-					}, 0, "OwnerReferences not updated")
-					Expect(cm2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+					m.Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
 				It("Removes the OwnerReference from the orphaned Secret", func() {
-					eventuallyEqual(s2, func(obj object) interface{} {
-						return len(obj.GetOwnerReferences())
-					}, 0, "OwnerReferences not updated")
-					Expect(s2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+					m.Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
 				It("Updates the config hash in the Pod Template", func() {
@@ -404,10 +395,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []object{cm1, cm2, s1, s2} {
-						eventuallyEqual(obj, func(obj object) interface{} {
-							return len(obj.GetOwnerReferences())
-						}, 0, "OwnerReferenced not updated")
-						Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
@@ -433,10 +421,7 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []object{cm1, cm2, s1, s2} {
-						eventuallyEqual(obj, func(obj object) interface{} {
-							return len(obj.GetOwnerReferences())
-						}, 0, "OwnerReferenced not updated")
-						Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
