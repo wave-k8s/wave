@@ -22,6 +22,7 @@ import (
 	"github.com/onsi/gomega"
 	gtypes "github.com/onsi/gomega/types"
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -71,7 +72,20 @@ func (m *Matcher) Get(obj Object, intervals ...interface{}) gomega.GomegaAsyncAs
 }
 
 // Eventually continually gets the object from the API for comparison
-func (m *Matcher) Eventually(obj Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
+func (m *Matcher) Eventually(obj runtime.Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
+	// If the object is a list, return a list
+	if meta.IsListType(obj) {
+		return m.eventuallyList(obj, intervals...)
+	}
+	if o, ok := obj.(Object); ok {
+		return m.eventuallyObject(o, intervals...)
+	}
+	//Should not get here
+	panic("Unknown object.")
+}
+
+// eventuallyObject gets an individual object from the API server
+func (m *Matcher) eventuallyObject(obj Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
 	key := types.NamespacedName{
 		Name:      obj.GetName(),
 		Namespace: obj.GetNamespace(),
@@ -79,11 +93,23 @@ func (m *Matcher) Eventually(obj Object, intervals ...interface{}) gomega.Gomega
 	get := func() Object {
 		err := m.Client.Get(context.TODO(), key, obj)
 		if err != nil {
-			gomega.Panic()
+			panic(err)
 		}
 		return obj
 	}
 	return gomega.Eventually(get, intervals...)
+}
+
+// eventuallyList gets a list type  from the API server
+func (m *Matcher) eventuallyList(obj runtime.Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
+	list := func() runtime.Object {
+		err := m.Client.List(context.TODO(), &client.ListOptions{}, obj)
+		if err != nil {
+			panic(err)
+		}
+		return obj
+	}
+	return gomega.Eventually(list, intervals...)
 }
 
 // WithAnnotations returns the object's Annotations
@@ -97,6 +123,17 @@ func WithAnnotations(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
 func WithFinalizers(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
 	return gomega.WithTransform(func(obj Object) []string {
 		return obj.GetFinalizers()
+	}, matcher)
+}
+
+// WithItems returns the lists Finalizers
+func WithItems(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
+	return gomega.WithTransform(func(obj runtime.Object) []runtime.Object {
+		items, err := meta.ExtractList(obj)
+		if err != nil {
+			panic(err)
+		}
+		return items
 	}, matcher)
 }
 

@@ -194,16 +194,7 @@ var _ = Describe("Wave controller Suite", func() {
 				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(configHashAnnotation)))
 
 				events := &corev1.EventList{}
-				Eventually(func() error {
-					err := c.List(context.TODO(), &client.ListOptions{}, events)
-					if err != nil {
-						return err
-					}
-					if len(events.Items) != 5 {
-						return fmt.Errorf("Events not updated")
-					}
-					return nil
-				}).Should(Succeed())
+				m.Eventually(events, timeout).Should(utils.WithItems(HaveLen(5)))
 
 				eventMessage := func(event corev1.Event) string {
 					return event.Message
