@@ -145,8 +145,7 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		It("removes owner references from all children", func() {
 			for _, obj := range []object{cm1, cm2, s1, s2} {
-				m.Get(obj, timeout).Should(Succeed())
-				Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+				m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 		})
 
