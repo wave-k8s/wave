@@ -53,10 +53,6 @@ var _ = Describe("Wave children Suite", func() {
 		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
 	}
 
-	var delete = func(obj object) {
-		Expect(c.Delete(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
 	var get = func(obj object) {
 		key := types.NamespacedName{
 			Name:      obj.GetName(),
@@ -156,7 +152,7 @@ var _ = Describe("Wave children Suite", func() {
 
 		It("returns an error if one of the referenced children is missing", func() {
 			// Delete s2 and wait for the cache to sync
-			delete(s2)
+			m.Delete(s2).Should(Succeed())
 			key := types.NamespacedName{
 				Name:      s2.GetName(),
 				Namespace: s2.GetNamespace(),

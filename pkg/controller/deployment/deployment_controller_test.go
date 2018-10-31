@@ -56,10 +56,6 @@ var _ = Describe("Wave controller Suite", func() {
 		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
 	}
 
-	var delete = func(obj object) {
-		Expect(c.Delete(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
 	var get = func(obj object) {
 		key := types.NamespacedName{
 			Name:      obj.GetName(),
@@ -443,7 +439,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 			Context("And is deleted", func() {
 				BeforeEach(func() {
-					delete(deployment)
+					m.Delete(deployment).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment

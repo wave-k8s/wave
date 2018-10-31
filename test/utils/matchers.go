@@ -43,3 +43,9 @@ func (m *Matcher) Create(obj Object, extras ...interface{}) gomega.GomegaAsserti
 	return gomega.Expect(err, extras)
 }
 
+// Delete deletes the object from the API server
+func (m *Matcher) Delete(obj Object, extras ...interface{}) gomega.GomegaAssertion {
+	err := m.Client.Delete(context.TODO(), obj)
+	return gomega.Expect(err, extras)
+}
+
