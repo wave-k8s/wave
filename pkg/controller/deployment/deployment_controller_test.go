@@ -257,7 +257,16 @@ var _ = Describe("Wave controller Suite", func() {
 				}, 1, "Hash not updated")
 
 				events := &corev1.EventList{}
-				Expect(c.List(context.TODO(), &client.ListOptions{}, events)).NotTo(HaveOccurred())
+				Eventually(func() error {
+					err := c.List(context.TODO(), &client.ListOptions{}, events)
+					if err != nil {
+						return err
+					}
+					if len(events.Items) != 5 {
+						return fmt.Errorf("Events not updated")
+					}
+					return nil
+				}).Should(Succeed())
 
 				eventMessage := func(event corev1.Event) string {
 					return event.Message
