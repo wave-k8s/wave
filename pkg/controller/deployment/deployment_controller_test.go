@@ -52,16 +52,6 @@ var _ = Describe("Wave controller Suite", func() {
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
 
-	var get = func(obj object) {
-		key := types.NamespacedName{
-			Name:      obj.GetName(),
-			Namespace: obj.GetNamespace(),
-		}
-		Eventually(func() error {
-			return c.Get(context.TODO(), key, obj)
-		}, timeout).Should(Succeed())
-	}
-
 	var eventuallyEqual = func(obj object, actual func(object) interface{}, expected interface{}, msg string) {
 		Eventually(func() error {
 			key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
@@ -141,10 +131,10 @@ var _ = Describe("Wave controller Suite", func() {
 		m.Create(cm2).Should(Succeed())
 		m.Create(s1).Should(Succeed())
 		m.Create(s2).Should(Succeed())
-		get(cm1)
-		get(cm2)
-		get(s1)
-		get(s2)
+		m.Get(cm1, timeout).Should(Succeed())
+		m.Get(cm2, timeout).Should(Succeed())
+		m.Get(s1, timeout).Should(Succeed())
+		m.Get(s2, timeout).Should(Succeed())
 
 		deployment = utils.ExampleDeployment.DeepCopy()
 
@@ -210,7 +200,7 @@ var _ = Describe("Wave controller Suite", func() {
 				waitForDeploymentReconciled(deployment)
 
 				// Get the updated Deployment
-				get(deployment)
+				m.Get(deployment, timeout).Should(Succeed())
 			})
 
 			It("Adds OwnerReferences to all children", func() {
@@ -287,7 +277,7 @@ var _ = Describe("Wave controller Suite", func() {
 					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment
-					get(deployment)
+					m.Get(deployment, timeout).Should(Succeed())
 				})
 
 				It("Removes the OwnerReference from the orphaned ConfigMap", func() {
@@ -325,14 +315,14 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
-						get(cm1)
+						m.Get(cm1, timeout).Should(Succeed())
 						cm1.Data["key1"] = "modified"
 						m.Update(cm1).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
-						get(deployment)
+						m.Get(deployment, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
@@ -342,14 +332,14 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
-						get(cm2)
+						m.Get(cm2, timeout).Should(Succeed())
 						cm2.Data["key1"] = "modified"
 						m.Update(cm2).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
-						get(deployment)
+						m.Get(deployment, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
@@ -359,7 +349,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
-						get(s1)
+						m.Get(s1, timeout).Should(Succeed())
 						if s1.StringData == nil {
 							s1.StringData = make(map[string]string)
 						}
@@ -369,7 +359,7 @@ var _ = Describe("Wave controller Suite", func() {
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
-						get(deployment)
+						m.Get(deployment, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
@@ -379,7 +369,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
-						get(s2)
+						m.Get(s2, timeout).Should(Succeed())
 						if s2.StringData == nil {
 							s2.StringData = make(map[string]string)
 						}
@@ -389,7 +379,7 @@ var _ = Describe("Wave controller Suite", func() {
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
-						get(deployment)
+						m.Get(deployment, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
@@ -400,7 +390,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 			Context("And the annotation is removed", func() {
 				BeforeEach(func() {
-					get(deployment)
+					m.Get(deployment, timeout).Should(Succeed())
 					deployment.SetAnnotations(make(map[string]string))
 					m.Update(deployment).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
@@ -439,7 +429,7 @@ var _ = Describe("Wave controller Suite", func() {
 					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment
-					get(deployment)
+					m.Get(deployment, timeout).Should(Succeed())
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []object{cm1, cm2, s1, s2} {
@@ -466,12 +456,12 @@ var _ = Describe("Wave controller Suite", func() {
 		Context("And it does not have the required annotation", func() {
 			BeforeEach(func() {
 				// Get the updated Deployment
-				get(deployment)
+				m.Get(deployment, timeout).Should(Succeed())
 			})
 
 			It("Doesn't add any OwnerReferences to any children", func() {
 				for _, obj := range []object{cm1, cm2, s1, s2} {
-					get(obj)
+					m.Get(obj, timeout).Should(Succeed())
 					Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
 				}
 			})

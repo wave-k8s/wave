@@ -49,16 +49,6 @@ var _ = Describe("Wave owner references Suite", func() {
 	var s2 *corev1.Secret
 	var ownerRef metav1.OwnerReference
 
-	var get = func(obj object) {
-		key := types.NamespacedName{
-			Name:      obj.GetName(),
-			Namespace: obj.GetNamespace(),
-		}
-		Eventually(func() error {
-			return c.Get(context.TODO(), key, obj)
-		}, timeout).Should(Succeed())
-	}
-
 	var getOwnerRef = func(deployment *appsv1.Deployment) metav1.OwnerReference {
 		f := false
 		t := true
@@ -104,7 +94,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		stopMgr, mgrStopped = StartTestManager(mgr)
 
 		// Make sure caches have synced
-		get(deployment)
+		m.Get(deployment, timeout).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -144,10 +134,10 @@ var _ = Describe("Wave owner references Suite", func() {
 			err := r.removeOwnerReferences(deployment, children)
 			Expect(err).NotTo(HaveOccurred())
 
-			get(cm1)
-			get(cm2)
-			get(s1)
-			get(s2)
+			m.Get(cm1, timeout).Should(Succeed())
+			m.Get(cm2, timeout).Should(Succeed())
+			m.Get(s1, timeout).Should(Succeed())
+			m.Get(s2, timeout).Should(Succeed())
 
 			// Updates should propogate
 			for _, obj := range []object{cm1, s1} {
@@ -223,10 +213,10 @@ var _ = Describe("Wave owner references Suite", func() {
 			err := r.updateOwnerReferences(deployment, existing, current)
 			Expect(err).NotTo(HaveOccurred())
 
-			get(cm1)
-			get(cm2)
-			get(s1)
-			get(s2)
+			m.Get(cm1, timeout).Should(Succeed())
+			m.Get(cm2, timeout).Should(Succeed())
+			m.Get(s1, timeout).Should(Succeed())
+			m.Get(s2, timeout).Should(Succeed())
 		})
 
 		It("removes owner references from those not in current", func() {
@@ -285,8 +275,8 @@ var _ = Describe("Wave owner references Suite", func() {
 				return nil
 			}, timeout).Should(Succeed())
 
-			get(cm1)
-			get(cm2)
+			m.Get(cm1, timeout).Should(Succeed())
+			m.Get(cm2, timeout).Should(Succeed())
 		})
 
 		It("adds an OwnerReference if not present", func() {
@@ -307,7 +297,7 @@ var _ = Describe("Wave owner references Suite", func() {
 				return nil
 			}, timeout).Should(Succeed())
 
-			get(cm1)
+			m.Get(cm1, timeout).Should(Succeed())
 			Expect(r.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
 			Eventually(func() error {
 				key := types.NamespacedName{Namespace: cm1.GetNamespace(), Name: cm1.GetName()}
@@ -321,7 +311,7 @@ var _ = Describe("Wave owner references Suite", func() {
 				return nil
 			}, timeout).Should(Succeed())
 
-			get(cm1)
+			m.Get(cm1, timeout).Should(Succeed())
 			Expect(cm1.GetOwnerReferences()).Should(ContainElement(ownerRef))
 		})
 
@@ -342,17 +332,17 @@ var _ = Describe("Wave owner references Suite", func() {
 			}, timeout).Should(Succeed())
 
 			// Get the original version
-			get(cm2)
+			m.Get(cm2, timeout).Should(Succeed())
 			originalVersion := cm2.GetResourceVersion()
 			Expect(r.updateOwnerReference(deployment, cm2)).NotTo(HaveOccurred())
 
 			// Compare current version
-			get(cm2)
+			m.Get(cm2, timeout).Should(Succeed())
 			Expect(cm2.GetResourceVersion()).To(Equal(originalVersion))
 		})
 
 		It("sends events for adding each owner reference", func() {
-			get(cm1)
+			m.Get(cm1, timeout).Should(Succeed())
 			Expect(r.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
 			Eventually(func() error {
 				key := types.NamespacedName{Namespace: cm1.GetNamespace(), Name: cm1.GetName()}

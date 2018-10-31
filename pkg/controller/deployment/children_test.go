@@ -49,16 +49,6 @@ var _ = Describe("Wave children Suite", func() {
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
 
-	var get = func(obj object) {
-		key := types.NamespacedName{
-			Name:      obj.GetName(),
-			Namespace: obj.GetNamespace(),
-		}
-		Eventually(func() error {
-			return c.Get(context.TODO(), key, obj)
-		}, timeout).Should(Succeed())
-	}
-
 	var getOwnerRef = func(deployment *appsv1.Deployment) metav1.OwnerReference {
 		f := false
 		t := true
@@ -102,10 +92,10 @@ var _ = Describe("Wave children Suite", func() {
 		stopMgr, mgrStopped = StartTestManager(mgr)
 
 		// Ensure the caches have synced
-		get(cm1)
-		get(cm2)
-		get(s1)
-		get(s2)
+		m.Get(cm1, timeout).Should(Succeed())
+		m.Get(cm2, timeout).Should(Succeed())
+		m.Get(s1, timeout).Should(Succeed())
+		m.Get(s2, timeout).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -195,11 +185,11 @@ var _ = Describe("Wave children Suite", func() {
 
 	Context("getExistingChildren", func() {
 		BeforeEach(func() {
-			get(deployment)
+			m.Get(deployment, timeout).Should(Succeed())
 			ownerRef := getOwnerRef(deployment)
 
 			for _, obj := range []object{cm1, s1} {
-				get(obj)
+				m.Get(obj, timeout).Should(Succeed())
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 				m.Update(obj).Should(Succeed())
 
@@ -245,7 +235,7 @@ var _ = Describe("Wave children Suite", func() {
 	Context("isOwnedBy", func() {
 		var ownerRef metav1.OwnerReference
 		BeforeEach(func() {
-			get(deployment)
+			m.Get(deployment, timeout).Should(Succeed())
 			ownerRef = getOwnerRef(deployment)
 		})
 

@@ -46,16 +46,6 @@ var _ = Describe("Wave owner references Suite", func() {
 
 	var ownerRef metav1.OwnerReference
 
-	var get = func(obj object) {
-		key := types.NamespacedName{
-			Name:      obj.GetName(),
-			Namespace: obj.GetNamespace(),
-		}
-		Eventually(func() error {
-			return c.Get(context.TODO(), key, obj)
-		}, timeout).Should(Succeed())
-	}
-
 	var getOwnerRef = func(deployment *appsv1.Deployment) metav1.OwnerReference {
 		f := false
 		t := true
@@ -108,7 +98,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		ownerRef = getOwnerRef(deployment)
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
-		get(deployment)
+		m.Get(deployment, timeout).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -182,7 +172,7 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		It("removes owner references from all children", func() {
 			for _, obj := range []object{cm1, cm2, s1, s2} {
-				get(obj)
+				m.Get(obj, timeout).Should(Succeed())
 				Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
 			}
 		})

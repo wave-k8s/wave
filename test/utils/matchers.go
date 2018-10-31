@@ -22,6 +22,7 @@ import (
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -53,4 +54,16 @@ func (m *Matcher) Delete(obj Object, extras ...interface{}) gomega.GomegaAsserti
 func (m *Matcher) Update(obj Object, extras ...interface{}) gomega.GomegaAssertion {
 	err := m.Client.Update(context.TODO(), obj)
 	return gomega.Expect(err, extras)
+}
+
+// Get gets the object from the API server
+func (m *Matcher) Get(obj Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
+	key := types.NamespacedName{
+		Name:      obj.GetName(),
+		Namespace: obj.GetNamespace(),
+	}
+	get := func() error {
+		return m.Client.Get(context.TODO(), key, obj)
+	}
+	return gomega.Eventually(get, intervals...)
 }
