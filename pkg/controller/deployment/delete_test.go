@@ -59,20 +59,6 @@ var _ = Describe("Wave owner references Suite", func() {
 		}
 	}
 
-	var eventuallyEqual = func(obj object, actual func(object) interface{}, expected interface{}, msg string) {
-		Eventually(func() error {
-			key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-			err := c.Get(context.TODO(), key, obj)
-			if err != nil {
-				return err
-			}
-			if actual(obj) != expected {
-				return fmt.Errorf(msg)
-			}
-			return nil
-		}, timeout).Should(Succeed())
-	}
-
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
@@ -178,10 +164,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		})
 
 		It("removes the finalizer from the deployment", func() {
-			eventuallyEqual(deployment, func(obj object) interface{} {
-				return len(obj.GetFinalizers())
-			}, 1, "Finalizers not updated")
-			Expect(deployment.GetFinalizers()).NotTo(ContainElement(finalizerString))
+			m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(finalizerString)))
 		})
 	})
 

@@ -86,6 +86,13 @@ func (m *Matcher) Eventually(obj Object, intervals ...interface{}) gomega.Gomega
 	return gomega.Eventually(get, intervals...)
 }
 
+// WithFinalizers returns the object's Finalizers
+func WithFinalizers(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
+	return gomega.WithTransform(func(obj Object) []string {
+		return obj.GetFinalizers()
+	}, matcher)
+}
+
 // WithOwnerReferences returns the object's OwnerReferences
 func WithOwnerReferences(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
 	return gomega.WithTransform(func(obj Object) []metav1.OwnerReference {

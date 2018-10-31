@@ -210,10 +210,7 @@ var _ = Describe("Wave controller Suite", func() {
 			})
 
 			It("Adds a finalizer to the Deployment", func() {
-				eventuallyEqual(deployment, func(obj object) interface{} {
-					return len(obj.GetFinalizers())
-				}, 1, "Finalizers not updated")
-				Expect(deployment.GetFinalizers()).To(ContainElement(finalizerString))
+				m.Eventually(deployment, timeout).Should(utils.WithFinalizers(ContainElement(finalizerString)))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
