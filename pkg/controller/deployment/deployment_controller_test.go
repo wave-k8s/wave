@@ -217,21 +217,11 @@ var _ = Describe("Wave controller Suite", func() {
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
-				eventuallyEqual(deployment, func(obj object) interface{} {
-					dep := obj.(*appsv1.Deployment)
-					return len(dep.Spec.Template.GetAnnotations())
-				}, 1, "Hash not updated")
-				annotations := deployment.Spec.Template.GetAnnotations()
-				hash, ok := annotations[configHashAnnotation]
-				Expect(ok).To(BeTrue())
-				Expect(hash).NotTo(BeEmpty())
+				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(configHashAnnotation)))
 			})
 
 			It("Sends an event when updating the hash", func() {
-				eventuallyEqual(deployment, func(obj object) interface{} {
-					dep := obj.(*appsv1.Deployment)
-					return len(dep.Spec.Template.GetAnnotations())
-				}, 1, "Hash not updated")
+				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(configHashAnnotation)))
 
 				events := &corev1.EventList{}
 				Eventually(func() error {
@@ -256,14 +246,8 @@ var _ = Describe("Wave controller Suite", func() {
 			Context("And a child is removed", func() {
 				var originalHash string
 				BeforeEach(func() {
-					eventuallyEqual(deployment, func(obj object) interface{} {
-						dep := obj.(*appsv1.Deployment)
-						return len(dep.Spec.Template.GetAnnotations())
-					}, 1, "Hash not updated")
-					templateAnnotations := deployment.Spec.Template.GetAnnotations()
-					var ok bool
-					originalHash, ok = templateAnnotations[configHashAnnotation]
-					Expect(ok).To(BeTrue())
+					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(configHashAnnotation)))
+					originalHash = deployment.Spec.Template.GetAnnotations()[configHashAnnotation]
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
@@ -294,14 +278,8 @@ var _ = Describe("Wave controller Suite", func() {
 				var originalHash string
 
 				BeforeEach(func() {
-					eventuallyEqual(deployment, func(obj object) interface{} {
-						dep := obj.(*appsv1.Deployment)
-						return len(dep.Spec.Template.GetAnnotations())
-					}, 1, "Hash not updated")
-					templateAnnotations := deployment.Spec.Template.GetAnnotations()
-					var ok bool
-					originalHash, ok = templateAnnotations[configHashAnnotation]
-					Expect(ok).To(BeTrue())
+					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(configHashAnnotation)))
+					originalHash = deployment.Spec.Template.GetAnnotations()[configHashAnnotation]
 				})
 
 				Context("A ConfigMap volume is updated", func() {

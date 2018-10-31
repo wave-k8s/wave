@@ -21,6 +21,7 @@ import (
 
 	"github.com/onsi/gomega"
 	gtypes "github.com/onsi/gomega/types"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -89,5 +90,16 @@ func (m *Matcher) Eventually(obj Object, intervals ...interface{}) gomega.Gomega
 func WithOwnerReferences(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
 	return gomega.WithTransform(func(obj Object) []metav1.OwnerReference {
 		return obj.GetOwnerReferences()
+	}, matcher)
+}
+
+// WithPodTemplateAnnotations returns the deployments PodTemplate's annotations
+func WithPodTemplateAnnotations(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
+	return gomega.WithTransform(func(obj Object) map[string]string {
+		dep, ok := obj.(*appsv1.Deployment)
+		if !ok {
+			panic("Unknown Object.")
+		}
+		return dep.Spec.Template.GetAnnotations()
 	}, matcher)
 }
