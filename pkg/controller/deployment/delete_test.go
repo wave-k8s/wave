@@ -46,10 +46,6 @@ var _ = Describe("Wave owner references Suite", func() {
 
 	var ownerRef metav1.OwnerReference
 
-	var update = func(obj object) {
-		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
 	var get = func(obj object) {
 		key := types.NamespacedName{
 			Name:      obj.GetName(),
@@ -140,14 +136,14 @@ var _ = Describe("Wave owner references Suite", func() {
 
 			for _, obj := range []object{cm1, cm2, s1, s2} {
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-				update(obj)
+				m.Update(obj).Should(Succeed())
 			}
 
 			f := deployment.GetFinalizers()
 			f = append(f, finalizerString)
 			f = append(f, "keep.me.around/finalizer")
 			deployment.SetFinalizers(f)
-			update(deployment)
+			m.Update(deployment).Should(Succeed())
 
 			_, err := r.handleDelete(deployment)
 			Expect(err).NotTo(HaveOccurred())

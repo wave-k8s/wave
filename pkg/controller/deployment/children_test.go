@@ -49,10 +49,6 @@ var _ = Describe("Wave children Suite", func() {
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
 
-	var update = func(obj object) {
-		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
 	var get = func(obj object) {
 		key := types.NamespacedName{
 			Name:      obj.GetName(),
@@ -205,7 +201,7 @@ var _ = Describe("Wave children Suite", func() {
 			for _, obj := range []object{cm1, s1} {
 				get(obj)
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-				update(obj)
+				m.Update(obj).Should(Succeed())
 
 				Eventually(func() error {
 					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}

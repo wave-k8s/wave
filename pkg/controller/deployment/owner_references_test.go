@@ -49,10 +49,6 @@ var _ = Describe("Wave owner references Suite", func() {
 	var s2 *corev1.Secret
 	var ownerRef metav1.OwnerReference
 
-	var update = func(obj object) {
-		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
 	var get = func(obj object) {
 		key := types.NamespacedName{
 			Name:      obj.GetName(),
@@ -129,7 +125,7 @@ var _ = Describe("Wave owner references Suite", func() {
 				otherRef := ownerRef.DeepCopy()
 				otherRef.UID = obj.GetUID()
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef, *otherRef})
-				update(obj)
+				m.Update(obj).Should(Succeed())
 
 				Eventually(func() error {
 					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
@@ -207,7 +203,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		BeforeEach(func() {
 			for _, obj := range []object{cm2, s1, s2} {
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-				update(obj)
+				m.Update(obj).Should(Succeed())
 
 				Eventually(func() error {
 					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
@@ -276,7 +272,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		BeforeEach(func() {
 			// Add an OwnerReference to cm2
 			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-			update(cm2)
+			m.Update(cm2).Should(Succeed())
 			Eventually(func() error {
 				key := types.NamespacedName{Namespace: cm2.GetNamespace(), Name: cm2.GetName()}
 				err := c.Get(context.TODO(), key, cm2)
@@ -298,7 +294,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			otherRef := ownerRef
 			otherRef.UID = cm1.GetUID()
 			cm1.SetOwnerReferences([]metav1.OwnerReference{otherRef})
-			update(cm1)
+			m.Update(cm1).Should(Succeed())
 			Eventually(func() error {
 				key := types.NamespacedName{Namespace: cm1.GetNamespace(), Name: cm1.GetName()}
 				err := c.Get(context.TODO(), key, cm1)
@@ -332,7 +328,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		It("doesn't update the child object if there is already and OwnerReference present", func() {
 			// Add an OwnerReference to cm2
 			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-			update(cm2)
+			m.Update(cm2).Should(Succeed())
 			Eventually(func() error {
 				key := types.NamespacedName{Namespace: cm2.GetNamespace(), Name: cm2.GetName()}
 				err := c.Get(context.TODO(), key, cm2)

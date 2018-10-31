@@ -17,7 +17,6 @@ limitations under the License.
 package deployment
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -44,10 +43,6 @@ var _ = Describe("Wave hash Suite", func() {
 		var cm2 *corev1.ConfigMap
 		var s1 *corev1.Secret
 		var s2 *corev1.Secret
-
-		var update = func(obj object) {
-			Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
-		}
 
 		BeforeEach(func() {
 			mgr, err := manager.New(cfg, manager.Options{})
@@ -87,7 +82,7 @@ var _ = Describe("Wave hash Suite", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			cm1.Data["key1"] = "modified"
-			update(cm1)
+			m.Update(cm1).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -101,7 +96,7 @@ var _ = Describe("Wave hash Suite", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			s1.Annotations = map[string]string{"new": "annotations"}
-			update(s1)
+			m.Update(s1).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 

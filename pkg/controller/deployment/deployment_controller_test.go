@@ -52,10 +52,6 @@ var _ = Describe("Wave controller Suite", func() {
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
 
-	var update = func(obj object) {
-		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
 	var get = func(obj object) {
 		key := types.NamespacedName{
 			Name:      obj.GetName(),
@@ -210,7 +206,7 @@ var _ = Describe("Wave controller Suite", func() {
 				annotations[requiredAnnotation] = "true"
 				deployment.SetAnnotations(annotations)
 
-				update(deployment)
+				m.Update(deployment).Should(Succeed())
 				waitForDeploymentReconciled(deployment)
 
 				// Get the updated Deployment
@@ -287,7 +283,7 @@ var _ = Describe("Wave controller Suite", func() {
 					containers := deployment.Spec.Template.Spec.Containers
 					Expect(containers[0].Name).To(Equal("container1"))
 					deployment.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
-					update(deployment)
+					m.Update(deployment).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment
@@ -331,7 +327,7 @@ var _ = Describe("Wave controller Suite", func() {
 					BeforeEach(func() {
 						get(cm1)
 						cm1.Data["key1"] = "modified"
-						update(cm1)
+						m.Update(cm1).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -348,7 +344,7 @@ var _ = Describe("Wave controller Suite", func() {
 					BeforeEach(func() {
 						get(cm2)
 						cm2.Data["key1"] = "modified"
-						update(cm2)
+						m.Update(cm2).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -368,7 +364,7 @@ var _ = Describe("Wave controller Suite", func() {
 							s1.StringData = make(map[string]string)
 						}
 						s1.StringData["key1"] = "modified"
-						update(s1)
+						m.Update(s1).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -388,7 +384,7 @@ var _ = Describe("Wave controller Suite", func() {
 							s2.StringData = make(map[string]string)
 						}
 						s2.StringData["key1"] = "modified"
-						update(s2)
+						m.Update(s2).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -406,7 +402,7 @@ var _ = Describe("Wave controller Suite", func() {
 				BeforeEach(func() {
 					get(deployment)
 					deployment.SetAnnotations(make(map[string]string))
-					update(deployment)
+					m.Update(deployment).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
 					eventuallyEqual(deployment, func(obj object) interface{} {
