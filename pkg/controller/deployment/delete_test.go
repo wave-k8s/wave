@@ -36,6 +36,7 @@ import (
 
 var _ = Describe("Wave owner references Suite", func() {
 	var c client.Client
+	var m utils.Matcher
 	var deployment *appsv1.Deployment
 	var r *ReconcileDeployment
 	var mgrStopped *sync.WaitGroup
@@ -44,10 +45,6 @@ var _ = Describe("Wave owner references Suite", func() {
 	const timeout = time.Second * 5
 
 	var ownerRef metav1.OwnerReference
-
-	var create = func(obj object) {
-		Expect(c.Create(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
 
 	var update = func(obj object) {
 		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
@@ -94,6 +91,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
+		m = utils.Matcher{Client: c}
 
 		reconciler := newReconciler(mgr)
 		Expect(add(mgr, reconciler)).NotTo(HaveOccurred())
@@ -103,13 +101,13 @@ var _ = Describe("Wave owner references Suite", func() {
 		Expect(ok).To(BeTrue())
 
 		// Create some configmaps and secrets
-		create(utils.ExampleConfigMap1.DeepCopy())
-		create(utils.ExampleConfigMap2.DeepCopy())
-		create(utils.ExampleSecret1.DeepCopy())
-		create(utils.ExampleSecret2.DeepCopy())
+		m.Create(utils.ExampleConfigMap1.DeepCopy()).Should(Succeed())
+		m.Create(utils.ExampleConfigMap2.DeepCopy()).Should(Succeed())
+		m.Create(utils.ExampleSecret1.DeepCopy()).Should(Succeed())
+		m.Create(utils.ExampleSecret2.DeepCopy()).Should(Succeed())
 
 		deployment = utils.ExampleDeployment.DeepCopy()
-		create(deployment)
+		m.Create(deployment).Should(Succeed())
 
 		ownerRef = getOwnerRef(deployment)
 

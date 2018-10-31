@@ -35,6 +35,7 @@ import (
 
 var _ = Describe("Wave children Suite", func() {
 	var c client.Client
+	var m utils.Matcher
 	var deployment *appsv1.Deployment
 	var r *ReconcileDeployment
 	var children []object
@@ -47,10 +48,6 @@ var _ = Describe("Wave children Suite", func() {
 	var cm2 *corev1.ConfigMap
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
-
-	var create = func(obj object) {
-		Expect(c.Create(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
 
 	var update = func(obj object) {
 		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
@@ -87,6 +84,7 @@ var _ = Describe("Wave children Suite", func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
+		m = utils.Matcher{Client: c}
 
 		reconciler := newReconciler(mgr)
 		Expect(add(mgr, reconciler)).NotTo(HaveOccurred())
@@ -101,13 +99,13 @@ var _ = Describe("Wave children Suite", func() {
 		s1 = utils.ExampleSecret1.DeepCopy()
 		s2 = utils.ExampleSecret2.DeepCopy()
 
-		create(cm1)
-		create(cm2)
-		create(s1)
-		create(s2)
+		m.Create(cm1).Should(Succeed())
+		m.Create(cm2).Should(Succeed())
+		m.Create(s1).Should(Succeed())
+		m.Create(s2).Should(Succeed())
 
 		deployment = utils.ExampleDeployment.DeepCopy()
-		create(deployment)
+		m.Create(deployment).Should(Succeed())
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
 

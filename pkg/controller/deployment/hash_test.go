@@ -33,6 +33,7 @@ import (
 var _ = Describe("Wave hash Suite", func() {
 	Context("calculateConfigHash", func() {
 		var c client.Client
+		var m utils.Matcher
 
 		var mgrStopped *sync.WaitGroup
 		var stopMgr chan struct{}
@@ -44,10 +45,6 @@ var _ = Describe("Wave hash Suite", func() {
 		var s1 *corev1.Secret
 		var s2 *corev1.Secret
 
-		var create = func(obj object) {
-			Expect(c.Create(context.TODO(), obj)).NotTo(HaveOccurred())
-		}
-
 		var update = func(obj object) {
 			Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
 		}
@@ -56,6 +53,7 @@ var _ = Describe("Wave hash Suite", func() {
 			mgr, err := manager.New(cfg, manager.Options{})
 			Expect(err).NotTo(HaveOccurred())
 			c = mgr.GetClient()
+			m = utils.Matcher{Client: c}
 			Expect(add(mgr, newReconciler(mgr))).NotTo(HaveOccurred())
 
 			stopMgr, mgrStopped = StartTestManager(mgr)
@@ -65,10 +63,10 @@ var _ = Describe("Wave hash Suite", func() {
 			s1 = utils.ExampleSecret1.DeepCopy()
 			s2 = utils.ExampleSecret2.DeepCopy()
 
-			create(cm1)
-			create(cm2)
-			create(s1)
-			create(s2)
+			m.Create(cm1).Should(Succeed())
+			m.Create(cm2).Should(Succeed())
+			m.Create(s1).Should(Succeed())
+			m.Create(s2).Should(Succeed())
 		})
 
 		AfterEach(func() {
