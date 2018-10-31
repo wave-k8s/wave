@@ -202,6 +202,7 @@ var _ = Describe("Wave controller Suite", func() {
 			&appsv1.DeploymentList{},
 			&corev1.ConfigMapList{},
 			&corev1.SecretList{},
+			&corev1.EventList{},
 		)
 	})
 
@@ -247,6 +248,32 @@ var _ = Describe("Wave controller Suite", func() {
 				hash, ok := annotations[configHashAnnotation]
 				Expect(ok).To(BeTrue())
 				Expect(hash).NotTo(BeEmpty())
+			})
+
+			It("Sends an event when updating the hash", func() {
+				eventuallyEqual(deployment, func(obj object) interface{} {
+					dep := obj.(*appsv1.Deployment)
+					return len(dep.Spec.Template.GetAnnotations())
+				}, 1, "Hash not updated")
+
+				events := &corev1.EventList{}
+				Eventually(func() error {
+					err := c.List(context.TODO(), &client.ListOptions{}, events)
+					if err != nil {
+						return err
+					}
+					if len(events.Items) != 5 {
+						return fmt.Errorf("Events not updated")
+					}
+					return nil
+				}).Should(Succeed())
+
+				eventMessage := func(event corev1.Event) string {
+					return event.Message
+				}
+
+				hashMessage := "Configuration hash updated to 198df8455a4fd702fc0c7fdfa4bdb213363b96240bfd48b7b098d936499315a1"
+				Expect(events.Items).To(ContainElement(WithTransform(eventMessage, Equal(hashMessage))))
 			})
 
 			Context("And a child is removed", func() {

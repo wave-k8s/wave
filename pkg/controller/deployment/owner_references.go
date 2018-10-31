@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -40,6 +41,7 @@ func (r *ReconcileDeployment) removeOwnerReferences(obj *appsv1.Deployment, chil
 
 		// Compare the ownerRefs and update if they have changed
 		if !reflect.DeepEqual(ownerRefs, child.GetOwnerReferences()) {
+			r.recorder.Eventf(child, corev1.EventTypeNormal, "RemoveWatch", "Removing watch for %s %s", kindOf(child), child.GetName())
 			child.SetOwnerReferences(ownerRefs)
 			err := r.Update(context.TODO(), child)
 			if err != nil {
@@ -96,6 +98,7 @@ func (r *ReconcileDeployment) updateOwnerReference(owner *appsv1.Deployment, chi
 	}
 
 	// Append the new OwnerReference and update the child
+	r.recorder.Eventf(child, corev1.EventTypeNormal, "AddWatch", "Adding watch for %s %s", kindOf(child), child.GetName())
 	ownerRefs := append(child.GetOwnerReferences(), ownerRef)
 	child.SetOwnerReferences(ownerRefs)
 	err := r.Update(context.TODO(), child)
@@ -139,4 +142,16 @@ func isIn(list []object, child object) bool {
 		}
 	}
 	return false
+}
+
+// kindOf returns the Kind of the given object as a string
+func kindOf(obj object) string {
+	switch obj.(type) {
+	case *corev1.ConfigMap:
+		return "ConfigMap"
+	case *corev1.Secret:
+		return "Secret"
+	default:
+		return "Unknown"
+	}
 }
