@@ -121,6 +121,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			&appsv1.DeploymentList{},
 			&corev1.ConfigMapList{},
 			&corev1.SecretList{},
+			&corev1.EventList{},
 		)
 	})
 
@@ -185,6 +186,22 @@ var _ = Describe("Wave owner references Suite", func() {
 			Expect(cm2.GetOwnerReferences()).To(ContainElement(Not(Equal(ownerRef))))
 			Expect(s1.GetOwnerReferences()).To(ContainElement(Not(Equal(ownerRef))))
 			Expect(s2.GetOwnerReferences()).To(ContainElement(Not(Equal(ownerRef))))
+		})
+
+		It("sends events for removing each owner reference", func() {
+			events := &corev1.EventList{}
+			Expect(c.List(context.TODO(), &client.ListOptions{}, events)).NotTo(HaveOccurred())
+
+			Expect(events.Items).To(HaveLen(2))
+
+			eventMessage := func(event corev1.Event) string {
+				return event.Message
+			}
+
+			cmMessage := "Removing watch for ConfigMap example1"
+			Expect(events.Items).To(ContainElement(WithTransform(eventMessage, Equal(cmMessage))))
+			sMessage := "Removing watch for Secret example1"
+			Expect(events.Items).To(ContainElement(WithTransform(eventMessage, Equal(sMessage))))
 		})
 	})
 
@@ -338,6 +355,34 @@ var _ = Describe("Wave owner references Suite", func() {
 			// Compare current version
 			get(cm2)
 			Expect(cm2.GetResourceVersion()).To(Equal(originalVersion))
+		})
+
+		It("sends events for adding each owner reference", func() {
+			get(cm1)
+			Expect(r.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
+			Eventually(func() error {
+				key := types.NamespacedName{Namespace: cm1.GetNamespace(), Name: cm1.GetName()}
+				err := c.Get(context.TODO(), key, cm1)
+				if err != nil {
+					return err
+				}
+				if len(cm1.GetOwnerReferences()) != 1 {
+					return fmt.Errorf("OwnerReferences not updated")
+				}
+				return nil
+			}, timeout).Should(Succeed())
+
+			events := &corev1.EventList{}
+			Expect(c.List(context.TODO(), &client.ListOptions{}, events)).NotTo(HaveOccurred())
+
+			Expect(events.Items).To(HaveLen(1))
+
+			eventMessage := func(event corev1.Event) string {
+				return event.Message
+			}
+
+			cmMessage := "Adding watch for ConfigMap example1"
+			Expect(events.Items).To(ContainElement(WithTransform(eventMessage, Equal(cmMessage))))
 		})
 	})
 
