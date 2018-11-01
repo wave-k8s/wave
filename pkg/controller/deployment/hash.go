@@ -26,8 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const configHashAnnotation = "wave.pusher.com/config-hash"
-
 // calculateConfigHash uses sha256 to hash the configuration within the child
 // objects and returns a hash as a string
 func calculateConfigHash(children []object) (string, error) {

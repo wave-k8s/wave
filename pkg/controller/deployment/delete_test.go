@@ -36,6 +36,7 @@ import (
 
 var _ = Describe("Wave owner references Suite", func() {
 	var c client.Client
+	var m utils.Matcher
 	var deployment *appsv1.Deployment
 	var r *ReconcileDeployment
 	var mgrStopped *sync.WaitGroup
@@ -45,55 +46,11 @@ var _ = Describe("Wave owner references Suite", func() {
 
 	var ownerRef metav1.OwnerReference
 
-	var create = func(obj object) {
-		Expect(c.Create(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
-	var update = func(obj object) {
-		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
-	var get = func(obj object) {
-		key := types.NamespacedName{
-			Name:      obj.GetName(),
-			Namespace: obj.GetNamespace(),
-		}
-		Eventually(func() error {
-			return c.Get(context.TODO(), key, obj)
-		}, timeout).Should(Succeed())
-	}
-
-	var getOwnerRef = func(deployment *appsv1.Deployment) metav1.OwnerReference {
-		f := false
-		t := true
-		return metav1.OwnerReference{
-			APIVersion:         "apps/v1",
-			Kind:               "Deployment",
-			Name:               deployment.Name,
-			UID:                deployment.UID,
-			Controller:         &f,
-			BlockOwnerDeletion: &t,
-		}
-	}
-
-	var eventuallyEqual = func(obj object, actual func(object) interface{}, expected interface{}, msg string) {
-		Eventually(func() error {
-			key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-			err := c.Get(context.TODO(), key, obj)
-			if err != nil {
-				return err
-			}
-			if actual(obj) != expected {
-				return fmt.Errorf(msg)
-			}
-			return nil
-		}, timeout).Should(Succeed())
-	}
-
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
+		m = utils.Matcher{Client: c}
 
 		reconciler := newReconciler(mgr)
 		Expect(add(mgr, reconciler)).NotTo(HaveOccurred())
@@ -103,18 +60,18 @@ var _ = Describe("Wave owner references Suite", func() {
 		Expect(ok).To(BeTrue())
 
 		// Create some configmaps and secrets
-		create(utils.ExampleConfigMap1.DeepCopy())
-		create(utils.ExampleConfigMap2.DeepCopy())
-		create(utils.ExampleSecret1.DeepCopy())
-		create(utils.ExampleSecret2.DeepCopy())
+		m.Create(utils.ExampleConfigMap1.DeepCopy()).Should(Succeed())
+		m.Create(utils.ExampleConfigMap2.DeepCopy()).Should(Succeed())
+		m.Create(utils.ExampleSecret1.DeepCopy()).Should(Succeed())
+		m.Create(utils.ExampleSecret2.DeepCopy()).Should(Succeed())
 
 		deployment = utils.ExampleDeployment.DeepCopy()
-		create(deployment)
+		m.Create(deployment).Should(Succeed())
 
-		ownerRef = getOwnerRef(deployment)
+		ownerRef = utils.GetOwnerRef(deployment)
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
-		get(deployment)
+		m.Get(deployment, timeout).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -142,14 +99,14 @@ var _ = Describe("Wave owner references Suite", func() {
 
 			for _, obj := range []object{cm1, cm2, s1, s2} {
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-				update(obj)
+				m.Update(obj).Should(Succeed())
 			}
 
 			f := deployment.GetFinalizers()
 			f = append(f, finalizerString)
 			f = append(f, "keep.me.around/finalizer")
 			deployment.SetFinalizers(f)
-			update(deployment)
+			m.Update(deployment).Should(Succeed())
 
 			_, err := r.handleDelete(deployment)
 			Expect(err).NotTo(HaveOccurred())
@@ -188,16 +145,12 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		It("removes owner references from all children", func() {
 			for _, obj := range []object{cm1, cm2, s1, s2} {
-				get(obj)
-				Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+				m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 		})
 
 		It("removes the finalizer from the deployment", func() {
-			eventuallyEqual(deployment, func(obj object) interface{} {
-				return len(obj.GetFinalizers())
-			}, 1, "Finalizers not updated")
-			Expect(deployment.GetFinalizers()).NotTo(ContainElement(finalizerString))
+			m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(finalizerString)))
 		})
 	})
 

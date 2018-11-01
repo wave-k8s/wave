@@ -37,6 +37,7 @@ import (
 
 var _ = Describe("Wave controller Suite", func() {
 	var c client.Client
+	var m utils.Matcher
 
 	var deployment *appsv1.Deployment
 	var requests <-chan reconcile.Request
@@ -44,80 +45,13 @@ var _ = Describe("Wave controller Suite", func() {
 	var stopMgr chan struct{}
 
 	const timeout = time.Second * 5
+	const consistentlyTimeout = time.Second
 
 	var ownerRef metav1.OwnerReference
 	var cm1 *corev1.ConfigMap
 	var cm2 *corev1.ConfigMap
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
-
-	var create = func(obj object) {
-		Expect(c.Create(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
-	var update = func(obj object) {
-		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
-	var delete = func(obj object) {
-		Expect(c.Delete(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
-	var get = func(obj object) {
-		key := types.NamespacedName{
-			Name:      obj.GetName(),
-			Namespace: obj.GetNamespace(),
-		}
-		Eventually(func() error {
-			return c.Get(context.TODO(), key, obj)
-		}, timeout).Should(Succeed())
-	}
-
-	var eventuallyEqual = func(obj object, actual func(object) interface{}, expected interface{}, msg string) {
-		Eventually(func() error {
-			key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-			err := c.Get(context.TODO(), key, obj)
-			if err != nil {
-				return err
-			}
-			if actual(obj) != expected {
-				return fmt.Errorf(msg)
-			}
-			return nil
-		}, timeout).Should(Succeed())
-	}
-
-	var eventuallyConfigHashUpdates = func(deployment *appsv1.Deployment, originalHash string) {
-		Eventually(func() error {
-			key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-			err := c.Get(context.TODO(), key, deployment)
-			if err != nil {
-				return err
-			}
-			annotations := deployment.Spec.Template.GetAnnotations()
-			hash, ok := annotations[configHashAnnotation]
-			if !ok {
-				return fmt.Errorf("annotation not set")
-			}
-			if hash == originalHash {
-				return fmt.Errorf("annotation not updated")
-			}
-			return nil
-		}, timeout).Should(Succeed())
-	}
-
-	var getOwnerRef = func(deployment *appsv1.Deployment) metav1.OwnerReference {
-		f := false
-		t := true
-		return metav1.OwnerReference{
-			APIVersion:         "apps/v1",
-			Kind:               "Deployment",
-			Name:               deployment.Name,
-			UID:                deployment.UID,
-			Controller:         &f,
-			BlockOwnerDeletion: &t,
-		}
-	}
 
 	var waitForDeploymentReconciled = func(obj object) {
 		request := reconcile.Request{
@@ -134,6 +68,7 @@ var _ = Describe("Wave controller Suite", func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
+		m = utils.Matcher{Client: c}
 
 		var recFn reconcile.Reconciler
 		recFn, requests = SetupTestReconcile(newReconciler(mgr))
@@ -147,22 +82,22 @@ var _ = Describe("Wave controller Suite", func() {
 		s1 = utils.ExampleSecret1.DeepCopy()
 		s2 = utils.ExampleSecret2.DeepCopy()
 
-		create(cm1)
-		create(cm2)
-		create(s1)
-		create(s2)
-		get(cm1)
-		get(cm2)
-		get(s1)
-		get(s2)
+		m.Create(cm1).Should(Succeed())
+		m.Create(cm2).Should(Succeed())
+		m.Create(s1).Should(Succeed())
+		m.Create(s2).Should(Succeed())
+		m.Get(cm1, timeout).Should(Succeed())
+		m.Get(cm2, timeout).Should(Succeed())
+		m.Get(s1, timeout).Should(Succeed())
+		m.Get(s2, timeout).Should(Succeed())
 
 		deployment = utils.ExampleDeployment.DeepCopy()
 
 		// Create a deployment and wait for it to be reconciled
-		create(deployment)
+		m.Create(deployment).Should(Succeed())
 		waitForDeploymentReconciled(deployment)
 
-		ownerRef = getOwnerRef(deployment)
+		ownerRef = utils.GetOwnerRef(deployment)
 	})
 
 	AfterEach(func() {
@@ -216,106 +151,67 @@ var _ = Describe("Wave controller Suite", func() {
 				annotations[requiredAnnotation] = "true"
 				deployment.SetAnnotations(annotations)
 
-				update(deployment)
+				m.Update(deployment).Should(Succeed())
 				waitForDeploymentReconciled(deployment)
 
 				// Get the updated Deployment
-				get(deployment)
+				m.Get(deployment, timeout).Should(Succeed())
 			})
 
 			It("Adds OwnerReferences to all children", func() {
 				for _, obj := range []object{cm1, cm2, s1, s2} {
-					eventuallyEqual(obj, func(obj object) interface{} {
-						return len(obj.GetOwnerReferences())
-					}, 1, "OwnerReferences not updated")
-					Expect(obj.GetOwnerReferences()).To(ContainElement(ownerRef))
+					m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
 
 			It("Adds a finalizer to the Deployment", func() {
-				eventuallyEqual(deployment, func(obj object) interface{} {
-					return len(obj.GetFinalizers())
-				}, 1, "Finalizers not updated")
-				Expect(deployment.GetFinalizers()).To(ContainElement(finalizerString))
+				m.Eventually(deployment, timeout).Should(utils.WithFinalizers(ContainElement(finalizerString)))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
-				eventuallyEqual(deployment, func(obj object) interface{} {
-					dep := obj.(*appsv1.Deployment)
-					return len(dep.Spec.Template.GetAnnotations())
-				}, 1, "Hash not updated")
-				annotations := deployment.Spec.Template.GetAnnotations()
-				hash, ok := annotations[configHashAnnotation]
-				Expect(ok).To(BeTrue())
-				Expect(hash).NotTo(BeEmpty())
+				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(configHashAnnotation)))
 			})
 
 			It("Sends an event when updating the hash", func() {
-				eventuallyEqual(deployment, func(obj object) interface{} {
-					dep := obj.(*appsv1.Deployment)
-					return len(dep.Spec.Template.GetAnnotations())
-				}, 1, "Hash not updated")
+				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(configHashAnnotation)))
 
 				events := &corev1.EventList{}
-				Eventually(func() error {
-					err := c.List(context.TODO(), &client.ListOptions{}, events)
-					if err != nil {
-						return err
-					}
-					if len(events.Items) != 5 {
-						return fmt.Errorf("Events not updated")
-					}
-					return nil
-				}).Should(Succeed())
-
-				eventMessage := func(event corev1.Event) string {
+				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
 
 				hashMessage := "Configuration hash updated to 198df8455a4fd702fc0c7fdfa4bdb213363b96240bfd48b7b098d936499315a1"
-				Expect(events.Items).To(ContainElement(WithTransform(eventMessage, Equal(hashMessage))))
+				m.Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
 
 			Context("And a child is removed", func() {
 				var originalHash string
 				BeforeEach(func() {
-					eventuallyEqual(deployment, func(obj object) interface{} {
-						dep := obj.(*appsv1.Deployment)
-						return len(dep.Spec.Template.GetAnnotations())
-					}, 1, "Hash not updated")
-					templateAnnotations := deployment.Spec.Template.GetAnnotations()
-					var ok bool
-					originalHash, ok = templateAnnotations[configHashAnnotation]
-					Expect(ok).To(BeTrue())
+					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(configHashAnnotation)))
+					originalHash = deployment.Spec.Template.GetAnnotations()[configHashAnnotation]
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
 					containers := deployment.Spec.Template.Spec.Containers
 					Expect(containers[0].Name).To(Equal("container1"))
 					deployment.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
-					update(deployment)
+					m.Update(deployment).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment
-					get(deployment)
+					m.Get(deployment, timeout).Should(Succeed())
 				})
 
 				It("Removes the OwnerReference from the orphaned ConfigMap", func() {
-					eventuallyEqual(cm2, func(obj object) interface{} {
-						return len(obj.GetOwnerReferences())
-					}, 0, "OwnerReferences not updated")
-					Expect(cm2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+					m.Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
 				It("Removes the OwnerReference from the orphaned Secret", func() {
-					eventuallyEqual(s2, func(obj object) interface{} {
-						return len(obj.GetOwnerReferences())
-					}, 0, "OwnerReferences not updated")
-					Expect(s2.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+					m.Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
 				It("Updates the config hash in the Pod Template", func() {
-					eventuallyConfigHashUpdates(deployment, originalHash)
+					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(configHashAnnotation, originalHash)))
 				})
 			})
 
@@ -323,152 +219,123 @@ var _ = Describe("Wave controller Suite", func() {
 				var originalHash string
 
 				BeforeEach(func() {
-					eventuallyEqual(deployment, func(obj object) interface{} {
-						dep := obj.(*appsv1.Deployment)
-						return len(dep.Spec.Template.GetAnnotations())
-					}, 1, "Hash not updated")
-					templateAnnotations := deployment.Spec.Template.GetAnnotations()
-					var ok bool
-					originalHash, ok = templateAnnotations[configHashAnnotation]
-					Expect(ok).To(BeTrue())
+					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(configHashAnnotation)))
+					originalHash = deployment.Spec.Template.GetAnnotations()[configHashAnnotation]
 				})
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
-						get(cm1)
+						m.Get(cm1, timeout).Should(Succeed())
 						cm1.Data["key1"] = "modified"
-						update(cm1)
+						m.Update(cm1).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
-						get(deployment)
+						m.Get(deployment, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						eventuallyConfigHashUpdates(deployment, originalHash)
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(configHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
-						get(cm2)
+						m.Get(cm2, timeout).Should(Succeed())
 						cm2.Data["key1"] = "modified"
-						update(cm2)
+						m.Update(cm2).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
-						get(deployment)
+						m.Get(deployment, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						eventuallyConfigHashUpdates(deployment, originalHash)
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(configHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
-						get(s1)
+						m.Get(s1, timeout).Should(Succeed())
 						if s1.StringData == nil {
 							s1.StringData = make(map[string]string)
 						}
 						s1.StringData["key1"] = "modified"
-						update(s1)
+						m.Update(s1).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
-						get(deployment)
+						m.Get(deployment, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						eventuallyConfigHashUpdates(deployment, originalHash)
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(configHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
-						get(s2)
+						m.Get(s2, timeout).Should(Succeed())
 						if s2.StringData == nil {
 							s2.StringData = make(map[string]string)
 						}
 						s2.StringData["key1"] = "modified"
-						update(s2)
+						m.Update(s2).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
-						get(deployment)
+						m.Get(deployment, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						eventuallyConfigHashUpdates(deployment, originalHash)
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(configHashAnnotation, originalHash)))
 					})
 				})
 			})
 
 			Context("And the annotation is removed", func() {
 				BeforeEach(func() {
-					get(deployment)
+					m.Get(deployment, timeout).Should(Succeed())
 					deployment.SetAnnotations(make(map[string]string))
-					update(deployment)
+					m.Update(deployment).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
-					eventuallyEqual(deployment, func(obj object) interface{} {
-						a := obj.GetAnnotations()
-						_, ok := a[requiredAnnotation]
-						return ok
-					}, false, "Annotations not updated")
+					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(requiredAnnotation)))
 				})
 
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []object{cm1, cm2, s1, s2} {
-						eventuallyEqual(obj, func(obj object) interface{} {
-							return len(obj.GetOwnerReferences())
-						}, 0, "OwnerReferenced not updated")
-						Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
 				It("Removes the Deployment's finalizer", func() {
-					Eventually(func() error {
-						key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-						err := c.Get(context.TODO(), key, deployment)
-						if err != nil && errors.IsNotFound(err) {
-							return nil
-						}
-						return fmt.Errorf("Deployment not deleted")
-					})
+					m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(finalizerString)))
 				})
 			})
 
 			Context("And is deleted", func() {
 				BeforeEach(func() {
-					delete(deployment)
+					m.Delete(deployment).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment
-					get(deployment)
+					m.Get(deployment, timeout).Should(Succeed())
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []object{cm1, cm2, s1, s2} {
-						eventuallyEqual(obj, func(obj object) interface{} {
-							return len(obj.GetOwnerReferences())
-						}, 0, "OwnerReferenced not updated")
-						Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
 				It("Removes the Deployment's finalizer", func() {
-					Eventually(func() error {
-						key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-						err := c.Get(context.TODO(), key, deployment)
-						if err != nil && errors.IsNotFound(err) {
-							return nil
-						}
-						return fmt.Errorf("Deployment not deleted")
-					})
+					// Removing the finalizer causes the deployment to be deleted
+					m.Get(deployment, timeout).ShouldNot(Succeed())
 				})
 			})
 		})
@@ -476,24 +343,21 @@ var _ = Describe("Wave controller Suite", func() {
 		Context("And it does not have the required annotation", func() {
 			BeforeEach(func() {
 				// Get the updated Deployment
-				get(deployment)
+				m.Get(deployment, timeout).Should(Succeed())
 			})
 
 			It("Doesn't add any OwnerReferences to any children", func() {
 				for _, obj := range []object{cm1, cm2, s1, s2} {
-					get(obj)
-					Expect(obj.GetOwnerReferences()).NotTo(ContainElement(ownerRef))
+					m.Consistently(obj, consistentlyTimeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
 
 			It("Doesn't add a finalizer to the Deployment", func() {
-				Expect(deployment.GetFinalizers()).NotTo(ContainElement(finalizerString))
+				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithFinalizers(ContainElement(finalizerString)))
 			})
 
 			It("Doesn't add a config hash to the Pod Template", func() {
-				annotations := deployment.GetAnnotations()
-				_, ok := annotations[configHashAnnotation]
-				Expect(ok).NotTo(BeTrue())
+				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(configHashAnnotation)))
 			})
 		})
 	})

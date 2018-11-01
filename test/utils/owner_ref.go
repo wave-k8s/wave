@@ -14,20 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package deployment
+package utils
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// hasRequiredAnnotation returns true if the given Deployment has the wave
-// annotation present
-func hasRequiredAnnotation(obj *appsv1.Deployment) bool {
-	annotations := obj.GetAnnotations()
-	if value, ok := annotations[requiredAnnotation]; ok {
-		if value == "true" {
-			return true
-		}
+// GetOwnerRef constructs an owner reference for the Deployment given
+func GetOwnerRef(deployment *appsv1.Deployment) metav1.OwnerReference {
+	f := false
+	t := true
+	return metav1.OwnerReference{
+		APIVersion:         "apps/v1",
+		Kind:               "Deployment",
+		Name:               deployment.Name,
+		UID:                deployment.UID,
+		Controller:         &f,
+		BlockOwnerDeletion: &t,
 	}
-	return false
 }

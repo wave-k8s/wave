@@ -17,8 +17,6 @@ limitations under the License.
 package deployment
 
 import (
-	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -28,13 +26,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var _ = Describe("Wave children Suite", func() {
 	var c client.Client
+	var m utils.Matcher
 	var deployment *appsv1.Deployment
 	var r *ReconcileDeployment
 	var children []object
@@ -48,45 +46,11 @@ var _ = Describe("Wave children Suite", func() {
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
 
-	var create = func(obj object) {
-		Expect(c.Create(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
-	var update = func(obj object) {
-		Expect(c.Update(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
-	var delete = func(obj object) {
-		Expect(c.Delete(context.TODO(), obj)).NotTo(HaveOccurred())
-	}
-
-	var get = func(obj object) {
-		key := types.NamespacedName{
-			Name:      obj.GetName(),
-			Namespace: obj.GetNamespace(),
-		}
-		Eventually(func() error {
-			return c.Get(context.TODO(), key, obj)
-		}, timeout).Should(Succeed())
-	}
-
-	var getOwnerRef = func(deployment *appsv1.Deployment) metav1.OwnerReference {
-		f := false
-		t := true
-		return metav1.OwnerReference{
-			APIVersion:         "apps/v1",
-			Kind:               "Deployment",
-			Name:               deployment.Name,
-			UID:                deployment.UID,
-			Controller:         &f,
-			BlockOwnerDeletion: &t,
-		}
-	}
-
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
+		m = utils.Matcher{Client: c}
 
 		reconciler := newReconciler(mgr)
 		Expect(add(mgr, reconciler)).NotTo(HaveOccurred())
@@ -101,21 +65,21 @@ var _ = Describe("Wave children Suite", func() {
 		s1 = utils.ExampleSecret1.DeepCopy()
 		s2 = utils.ExampleSecret2.DeepCopy()
 
-		create(cm1)
-		create(cm2)
-		create(s1)
-		create(s2)
+		m.Create(cm1).Should(Succeed())
+		m.Create(cm2).Should(Succeed())
+		m.Create(s1).Should(Succeed())
+		m.Create(s2).Should(Succeed())
 
 		deployment = utils.ExampleDeployment.DeepCopy()
-		create(deployment)
+		m.Create(deployment).Should(Succeed())
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
 
 		// Ensure the caches have synced
-		get(cm1)
-		get(cm2)
-		get(s1)
-		get(s2)
+		m.Get(cm1, timeout).Should(Succeed())
+		m.Get(cm2, timeout).Should(Succeed())
+		m.Get(s1, timeout).Should(Succeed())
+		m.Get(s2, timeout).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -158,14 +122,8 @@ var _ = Describe("Wave children Suite", func() {
 
 		It("returns an error if one of the referenced children is missing", func() {
 			// Delete s2 and wait for the cache to sync
-			delete(s2)
-			key := types.NamespacedName{
-				Name:      s2.GetName(),
-				Namespace: s2.GetNamespace(),
-			}
-			Eventually(func() error {
-				return c.Get(context.TODO(), key, s2)
-			}, timeout).ShouldNot(Succeed())
+			m.Delete(s2).Should(Succeed())
+			m.Get(s2, timeout).ShouldNot(Succeed())
 
 			current, err := r.getCurrentChildren(deployment)
 			Expect(err).To(HaveOccurred())
@@ -205,25 +163,14 @@ var _ = Describe("Wave children Suite", func() {
 
 	Context("getExistingChildren", func() {
 		BeforeEach(func() {
-			get(deployment)
-			ownerRef := getOwnerRef(deployment)
+			m.Get(deployment, timeout).Should(Succeed())
+			ownerRef := utils.GetOwnerRef(deployment)
 
 			for _, obj := range []object{cm1, s1} {
-				get(obj)
+				m.Get(obj, timeout).Should(Succeed())
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-				update(obj)
-
-				Eventually(func() error {
-					key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-					err := c.Get(context.TODO(), key, obj)
-					if err != nil {
-						return err
-					}
-					if len(obj.GetOwnerReferences()) != 1 {
-						return fmt.Errorf("OwnerReferences not updated")
-					}
-					return nil
-				}, timeout).Should(Succeed())
+				m.Update(obj).Should(Succeed())
+				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 
 			var err error
@@ -255,8 +202,8 @@ var _ = Describe("Wave children Suite", func() {
 	Context("isOwnedBy", func() {
 		var ownerRef metav1.OwnerReference
 		BeforeEach(func() {
-			get(deployment)
-			ownerRef = getOwnerRef(deployment)
+			m.Get(deployment, timeout).Should(Succeed())
+			ownerRef = utils.GetOwnerRef(deployment)
 		})
 
 		It("returns true when the child has a single owner reference pointing to the owner", func() {
