@@ -49,7 +49,6 @@ var _ = Describe("Wave hash Suite", func() {
 			Expect(err).NotTo(HaveOccurred())
 			c = mgr.GetClient()
 			m = utils.Matcher{Client: c}
-			Expect(add(mgr, newReconciler(mgr))).NotTo(HaveOccurred())
 
 			stopMgr, mgrStopped = StartTestManager(mgr)
 
@@ -62,6 +61,11 @@ var _ = Describe("Wave hash Suite", func() {
 			m.Create(cm2).Should(Succeed())
 			m.Create(s1).Should(Succeed())
 			m.Create(s2).Should(Succeed())
+
+			m.Get(cm1, timeout).Should(Succeed())
+			m.Get(cm2, timeout).Should(Succeed())
+			m.Get(s1, timeout).Should(Succeed())
+			m.Get(s2, timeout).Should(Succeed())
 		})
 
 		AfterEach(func() {
@@ -76,7 +80,7 @@ var _ = Describe("Wave hash Suite", func() {
 		})
 
 		It("returns a different hash when a child's data is updated", func() {
-			c := []object{cm1, cm2, s1, s2}
+			c := []Object{cm1, cm2, s1, s2}
 
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
@@ -90,7 +94,7 @@ var _ = Describe("Wave hash Suite", func() {
 		})
 
 		It("returns the same hash when a child's metadata is updated", func() {
-			c := []object{cm1, cm2, s1, s2}
+			c := []Object{cm1, cm2, s1, s2}
 
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
@@ -104,8 +108,8 @@ var _ = Describe("Wave hash Suite", func() {
 		})
 
 		It("returns the same hash independent of child ordering", func() {
-			c1 := []object{cm1, cm2, s1, s2}
-			c2 := []object{cm1, s2, cm2, s1}
+			c1 := []Object{cm1, cm2, s1, s2}
+			c2 := []Object{cm1, s2, cm2, s1}
 
 			h1, err := calculateConfigHash(c1)
 			Expect(err).NotTo(HaveOccurred())
@@ -129,7 +133,7 @@ var _ = Describe("Wave hash Suite", func() {
 			podAnnotations := deployment.Spec.Template.GetAnnotations()
 			Expect(podAnnotations).NotTo(BeNil())
 
-			hash, ok := podAnnotations[configHashAnnotation]
+			hash, ok := podAnnotations[ConfigHashAnnotation]
 			Expect(ok).To(BeTrue())
 			Expect(hash).To(Equal("1234"))
 		})

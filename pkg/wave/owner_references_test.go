@@ -32,6 +32,7 @@ import (
 
 var _ = Describe("Wave owner references Suite", func() {
 	var c client.Client
+	var h *Handler
 	var m utils.Matcher
 	var deployment *appsv1.Deployment
 	var mgrStopped *sync.WaitGroup
@@ -50,14 +51,8 @@ var _ = Describe("Wave owner references Suite", func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
+		h = NewHandler(c, mgr.GetRecorder("wave"))
 		m = utils.Matcher{Client: c}
-
-		reconciler := newReconciler(mgr)
-		Expect(add(mgr, reconciler)).NotTo(HaveOccurred())
-
-		var ok bool
-		r, ok = reconciler.(*ReconcileDeployment)
-		Expect(ok).To(BeTrue())
 
 		// Create some configmaps and secrets
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
@@ -95,7 +90,7 @@ var _ = Describe("Wave owner references Suite", func() {
 
 	Context("removeOwnerReferences", func() {
 		BeforeEach(func() {
-			for _, obj := range []object{cm1, cm2, s1, s2} {
+			for _, obj := range []Object{cm1, cm2, s1, s2} {
 				otherRef := ownerRef.DeepCopy()
 				otherRef.UID = obj.GetUID()
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef, *otherRef})
@@ -104,8 +99,8 @@ var _ = Describe("Wave owner references Suite", func() {
 				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ConsistOf(ownerRef, *otherRef)))
 			}
 
-			children := []object{cm1, s1}
-			err := r.removeOwnerReferences(deployment, children)
+			children := []Object{cm1, s1}
+			err := h.removeOwnerReferences(deployment, children)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -141,16 +136,16 @@ var _ = Describe("Wave owner references Suite", func() {
 
 	Context("updateOwnerReferences", func() {
 		BeforeEach(func() {
-			for _, obj := range []object{cm2, s1, s2} {
+			for _, obj := range []Object{cm2, s1, s2} {
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 				m.Update(obj).Should(Succeed())
 
 				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 
-			existing := []object{cm2, s1, s2}
-			current := []object{cm1, s1}
-			err := r.updateOwnerReferences(deployment, existing, current)
+			existing := []Object{cm2, s1, s2}
+			current := []Object{cm1, s1}
+			err := h.updateOwnerReferences(deployment, existing, current)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -185,7 +180,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(otherRef)))
 
 			m.Get(cm1, timeout).Should(Succeed())
-			Expect(r.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
+			Expect(h.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
 			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 		})
 
@@ -198,7 +193,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			// Get the original version
 			m.Get(cm2, timeout).Should(Succeed())
 			originalVersion := cm2.GetResourceVersion()
-			Expect(r.updateOwnerReference(deployment, cm2)).NotTo(HaveOccurred())
+			Expect(h.updateOwnerReference(deployment, cm2)).NotTo(HaveOccurred())
 
 			// Compare current version
 			m.Get(cm2, timeout).Should(Succeed())
@@ -207,7 +202,7 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		It("sends events for adding each owner reference", func() {
 			m.Get(cm1, timeout).Should(Succeed())
-			Expect(r.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
+			Expect(h.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
 			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 
 			events := &corev1.EventList{}
@@ -222,19 +217,19 @@ var _ = Describe("Wave owner references Suite", func() {
 
 	Context("getOrphans", func() {
 		It("returns an empty list when current and existing match", func() {
-			current := []object{cm1, cm2, s1, s2}
+			current := []Object{cm1, cm2, s1, s2}
 			existing := current
 			Expect(getOrphans(existing, current)).To(BeEmpty())
 		})
 
 		It("returns an empty list when existing is a subset of current", func() {
-			existing := []object{cm1, s2}
+			existing := []Object{cm1, s2}
 			current := append(existing, cm2, s1)
 			Expect(getOrphans(existing, current)).To(BeEmpty())
 		})
 
 		It("returns the correct objects when current is a subset of existing", func() {
-			current := []object{cm1, s2}
+			current := []Object{cm1, s2}
 			existing := append(current, cm2, s1)
 			orphans := getOrphans(existing, current)
 			Expect(orphans).To(ContainElement(cm2))

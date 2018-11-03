@@ -22,23 +22,23 @@ import (
 )
 
 const (
-	// configHashAnnotation is the key of the annotation on the PodTemplate that
+	// ConfigHashAnnotation is the key of the annotation on the PodTemplate that
 	// holds the configuratio hash
-	configHashAnnotation = "wave.pusher.com/config-hash"
+	ConfigHashAnnotation = "wave.pusher.com/config-hash"
 
-	// finalizerString is the finalizer added to deployments to allow Wave to
+	// FinalizerString is the finalizer added to deployments to allow Wave to
 	// perform advanced deletion logic
-	finalizerString = "wave.pusher.com/finalizer"
+	FinalizerString = "wave.pusher.com/finalizer"
 
-	// requiredAnnotation is the key of the annotation on the Deployment that Wave
+	// RequiredAnnotation is the key of the annotation on the Deployment that Wave
 	// checks for before processing the deployment
-	requiredAnnotation = "wave.pusher.com/update-on-config-change"
+	RequiredAnnotation = "wave.pusher.com/update-on-config-change"
 )
 
-// object is used as a helper interface when passing Kubernetes resources
+// Object is used as a helper interface when passing Kubernetes resources
 // between methods.
 // All Kubernetes resources should implement both of these interfaces
-type object interface {
+type Object interface {
 	runtime.Object
 	metav1.Object
 }

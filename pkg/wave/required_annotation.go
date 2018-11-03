@@ -24,7 +24,7 @@ import (
 // annotation present
 func hasRequiredAnnotation(obj *appsv1.Deployment) bool {
 	annotations := obj.GetAnnotations()
-	if value, ok := annotations[requiredAnnotation]; ok {
+	if value, ok := annotations[RequiredAnnotation]; ok {
 		if value == "true" {
 			return true
 		}

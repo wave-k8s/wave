@@ -36,7 +36,7 @@ var _ = Describe("Wave required annotation Suite", func() {
 			if annotations == nil {
 				annotations = make(map[string]string)
 			}
-			annotations[requiredAnnotation] = "true"
+			annotations[RequiredAnnotation] = "true"
 			deployment.SetAnnotations(annotations)
 
 			Expect(hasRequiredAnnotation(deployment)).To(BeTrue())
@@ -47,7 +47,7 @@ var _ = Describe("Wave required annotation Suite", func() {
 			if annotations == nil {
 				annotations = make(map[string]string)
 			}
-			annotations[requiredAnnotation] = "false"
+			annotations[RequiredAnnotation] = "false"
 			deployment.SetAnnotations(annotations)
 
 			Expect(hasRequiredAnnotation(deployment)).To(BeFalse())

@@ -29,7 +29,7 @@ import (
 
 // removeOwnerReferences iterates over a list of children and removes the owner
 // reference from the child before updating it
-func (h *Handler) removeOwnerReferences(obj *appsv1.Deployment, children []object) error {
+func (h *Handler) removeOwnerReferences(obj *appsv1.Deployment, children []Object) error {
 	for _, child := range children {
 		// Filter the existing ownerReferences
 		ownerRefs := []metav1.OwnerReference{}
@@ -55,11 +55,11 @@ func (h *Handler) removeOwnerReferences(obj *appsv1.Deployment, children []objec
 // updateOwnerReferences determines which children need to have their
 // OwnerReferences added/updated and which need to have their OwnerReferences
 // removed and then performs all updates
-func (h *Handler) updateOwnerReferences(owner *appsv1.Deployment, existing, current []object) error {
+func (h *Handler) updateOwnerReferences(owner *appsv1.Deployment, existing, current []Object) error {
 	// Add an owner reference to each child object
 	errChan := make(chan error)
 	for _, obj := range current {
-		go func(child object) {
+		go func(child Object) {
 			errChan <- h.updateOwnerReference(owner, child)
 		}(obj)
 	}
@@ -88,7 +88,7 @@ func (h *Handler) updateOwnerReferences(owner *appsv1.Deployment, existing, curr
 
 // updateOwnerReference ensures that the child object has an OwnerReference
 // pointing to the owner
-func (h *Handler) updateOwnerReference(owner *appsv1.Deployment, child object) error {
+func (h *Handler) updateOwnerReference(owner *appsv1.Deployment, child Object) error {
 	ownerRef := getOwnerReference(owner)
 	for _, ref := range child.GetOwnerReferences() {
 		// Owner Reference already exists, do nothing
@@ -110,8 +110,8 @@ func (h *Handler) updateOwnerReference(owner *appsv1.Deployment, child object) e
 
 // getOrphans creates a slice of orphaned child objects that need their
 // OwnerReferences removing
-func getOrphans(existing, current []object) []object {
-	orphans := []object{}
+func getOrphans(existing, current []Object) []Object {
+	orphans := []Object{}
 	for _, child := range existing {
 		if !isIn(current, child) {
 			orphans = append(orphans, child)
@@ -135,7 +135,7 @@ func getOwnerReference(obj *appsv1.Deployment) metav1.OwnerReference {
 }
 
 // isIn checks whether a child object exists within a slice of objects
-func isIn(list []object, child object) bool {
+func isIn(list []Object, child Object) bool {
 	for _, obj := range list {
 		if obj.GetUID() == child.GetUID() {
 			return true
@@ -145,7 +145,7 @@ func isIn(list []object, child object) bool {
 }
 
 // kindOf returns the Kind of the given object as a string
-func kindOf(obj object) string {
+func kindOf(obj Object) string {
 	switch obj.(type) {
 	case *corev1.ConfigMap:
 		return "ConfigMap"

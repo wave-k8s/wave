@@ -32,12 +32,12 @@ import (
 // passed into a channel
 type getResult struct {
 	err error
-	obj object
+	obj Object
 }
 
 // getCurrentChildren returns a list of all Secrets and ConfigMaps that are
 // referenced in the Deployment's spec
-func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]object, error) {
+func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]Object, error) {
 	configMaps, secrets := getChildNamesByType(obj)
 
 	// get all of ConfigMaps and Secrets
@@ -55,7 +55,7 @@ func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]object, error) {
 
 	// Range over and collect results from the gets
 	var errs []string
-	var children []object
+	var children []Object
 	for i := 0; i < len(configMaps)+len(secrets); i++ {
 		result := <-resultsChan
 		if result.err != nil {
@@ -68,7 +68,7 @@ func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]object, error) {
 
 	// If there were any errors, don't return any children
 	if len(errs) > 0 {
-		return []object{}, fmt.Errorf("error(s) encountered when geting children: %s", strings.Join(errs, ", "))
+		return []Object{}, fmt.Errorf("error(s) encountered when geting children: %s", strings.Join(errs, ", "))
 	}
 
 	// No errors, return the list of children
@@ -124,7 +124,7 @@ func (h *Handler) getSecret(namespace, name string) getResult {
 
 // getObject gets the Object with the given name and namespace from the API
 // server
-func (h *Handler) getObject(namespace, name string, obj object) getResult {
+func (h *Handler) getObject(namespace, name string, obj Object) getResult {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	err := h.Get(context.TODO(), key, obj)
 	if err != nil {
@@ -135,26 +135,26 @@ func (h *Handler) getObject(namespace, name string, obj object) getResult {
 
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are
 // owned by the Deployment instance
-func (h *Handler) getExistingChildren(obj *appsv1.Deployment) ([]object, error) {
+func (h *Handler) getExistingChildren(obj *appsv1.Deployment) ([]Object, error) {
 	opts := client.InNamespace(obj.GetNamespace())
 
 	// List all ConfigMaps in the Deployment's namespace
 	configMaps := &corev1.ConfigMapList{}
 	err := h.List(context.TODO(), opts, configMaps)
 	if err != nil {
-		return []object{}, fmt.Errorf("error listing ConfigMaps: %v", err)
+		return []Object{}, fmt.Errorf("error listing ConfigMaps: %v", err)
 	}
 
 	// List all Secrets in the Deployment's namespcae
 	secrets := &corev1.SecretList{}
 	err = h.List(context.TODO(), opts, secrets)
 	if err != nil {
-		return []object{}, fmt.Errorf("error listing Secrets: %v", err)
+		return []Object{}, fmt.Errorf("error listing Secrets: %v", err)
 	}
 
 	// Iterate over the ConfigMaps/Secrets and add the ones owned by the
 	// Deployment to the ouput list children
-	children := []object{}
+	children := []Object{}
 	for _, cm := range configMaps.Items {
 		if isOwnedBy(&cm, obj) {
 			children = append(children, cm.DeepCopy())
