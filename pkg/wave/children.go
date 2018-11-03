@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package deployment
+package wave
 
 import (
 	"context"
@@ -37,19 +37,19 @@ type getResult struct {
 
 // getCurrentChildren returns a list of all Secrets and ConfigMaps that are
 // referenced in the Deployment's spec
-func (r *ReconcileDeployment) getCurrentChildren(obj *appsv1.Deployment) ([]object, error) {
+func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]object, error) {
 	configMaps, secrets := getChildNamesByType(obj)
 
 	// get all of ConfigMaps and Secrets
 	resultsChan := make(chan getResult)
 	for name := range configMaps {
 		go func(name string) {
-			resultsChan <- r.getConfigMap(obj.GetNamespace(), name)
+			resultsChan <- h.getConfigMap(obj.GetNamespace(), name)
 		}(name)
 	}
 	for name := range secrets {
 		go func(name string) {
-			resultsChan <- r.getSecret(obj.GetNamespace(), name)
+			resultsChan <- h.getSecret(obj.GetNamespace(), name)
 		}(name)
 	}
 
@@ -112,21 +112,21 @@ func getChildNamesByType(obj *appsv1.Deployment) (map[string]struct{}, map[strin
 
 // getConfigMap gets a ConfigMap with the given name and namespace from the
 // API server.
-func (r *ReconcileDeployment) getConfigMap(namespace, name string) getResult {
-	return r.getObject(namespace, name, &corev1.ConfigMap{})
+func (h *Handler) getConfigMap(namespace, name string) getResult {
+	return h.getObject(namespace, name, &corev1.ConfigMap{})
 }
 
 // getSecret gets a Secret with the given name and namespace from the
 // API server.
-func (r *ReconcileDeployment) getSecret(namespace, name string) getResult {
-	return r.getObject(namespace, name, &corev1.Secret{})
+func (h *Handler) getSecret(namespace, name string) getResult {
+	return h.getObject(namespace, name, &corev1.Secret{})
 }
 
 // getObject gets the Object with the given name and namespace from the API
 // server
-func (r *ReconcileDeployment) getObject(namespace, name string, obj object) getResult {
+func (h *Handler) getObject(namespace, name string, obj object) getResult {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
-	err := r.Get(context.TODO(), key, obj)
+	err := h.Get(context.TODO(), key, obj)
 	if err != nil {
 		return getResult{err: err}
 	}
@@ -135,19 +135,19 @@ func (r *ReconcileDeployment) getObject(namespace, name string, obj object) getR
 
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are
 // owned by the Deployment instance
-func (r *ReconcileDeployment) getExistingChildren(obj *appsv1.Deployment) ([]object, error) {
+func (h *Handler) getExistingChildren(obj *appsv1.Deployment) ([]object, error) {
 	opts := client.InNamespace(obj.GetNamespace())
 
 	// List all ConfigMaps in the Deployment's namespace
 	configMaps := &corev1.ConfigMapList{}
-	err := r.List(context.TODO(), opts, configMaps)
+	err := h.List(context.TODO(), opts, configMaps)
 	if err != nil {
 		return []object{}, fmt.Errorf("error listing ConfigMaps: %v", err)
 	}
 
 	// List all Secrets in the Deployment's namespcae
 	secrets := &corev1.SecretList{}
-	err = r.List(context.TODO(), opts, secrets)
+	err = h.List(context.TODO(), opts, secrets)
 	if err != nil {
 		return []object{}, fmt.Errorf("error listing Secrets: %v", err)
 	}

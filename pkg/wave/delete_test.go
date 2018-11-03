@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package deployment
+package wave
 
 import (
 	"context"
@@ -38,7 +38,6 @@ var _ = Describe("Wave owner references Suite", func() {
 	var c client.Client
 	var m utils.Matcher
 	var deployment *appsv1.Deployment
-	var r *ReconcileDeployment
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
