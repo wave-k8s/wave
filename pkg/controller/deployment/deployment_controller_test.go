@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var _ = Describe("Wave controller Suite", func() {
+var _ = Describe("Deployment controller Suite", func() {
 	var c client.Client
 	var m utils.Matcher
 
@@ -322,7 +322,10 @@ var _ = Describe("Wave controller Suite", func() {
 
 			Context("And is deleted", func() {
 				BeforeEach(func() {
+					// Make sure the cache has synced before we run the test
+					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(wave.ConfigHashAnnotation)))
 					m.Delete(deployment).Should(Succeed())
+					m.Eventually(deployment, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment
