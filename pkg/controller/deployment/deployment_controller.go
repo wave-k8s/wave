@@ -19,7 +19,7 @@ package deployment
 import (
 	"context"
 
-	"github.com/pusher/wave/pkg/wave"
+	"github.com/pusher/wave/pkg/core"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,7 +41,7 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileDeployment{
 		scheme:  mgr.GetScheme(),
-		handler: wave.NewHandler(mgr.GetClient(), mgr.GetRecorder("wave")),
+		handler: core.NewHandler(mgr.GetClient(), mgr.GetRecorder("wave")),
 	}
 }
 
@@ -85,7 +85,7 @@ var _ reconcile.Reconciler = &ReconcileDeployment{}
 // ReconcileDeployment reconciles a Deployment object
 type ReconcileDeployment struct {
 	scheme  *runtime.Scheme
-	handler *wave.Handler
+	handler *core.Handler
 }
 
 // Reconcile reads that state of the cluster for a Deployment object and

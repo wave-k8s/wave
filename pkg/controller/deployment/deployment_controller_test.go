@@ -24,7 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pusher/wave/pkg/wave"
+	"github.com/pusher/wave/pkg/core"
 	"github.com/pusher/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -54,7 +54,7 @@ var _ = Describe("Deployment controller Suite", func() {
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
 
-	var waitForDeploymentReconciled = func(obj wave.Object) {
+	var waitForDeploymentReconciled = func(obj core.Object) {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      obj.GetName(),
@@ -149,7 +149,7 @@ var _ = Describe("Deployment controller Suite", func() {
 				if annotations == nil {
 					annotations = make(map[string]string)
 				}
-				annotations[wave.RequiredAnnotation] = "true"
+				annotations[core.RequiredAnnotation] = "true"
 				deployment.SetAnnotations(annotations)
 
 				m.Update(deployment).Should(Succeed())
@@ -160,21 +160,21 @@ var _ = Describe("Deployment controller Suite", func() {
 			})
 
 			It("Adds OwnerReferences to all children", func() {
-				for _, obj := range []wave.Object{cm1, cm2, s1, s2} {
+				for _, obj := range []core.Object{cm1, cm2, s1, s2} {
 					m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
 
 			It("Adds a finalizer to the Deployment", func() {
-				m.Eventually(deployment, timeout).Should(utils.WithFinalizers(ContainElement(wave.FinalizerString)))
+				m.Eventually(deployment, timeout).Should(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
-				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(wave.ConfigHashAnnotation)))
+				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 			})
 
 			It("Sends an event when updating the hash", func() {
-				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(wave.ConfigHashAnnotation)))
+				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 
 				events := &corev1.EventList{}
 				eventMessage := func(event *corev1.Event) string {
@@ -188,8 +188,8 @@ var _ = Describe("Deployment controller Suite", func() {
 			Context("And a child is removed", func() {
 				var originalHash string
 				BeforeEach(func() {
-					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(wave.ConfigHashAnnotation)))
-					originalHash = deployment.Spec.Template.GetAnnotations()[wave.ConfigHashAnnotation]
+					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					originalHash = deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
@@ -212,7 +212,7 @@ var _ = Describe("Deployment controller Suite", func() {
 				})
 
 				It("Updates the config hash in the Pod Template", func() {
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(wave.ConfigHashAnnotation, originalHash)))
+					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 				})
 			})
 
@@ -220,8 +220,8 @@ var _ = Describe("Deployment controller Suite", func() {
 				var originalHash string
 
 				BeforeEach(func() {
-					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(wave.ConfigHashAnnotation)))
-					originalHash = deployment.Spec.Template.GetAnnotations()[wave.ConfigHashAnnotation]
+					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					originalHash = deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
 				})
 
 				Context("A ConfigMap volume is updated", func() {
@@ -237,7 +237,7 @@ var _ = Describe("Deployment controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(wave.ConfigHashAnnotation, originalHash)))
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
@@ -254,7 +254,7 @@ var _ = Describe("Deployment controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(wave.ConfigHashAnnotation, originalHash)))
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
@@ -274,7 +274,7 @@ var _ = Describe("Deployment controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(wave.ConfigHashAnnotation, originalHash)))
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
@@ -294,7 +294,7 @@ var _ = Describe("Deployment controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(wave.ConfigHashAnnotation, originalHash)))
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 			})
@@ -306,24 +306,24 @@ var _ = Describe("Deployment controller Suite", func() {
 					m.Update(deployment).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(wave.RequiredAnnotation)))
+					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
 				})
 
 				It("Removes the OwnerReference from the all children", func() {
-					for _, obj := range []wave.Object{cm1, cm2, s1, s2} {
+					for _, obj := range []core.Object{cm1, cm2, s1, s2} {
 						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
 				It("Removes the Deployment's finalizer", func() {
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(wave.FinalizerString)))
+					m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 				})
 			})
 
 			Context("And is deleted", func() {
 				BeforeEach(func() {
 					// Make sure the cache has synced before we run the test
-					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(wave.ConfigHashAnnotation)))
+					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 					m.Delete(deployment).Should(Succeed())
 					m.Eventually(deployment, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 					waitForDeploymentReconciled(deployment)
@@ -332,7 +332,7 @@ var _ = Describe("Deployment controller Suite", func() {
 					m.Get(deployment, timeout).Should(Succeed())
 				})
 				It("Removes the OwnerReference from the all children", func() {
-					for _, obj := range []wave.Object{cm1, cm2, s1, s2} {
+					for _, obj := range []core.Object{cm1, cm2, s1, s2} {
 						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
@@ -351,17 +351,17 @@ var _ = Describe("Deployment controller Suite", func() {
 			})
 
 			It("Doesn't add any OwnerReferences to any children", func() {
-				for _, obj := range []wave.Object{cm1, cm2, s1, s2} {
+				for _, obj := range []core.Object{cm1, cm2, s1, s2} {
 					m.Consistently(obj, consistentlyTimeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
 
 			It("Doesn't add a finalizer to the Deployment", func() {
-				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithFinalizers(ContainElement(wave.FinalizerString)))
+				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 			})
 
 			It("Doesn't add a config hash to the Pod Template", func() {
-				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(wave.ConfigHashAnnotation)))
+				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(core.ConfigHashAnnotation)))
 			})
 		})
 	})
