@@ -18,20 +18,16 @@ package deployment
 
 import (
 	"context"
-	"fmt"
-	"reflect"
 
+	"github.com/pusher/wave/pkg/core"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -43,7 +39,10 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileDeployment{Client: mgr.GetClient(), scheme: mgr.GetScheme(), recorder: mgr.GetRecorder("wave")}
+	return &ReconcileDeployment{
+		scheme:  mgr.GetScheme(),
+		handler: core.NewHandler(mgr.GetClient(), mgr.GetRecorder("wave")),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -85,20 +84,17 @@ var _ reconcile.Reconciler = &ReconcileDeployment{}
 
 // ReconcileDeployment reconciles a Deployment object
 type ReconcileDeployment struct {
-	client.Client
-	scheme   *runtime.Scheme
-	recorder record.EventRecorder
+	scheme  *runtime.Scheme
+	handler *core.Handler
 }
 
 // Reconcile reads that state of the cluster for a Deployment object and
 // updates its PodSpec based on mounted configuration
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update;patch
 func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	log := logf.Log.WithName("wave")
-
 	// Fetch the Deployment instance
 	instance := &appsv1.Deployment{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.handler.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -108,59 +104,5 @@ func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, err
 	}
 
-	// If the required annotation isn't present, ignore the instance
-	if !hasRequiredAnnotation(instance) {
-		// Perform deletion logic if the finalizer is present on the object
-		if hasFinalizer(instance) {
-			log.V(0).Info("Required annotation removed from instance, cleaning up orphans", "namespace", instance.GetNamespace(), "name", instance.GetName())
-			return r.handleDelete(instance)
-		}
-		return reconcile.Result{}, nil
-	}
-
-	// If the instance is marked for deletion, run cleanup process
-	if toBeDeleted(instance) {
-		log.V(0).Info("Instance marked for deletion, cleaning up orphans", "namespace", instance.GetNamespace(), "name", instance.GetName())
-		return r.handleDelete(instance)
-	}
-
-	// Get all children that have an OwnerReference pointing to this instance
-	existing, err := r.getExistingChildren(instance)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error fetching existing children: %v", err)
-	}
-
-	// Get all children that the instance currently references
-	current, err := r.getCurrentChildren(instance)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error fetching current children: %v", err)
-	}
-
-	// Reconcile the OwnerReferences on the existing and current chilren
-	err = r.updateOwnerReferences(instance, existing, current)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error updating OwnerReferences: %v", err)
-	}
-
-	hash, err := calculateConfigHash(current)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error calculating configuration hash: %v", err)
-	}
-
-	// Update the desired state of the Deployment in a DeepCopy
-	copy := instance.DeepCopy()
-	setConfigHash(copy, hash)
-	addFinalizer(copy)
-
-	// If the desired state doesn't match the existing state, update it
-	if !reflect.DeepEqual(instance, copy) {
-		log.V(0).Info("Updating instance hash", "namespace", instance.GetNamespace(), "name", instance.GetName(), "hash", hash)
-		r.recorder.Eventf(copy, corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
-		err := r.Update(context.TODO(), copy)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("error updating instance %s/%s: %v", instance.GetNamespace(), instance.GetName(), err)
-		}
-	}
-
-	return reconcile.Result{}, nil
+	return r.handler.HandleDeployment(instance)
 }

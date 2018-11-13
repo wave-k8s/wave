@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package deployment
+package core
 
 import (
 	"context"
@@ -36,9 +36,9 @@ import (
 
 var _ = Describe("Wave owner references Suite", func() {
 	var c client.Client
+	var h *Handler
 	var m utils.Matcher
 	var deployment *appsv1.Deployment
-	var r *ReconcileDeployment
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
@@ -50,14 +50,8 @@ var _ = Describe("Wave owner references Suite", func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
+		h = NewHandler(c, mgr.GetRecorder("wave"))
 		m = utils.Matcher{Client: c}
-
-		reconciler := newReconciler(mgr)
-		Expect(add(mgr, reconciler)).NotTo(HaveOccurred())
-
-		var ok bool
-		r, ok = reconciler.(*ReconcileDeployment)
-		Expect(ok).To(BeTrue())
 
 		// Create some configmaps and secrets
 		m.Create(utils.ExampleConfigMap1.DeepCopy()).Should(Succeed())
@@ -97,18 +91,18 @@ var _ = Describe("Wave owner references Suite", func() {
 			s1 = utils.ExampleSecret1.DeepCopy()
 			s2 = utils.ExampleSecret2.DeepCopy()
 
-			for _, obj := range []object{cm1, cm2, s1, s2} {
+			for _, obj := range []Object{cm1, cm2, s1, s2} {
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 				m.Update(obj).Should(Succeed())
 			}
 
 			f := deployment.GetFinalizers()
-			f = append(f, finalizerString)
+			f = append(f, FinalizerString)
 			f = append(f, "keep.me.around/finalizer")
 			deployment.SetFinalizers(f)
 			m.Update(deployment).Should(Succeed())
 
-			_, err := r.handleDelete(deployment)
+			_, err := h.handleDelete(deployment)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -144,13 +138,13 @@ var _ = Describe("Wave owner references Suite", func() {
 		})
 
 		It("removes owner references from all children", func() {
-			for _, obj := range []object{cm1, cm2, s1, s2} {
+			for _, obj := range []Object{cm1, cm2, s1, s2} {
 				m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 		})
 
 		It("removes the finalizer from the deployment", func() {
-			m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(finalizerString)))
+			m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
 		})
 	})
 

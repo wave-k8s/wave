@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package deployment
+package core
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
@@ -24,14 +24,14 @@ import (
 func addFinalizer(obj *appsv1.Deployment) {
 	finalizers := obj.GetFinalizers()
 	for _, finalizer := range finalizers {
-		if finalizer == finalizerString {
+		if finalizer == FinalizerString {
 			// Deployment already contains the finalizer
 			return
 		}
 	}
 
 	//Deployment doens't contain the finalizer, so add it
-	finalizers = append(finalizers, finalizerString)
+	finalizers = append(finalizers, FinalizerString)
 	obj.SetFinalizers(finalizers)
 }
 
@@ -42,7 +42,7 @@ func removeFinalizer(obj *appsv1.Deployment) {
 	// Filter existing finalizers removing any that match the finalizerString
 	newFinalizers := []string{}
 	for _, finalizer := range finalizers {
-		if finalizer != finalizerString {
+		if finalizer != FinalizerString {
 			newFinalizers = append(newFinalizers, finalizer)
 		}
 	}
@@ -55,7 +55,7 @@ func removeFinalizer(obj *appsv1.Deployment) {
 func hasFinalizer(obj *appsv1.Deployment) bool {
 	finalizers := obj.GetFinalizers()
 	for _, finalizer := range finalizers {
-		if finalizer == finalizerString {
+		if finalizer == FinalizerString {
 			// Deployment already contains the finalizer
 			return true
 		}

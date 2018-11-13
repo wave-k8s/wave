@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package deployment
+package core
 
 import (
 	"context"
@@ -28,15 +28,15 @@ import (
 
 // handleDelete removes all existing Owner References pointing to the object
 // before removing the object's Finalizer
-func (r *ReconcileDeployment) handleDelete(obj *appsv1.Deployment) (reconcile.Result, error) {
+func (h *Handler) handleDelete(obj *appsv1.Deployment) (reconcile.Result, error) {
 	// Fetch all children with an OwnerReference pointing to the object
-	existing, err := r.getExistingChildren(obj)
+	existing, err := h.getExistingChildren(obj)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("error fetching children: %v", err)
 	}
 
 	// Remove the OwnerReferences from the children
-	err = r.removeOwnerReferences(obj, existing)
+	err = h.removeOwnerReferences(obj, existing)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("error removing owner references from children: %v", err)
 	}
@@ -45,7 +45,7 @@ func (r *ReconcileDeployment) handleDelete(obj *appsv1.Deployment) (reconcile.Re
 	copy := obj.DeepCopy()
 	removeFinalizer(copy)
 	if !reflect.DeepEqual(obj, copy) {
-		err := r.Update(context.TODO(), copy)
+		err := h.Update(context.TODO(), copy)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("error updating Deployment: %v", err)
 		}

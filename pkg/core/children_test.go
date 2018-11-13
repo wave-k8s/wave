@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package deployment
+package core
 
 import (
 	"sync"
@@ -32,10 +32,10 @@ import (
 
 var _ = Describe("Wave children Suite", func() {
 	var c client.Client
+	var h *Handler
 	var m utils.Matcher
 	var deployment *appsv1.Deployment
-	var r *ReconcileDeployment
-	var children []object
+	var children []Object
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
@@ -50,14 +50,8 @@ var _ = Describe("Wave children Suite", func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
+		h = NewHandler(c, mgr.GetRecorder("wave"))
 		m = utils.Matcher{Client: c}
-
-		reconciler := newReconciler(mgr)
-		Expect(add(mgr, reconciler)).NotTo(HaveOccurred())
-
-		var ok bool
-		r, ok = reconciler.(*ReconcileDeployment)
-		Expect(ok).To(BeTrue())
 
 		// Create some configmaps and secrets
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
@@ -96,7 +90,7 @@ var _ = Describe("Wave children Suite", func() {
 	Context("getCurrentChildren", func() {
 		BeforeEach(func() {
 			var err error
-			children, err = r.getCurrentChildren(deployment)
+			children, err = h.getCurrentChildren(deployment)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -125,7 +119,7 @@ var _ = Describe("Wave children Suite", func() {
 			m.Delete(s2).Should(Succeed())
 			m.Get(s2, timeout).ShouldNot(Succeed())
 
-			current, err := r.getCurrentChildren(deployment)
+			current, err := h.getCurrentChildren(deployment)
 			Expect(err).To(HaveOccurred())
 			Expect(current).To(BeEmpty())
 		})
@@ -166,7 +160,7 @@ var _ = Describe("Wave children Suite", func() {
 			m.Get(deployment, timeout).Should(Succeed())
 			ownerRef := utils.GetOwnerRef(deployment)
 
-			for _, obj := range []object{cm1, s1} {
+			for _, obj := range []Object{cm1, s1} {
 				m.Get(obj, timeout).Should(Succeed())
 				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 				m.Update(obj).Should(Succeed())
@@ -174,7 +168,7 @@ var _ = Describe("Wave children Suite", func() {
 			}
 
 			var err error
-			children, err = r.getExistingChildren(deployment)
+			children, err = h.getExistingChildren(deployment)
 			Expect(err).NotTo(HaveOccurred())
 		})
 

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package deployment
+package core
 
 import (
 	"crypto/sha256"
@@ -28,7 +28,7 @@ import (
 
 // calculateConfigHash uses sha256 to hash the configuration within the child
 // objects and returns a hash as a string
-func calculateConfigHash(children []object) (string, error) {
+func calculateConfigHash(children []Object) (string, error) {
 	// hashSource contains all the data to be hashed
 	hashSource := struct {
 		ConfigMaps map[string]map[string]string `json:"configMaps"`
@@ -74,6 +74,6 @@ func setConfigHash(obj *appsv1.Deployment, hash string) {
 	}
 
 	// Update the annotations
-	annotations[configHashAnnotation] = hash
+	annotations[ConfigHashAnnotation] = hash
 	obj.Spec.Template.SetAnnotations(annotations)
 }

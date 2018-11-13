@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package deployment
+package core
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -34,7 +34,7 @@ var _ = Describe("Wave finalizer Suite", func() {
 		It("adds the wave finalizer to the deployment", func() {
 			addFinalizer(deployment)
 
-			Expect(deployment.GetFinalizers()).To(ContainElement(finalizerString))
+			Expect(deployment.GetFinalizers()).To(ContainElement(FinalizerString))
 		})
 
 		It("leaves existing finalizers in place", func() {
@@ -50,11 +50,11 @@ var _ = Describe("Wave finalizer Suite", func() {
 	Context("removeFinalizer", func() {
 		It("removes the wave finalizer from the deployment", func() {
 			f := deployment.GetFinalizers()
-			f = append(f, finalizerString)
+			f = append(f, FinalizerString)
 			deployment.SetFinalizers(f)
 			removeFinalizer(deployment)
 
-			Expect(deployment.GetFinalizers()).NotTo(ContainElement(finalizerString))
+			Expect(deployment.GetFinalizers()).NotTo(ContainElement(FinalizerString))
 		})
 
 		It("leaves existing finalizers in place", func() {
@@ -70,7 +70,7 @@ var _ = Describe("Wave finalizer Suite", func() {
 	Context("hasFinalizer", func() {
 		It("returns true if the deployment has the finalizer", func() {
 			f := deployment.GetFinalizers()
-			f = append(f, finalizerString)
+			f = append(f, FinalizerString)
 			deployment.SetFinalizers(f)
 
 			Expect(hasFinalizer(deployment)).To(BeTrue())

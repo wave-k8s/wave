@@ -177,3 +177,10 @@ func WithPodTemplateAnnotations(matcher gtypes.GomegaMatcher) gtypes.GomegaMatch
 		return dep.Spec.Template.GetAnnotations()
 	}, matcher)
 }
+
+// WithDeletionTimestamp returns the objects Deletion Timestamp
+func WithDeletionTimestamp(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
+	return gomega.WithTransform(func(obj Object) *metav1.Time {
+		return obj.GetDeletionTimestamp()
+	}, matcher)
+}
