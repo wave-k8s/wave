@@ -34,10 +34,10 @@ import (
 )
 
 var (
-	leaderElection           = flag.Bool("leader-election", false, "Should the controller use leader election")
-	leaderElectionID         = flag.String("leader-election-id", "", "Name of the configmap used by the leader election system")
-	leaederElectionNamespace = flag.String("leader-election-namespace", "", "Namespace for the configmap used by the leader election system")
-	syncPeriod               = flag.Duration("sync-period", 5*time.Minute, "Reconcile sync period")
+	leaderElection          = flag.Bool("leader-election", false, "Should the controller use leader election")
+	leaderElectionID        = flag.String("leader-election-id", "", "Name of the configmap used by the leader election system")
+	leaderElectionNamespace = flag.String("leader-election-namespace", "", "Namespace for the configmap used by the leader election system")
+	syncPeriod              = flag.Duration("sync-period", 5*time.Minute, "Reconcile sync period")
 )
 
 func main() {
@@ -62,7 +62,7 @@ func main() {
 	mgr, err := manager.New(cfg, manager.Options{
 		LeaderElection:          *leaderElection,
 		LeaderElectionID:        *leaderElectionID,
-		LeaderElectionNamespace: *leaederElectionNamespace,
+		LeaderElectionNamespace: *leaderElectionNamespace,
 		SyncPeriod:              syncPeriod,
 	})
 	if err != nil {
