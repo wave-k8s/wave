@@ -1,3 +1,5 @@
+<img src="./wave-logo.svg" width=150 height=150 alt="Wave Logo"/>
+
 # Wave
 
 Wave watches Deployments within a Kubernetes cluster and ensures that each
