@@ -65,6 +65,12 @@ project, as such we have auto-generated [Kustomize](https://github.com/kubernete
 configuration as an example of how to install the controller in the
 [config](config) folder.
 
+A public docker image is available on [Quay](https://quay.io/repository/pusher/wave).
+
+```
+quay.io/pusher/wave
+```
+
 #### RBAC
 
 If you are using [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
