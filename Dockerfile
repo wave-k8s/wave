@@ -18,7 +18,7 @@ RUN dep ensure --vendor-only
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager github.com/pusher/wave/cmd/manager
 
 # Copy the controller-manager into a thin image
-FROM alpine
+FROM alpine:3.8
 RUN apk --no-cache add ca-certificates
 WORKDIR /bin
 COPY --from=builder /go/src/github.com/pusher/wave/manager .

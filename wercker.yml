@@ -99,7 +99,7 @@ build:
       code: cp controller-manager "$WERCKER_OUTPUT_DIR"
 
 push-to-ecr:
-  box: alpine
+  box: alpine:3.8
   steps:
   - script:
       name: Copy binary
