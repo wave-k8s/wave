@@ -91,6 +91,9 @@ type ReconcileDeployment struct {
 // Reconcile reads that state of the cluster for a Deployment object and
 // updates its PodSpec based on mounted configuration
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=,resources=events,verbs=create;update;patch
 func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the Deployment instance
 	instance := &appsv1.Deployment{}
