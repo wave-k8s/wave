@@ -72,7 +72,7 @@ func (h *Handler) HandleDeployment(instance *appsv1.Deployment) (reconcile.Resul
 		return reconcile.Result{}, fmt.Errorf("error fetching current children: %v", err)
 	}
 
-	// Reconcile the OwnerReferences on the existing and current chilren
+	// Reconcile the OwnerReferences on the existing and current children
 	err = h.updateOwnerReferences(instance, existing, current)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("error updating OwnerReferences: %v", err)
