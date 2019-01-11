@@ -47,8 +47,12 @@ func calculateConfigHash(children []ConfigObject) (string, error) {
 			cm := corev1.ConfigMap(*child)
 			if obj.singleFields {
 				hashSource.ConfigMaps[child.GetName()] = make(map[string]string)
-				for fieldKey := range obj.fieldKeys {
-					hashSource.ConfigMaps[child.GetName()][fieldKey] = cm.Data[fieldKey]
+				for fieldKey, fieldMetadata := range obj.fieldKeys {
+					if fieldValue, exists := cm.Data[fieldKey]; exists {
+						hashSource.ConfigMaps[child.GetName()][fieldKey] = fieldValue
+					} else if !fieldMetadata.optional {
+						return "", fmt.Errorf("tried to access non-optional field %s but it does not exist in ConfigMap %s", fieldKey, child.GetName())
+					}
 				}
 			} else {
 				hashSource.ConfigMaps[child.GetName()] = cm.Data
@@ -57,8 +61,12 @@ func calculateConfigHash(children []ConfigObject) (string, error) {
 			s := corev1.Secret(*child)
 			if obj.singleFields {
 				hashSource.Secrets[child.GetName()] = make(map[string][]byte)
-				for fieldKey := range obj.fieldKeys {
-					hashSource.Secrets[child.GetName()][fieldKey] = s.Data[fieldKey]
+				for fieldKey, fieldMetadata := range obj.fieldKeys {
+					if fieldValue, exists := s.Data[fieldKey]; exists {
+						hashSource.Secrets[child.GetName()][fieldKey] = fieldValue
+					} else if !fieldMetadata.optional {
+						return "", fmt.Errorf("tried to access non-optional field %s but it does not exist in Secret %s", fieldKey, child.GetName())
+					}
 				}
 			} else {
 				hashSource.Secrets[child.GetName()] = s.Data

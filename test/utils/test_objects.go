@@ -26,6 +26,8 @@ var labels = map[string]string{
 	"app": "example",
 }
 
+var trueValue bool = true
+
 // ExampleDeployment is an example Deployment object for use within test suites
 var ExampleDeployment = &appsv1.Deployment{
 	ObjectMeta: metav1.ObjectMeta{
@@ -79,6 +81,18 @@ var ExampleDeployment = &appsv1.Deployment{
 								},
 							},
 							{
+								Name: "example3_key4",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key:      "key4",
+										Optional: &trueValue,
+									},
+								},
+							},
+							{
 								Name: "example1_key1",
 								ValueFrom: &corev1.EnvVarSource{
 									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
@@ -108,6 +122,18 @@ var ExampleDeployment = &appsv1.Deployment{
 											Name: "example3",
 										},
 										Key: "key1",
+									},
+								},
+							},
+							{
+								Name: "example3_secret_key4",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key:      "key4",
+										Optional: &trueValue,
 									},
 								},
 							},

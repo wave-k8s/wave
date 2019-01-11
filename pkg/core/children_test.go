@@ -108,7 +108,7 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(currentChildren).To(ContainElement(ConfigObject{
 				k8sObject:    cm1,
 				singleFields: false,
-				fieldKeys:    map[string]struct{}{},
+				fieldKeys:    map[string]ConfigField{},
 			}))
 		})
 
@@ -116,7 +116,7 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(currentChildren).To(ContainElement(ConfigObject{
 				k8sObject:    cm2,
 				singleFields: false,
-				fieldKeys:    map[string]struct{}{},
+				fieldKeys:    map[string]ConfigField{},
 			}))
 		})
 
@@ -124,17 +124,10 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(currentChildren).To(ContainElement(ConfigObject{
 				k8sObject:    cm3,
 				singleFields: true,
-				fieldKeys: map[string]struct{}{
-					"key1": struct{}{},
-					"key2": struct{}{},
-				},
-			}))
-			Expect(currentChildren).To(ContainElement(ConfigObject{
-				k8sObject:    cm3,
-				singleFields: true,
-				fieldKeys: map[string]struct{}{
-					"key1": struct{}{},
-					"key2": struct{}{},
+				fieldKeys: map[string]ConfigField{
+					"key1": ConfigField{optional: false},
+					"key2": ConfigField{optional: false},
+					"key4": ConfigField{optional: true},
 				},
 			}))
 		})
@@ -143,7 +136,7 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(currentChildren).To(ContainElement(ConfigObject{
 				k8sObject:    s1,
 				singleFields: false,
-				fieldKeys:    map[string]struct{}{},
+				fieldKeys:    map[string]ConfigField{},
 			}))
 		})
 
@@ -151,7 +144,7 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(currentChildren).To(ContainElement(ConfigObject{
 				k8sObject:    s2,
 				singleFields: false,
-				fieldKeys:    map[string]struct{}{},
+				fieldKeys:    map[string]ConfigField{},
 			}))
 		})
 
@@ -159,17 +152,10 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(currentChildren).To(ContainElement(ConfigObject{
 				k8sObject:    s3,
 				singleFields: true,
-				fieldKeys: map[string]struct{}{
-					"key1": struct{}{},
-					"key2": struct{}{},
-				},
-			}))
-			Expect(currentChildren).To(ContainElement(ConfigObject{
-				k8sObject:    s3,
-				singleFields: true,
-				fieldKeys: map[string]struct{}{
-					"key1": struct{}{},
-					"key2": struct{}{},
+				fieldKeys: map[string]ConfigField{
+					"key1": ConfigField{optional: false},
+					"key2": ConfigField{optional: false},
+					"key4": ConfigField{optional: true},
 				},
 			}))
 		})
@@ -192,8 +178,8 @@ var _ = Describe("Wave children Suite", func() {
 	Context("getChildNamesByType", func() {
 		var configMaps map[string]struct{}
 		var secrets map[string]struct{}
-		var configMapKeyReferences map[string]map[string]struct{}
-		var secretKeyReferences map[string]map[string]struct{}
+		var configMapKeyReferences map[string]map[string]ConfigField
+		var secretKeyReferences map[string]map[string]ConfigField
 
 		BeforeEach(func() {
 			configMaps, secrets, configMapKeyReferences, secretKeyReferences = getChildNamesByType(deployment)
@@ -210,9 +196,14 @@ var _ = Describe("Wave children Suite", func() {
 		It("returns ConfigMaps referenced in Env", func() {
 			Expect(configMapKeyReferences).To(HaveKey(cm1.GetName()))
 			Expect(configMapKeyReferences[cm1.GetName()]).To(HaveKey("key1"))
+			Expect(configMapKeyReferences[cm1.GetName()]["key1"].optional).To(BeFalse())
 			Expect(configMapKeyReferences).To(HaveKey(cm3.GetName()))
 			Expect(configMapKeyReferences[cm3.GetName()]).To(HaveKey("key1"))
+			Expect(configMapKeyReferences[cm3.GetName()]["key1"].optional).To(BeFalse())
 			Expect(configMapKeyReferences[cm3.GetName()]).To(HaveKey("key2"))
+			Expect(configMapKeyReferences[cm3.GetName()]["key2"].optional).To(BeFalse())
+			Expect(configMapKeyReferences[cm3.GetName()]).To(HaveKey("key4"))
+			Expect(configMapKeyReferences[cm3.GetName()]["key4"].optional).To(BeTrue())
 		})
 
 		It("returns Secrets referenced in Volumes", func() {
@@ -226,9 +217,14 @@ var _ = Describe("Wave children Suite", func() {
 		It("returns Secrets referenced in Env", func() {
 			Expect(secretKeyReferences).To(HaveKey(s1.GetName()))
 			Expect(secretKeyReferences[s1.GetName()]).To(HaveKey("key1"))
+			Expect(configMapKeyReferences[s1.GetName()]["key1"].optional).To(BeFalse())
 			Expect(secretKeyReferences).To(HaveKey(s3.GetName()))
 			Expect(secretKeyReferences[s3.GetName()]).To(HaveKey("key1"))
+			Expect(configMapKeyReferences[s3.GetName()]["key1"].optional).To(BeFalse())
 			Expect(secretKeyReferences[s3.GetName()]).To(HaveKey("key2"))
+			Expect(configMapKeyReferences[s3.GetName()]["key2"].optional).To(BeFalse())
+			Expect(secretKeyReferences[s3.GetName()]).To(HaveKey("key4"))
+			Expect(configMapKeyReferences[s3.GetName()]["key4"].optional).To(BeTrue())
 		})
 
 		It("does not return extra children", func() {

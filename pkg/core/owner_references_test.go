@@ -151,11 +151,11 @@ var _ = Describe("Wave owner references Suite", func() {
 
 			existing := []Object{cm2, cm3, s1, s2}
 			current := []ConfigObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
-				{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
-				{k8sObject: s3, singleFields: true, fieldKeys: map[string]struct{}{
-					"key1": struct{}{},
-					"key2": struct{}{},
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+				{k8sObject: s3, singleFields: true, fieldKeys: map[string]ConfigField{
+					"key1": ConfigField{optional: false},
+					"key2": ConfigField{optional: false},
 				},
 				},
 			}
@@ -234,10 +234,10 @@ var _ = Describe("Wave owner references Suite", func() {
 	Context("getOrphans", func() {
 		It("returns an empty list when current and existing match", func() {
 			current := []ConfigObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]struct{}{}},
-				{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]ConfigField{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]ConfigField{}},
 			}
 			existing := []Object{cm1, cm2, s1, s2}
 			Expect(getOrphans(existing, current)).To(BeEmpty())
@@ -245,10 +245,10 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		It("returns an empty list when existing is a subset of current", func() {
 			current := []ConfigObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]struct{}{}},
-				{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]ConfigField{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]ConfigField{}},
 			}
 			existing := []Object{cm1, s2}
 			Expect(getOrphans(existing, current)).To(BeEmpty())
@@ -256,8 +256,8 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		It("returns the correct objects when current is a subset of existing", func() {
 			current := []ConfigObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]ConfigField{}},
 			}
 			existing := []Object{cm1, cm2, s1, s2}
 			orphans := getOrphans(existing, current)
@@ -268,14 +268,14 @@ var _ = Describe("Wave owner references Suite", func() {
 		Context("when current contains multiple singleField entries", func() {
 			It("returns an empty list when current and existing match", func() {
 				current := []ConfigObject{
-					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
-					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]struct{}{
-						"key1": struct{}{},
-						"key2": struct{}{},
+					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]ConfigField{
+						"key1": ConfigField{optional: false},
+						"key2": ConfigField{optional: false},
 					},
 					},
-					{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
-					{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+					{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+					{k8sObject: s2, singleFields: false, fieldKeys: map[string]ConfigField{}},
 				}
 				existing := []Object{cm1, cm2, s1, s2}
 				Expect(getOrphans(existing, current)).To(BeEmpty())
@@ -283,14 +283,14 @@ var _ = Describe("Wave owner references Suite", func() {
 
 			It("returns an empty list when existing is a subset of current", func() {
 				current := []ConfigObject{
-					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
-					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]struct{}{
-						"key1": struct{}{},
-						"key2": struct{}{},
+					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]ConfigField{
+						"key1": ConfigField{optional: false},
+						"key2": ConfigField{optional: false},
 					},
 					},
-					{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
-					{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+					{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+					{k8sObject: s2, singleFields: false, fieldKeys: map[string]ConfigField{}},
 				}
 				existing := []Object{cm1, s2}
 				Expect(getOrphans(existing, current)).To(BeEmpty())
@@ -298,10 +298,10 @@ var _ = Describe("Wave owner references Suite", func() {
 
 			It("returns the correct objects when current is a subset of existing", func() {
 				current := []ConfigObject{
-					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
-					{k8sObject: s2, singleFields: true, fieldKeys: map[string]struct{}{
-						"key1": struct{}{},
-						"key2": struct{}{},
+					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
+					{k8sObject: s2, singleFields: true, fieldKeys: map[string]ConfigField{
+						"key1": ConfigField{optional: false},
+						"key2": ConfigField{optional: false},
 					},
 					},
 				}
