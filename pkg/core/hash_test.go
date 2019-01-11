@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018, 2019 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,8 +41,10 @@ var _ = Describe("Wave hash Suite", func() {
 
 		var cm1 *corev1.ConfigMap
 		var cm2 *corev1.ConfigMap
+		var cm3 *corev1.ConfigMap
 		var s1 *corev1.Secret
 		var s2 *corev1.Secret
+		var s3 *corev1.Secret
 
 		BeforeEach(func() {
 			mgr, err := manager.New(cfg, manager.Options{})
@@ -54,18 +56,24 @@ var _ = Describe("Wave hash Suite", func() {
 
 			cm1 = utils.ExampleConfigMap1.DeepCopy()
 			cm2 = utils.ExampleConfigMap2.DeepCopy()
+			cm3 = utils.ExampleConfigMap3.DeepCopy()
 			s1 = utils.ExampleSecret1.DeepCopy()
 			s2 = utils.ExampleSecret2.DeepCopy()
+			s3 = utils.ExampleSecret3.DeepCopy()
 
 			m.Create(cm1).Should(Succeed())
 			m.Create(cm2).Should(Succeed())
+			m.Create(cm3).Should(Succeed())
 			m.Create(s1).Should(Succeed())
 			m.Create(s2).Should(Succeed())
+			m.Create(s3).Should(Succeed())
 
 			m.Get(cm1, timeout).Should(Succeed())
 			m.Get(cm2, timeout).Should(Succeed())
+			m.Get(cm3, timeout).Should(Succeed())
 			m.Get(s1, timeout).Should(Succeed())
 			m.Get(s2, timeout).Should(Succeed())
+			m.Get(s3, timeout).Should(Succeed())
 		})
 
 		AfterEach(func() {
@@ -79,8 +87,13 @@ var _ = Describe("Wave hash Suite", func() {
 			)
 		})
 
-		It("returns a different hash when a child's data is updated", func() {
-			c := []Object{cm1, cm2, s1, s2}
+		It("returns a different hash when an all-field child's data is updated", func() {
+			c := []ConfigObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+			}
 
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
@@ -93,8 +106,86 @@ var _ = Describe("Wave hash Suite", func() {
 			Expect(h2).NotTo(Equal(h1))
 		})
 
+		It("returns a different hash when an all-field child's data is updated", func() {
+			c := []ConfigObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+			}
+
+			h1, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			cm1.Data["key1"] = "modified"
+			m.Update(cm1).Should(Succeed())
+			h2, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(h2).NotTo(Equal(h1))
+		})
+
+		It("returns a different hash when a single-field child's data is updated", func() {
+			c := []ConfigObject{
+				{k8sObject: cm1, singleFields: true, fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+				},
+				},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s1, singleFields: true, fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+				},
+				},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+			}
+
+			h1, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			cm1.Data["key1"] = "modified"
+			m.Update(cm1).Should(Succeed())
+			s1.Data["key1"] = []byte("modified")
+			m.Update(s1).Should(Succeed())
+			h2, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(h2).NotTo(Equal(h1))
+		})
+
+		It("returns the same hash when a single-field child's data is updated but not for that field", func() {
+			c := []ConfigObject{
+				{k8sObject: cm1, singleFields: true, fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+				},
+				},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s1, singleFields: true, fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+				},
+				},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+			}
+
+			h1, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			cm1.Data["key3"] = "modified"
+			m.Update(cm1).Should(Succeed())
+			s1.Data["key3"] = []byte("modified")
+			m.Update(s1).Should(Succeed())
+			h2, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(h2).To(Equal(h1))
+		})
+
 		It("returns the same hash when a child's metadata is updated", func() {
-			c := []Object{cm1, cm2, s1, s2}
+			c := []ConfigObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+			}
 
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
@@ -108,8 +199,38 @@ var _ = Describe("Wave hash Suite", func() {
 		})
 
 		It("returns the same hash independent of child ordering", func() {
-			c1 := []Object{cm1, cm2, s1, s2}
-			c2 := []Object{cm1, s2, cm2, s1}
+			c1 := []ConfigObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: cm3, singleFields: true, fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+					"key2": struct{}{},
+				},
+				},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s3, singleFields: false, fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+					"key2": struct{}{},
+				},
+				},
+			}
+			c2 := []ConfigObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s3, singleFields: false, fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+					"key2": struct{}{},
+				},
+				},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: cm3, singleFields: true, fieldKeys: map[string]struct{}{
+					"key2": struct{}{},
+					"key1": struct{}{},
+				},
+				},
+			}
 
 			h1, err := calculateConfigHash(c1)
 			Expect(err).NotTo(HaveOccurred())

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018, 2019 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@ var _ = Describe("Wave children Suite", func() {
 	var h *Handler
 	var m utils.Matcher
 	var deployment *appsv1.Deployment
-	var children []Object
+	var existingChildren []Object
+	var currentChildren []ConfigObject
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
@@ -43,8 +44,10 @@ var _ = Describe("Wave children Suite", func() {
 
 	var cm1 *corev1.ConfigMap
 	var cm2 *corev1.ConfigMap
+	var cm3 *corev1.ConfigMap
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
+	var s3 *corev1.Secret
 
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{})
@@ -56,13 +59,17 @@ var _ = Describe("Wave children Suite", func() {
 		// Create some configmaps and secrets
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
 		cm2 = utils.ExampleConfigMap2.DeepCopy()
+		cm3 = utils.ExampleConfigMap3.DeepCopy()
 		s1 = utils.ExampleSecret1.DeepCopy()
 		s2 = utils.ExampleSecret2.DeepCopy()
+		s3 = utils.ExampleSecret3.DeepCopy()
 
 		m.Create(cm1).Should(Succeed())
 		m.Create(cm2).Should(Succeed())
+		m.Create(cm3).Should(Succeed())
 		m.Create(s1).Should(Succeed())
 		m.Create(s2).Should(Succeed())
+		m.Create(s3).Should(Succeed())
 
 		deployment = utils.ExampleDeployment.DeepCopy()
 		m.Create(deployment).Should(Succeed())
@@ -72,8 +79,11 @@ var _ = Describe("Wave children Suite", func() {
 		// Ensure the caches have synced
 		m.Get(cm1, timeout).Should(Succeed())
 		m.Get(cm2, timeout).Should(Succeed())
+		m.Get(cm3, timeout).Should(Succeed())
 		m.Get(s1, timeout).Should(Succeed())
 		m.Get(s2, timeout).Should(Succeed())
+		m.Get(s3, timeout).Should(Succeed())
+		m.Get(deployment, timeout).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -90,28 +100,82 @@ var _ = Describe("Wave children Suite", func() {
 	Context("getCurrentChildren", func() {
 		BeforeEach(func() {
 			var err error
-			children, err = h.getCurrentChildren(deployment)
+			currentChildren, err = h.getCurrentChildren(deployment)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("returns ConfigMaps referenced in Volumes", func() {
-			Expect(children).To(ContainElement(cm1))
+			Expect(currentChildren).To(ContainElement(ConfigObject{
+				k8sObject:    cm1,
+				singleFields: false,
+				fieldKeys:    map[string]struct{}{},
+			}))
 		})
 
 		It("returns ConfigMaps referenced in EnvFrom", func() {
-			Expect(children).To(ContainElement(cm2))
+			Expect(currentChildren).To(ContainElement(ConfigObject{
+				k8sObject:    cm2,
+				singleFields: false,
+				fieldKeys:    map[string]struct{}{},
+			}))
+		})
+
+		It("returns ConfigMaps referenced in Env", func() {
+			Expect(currentChildren).To(ContainElement(ConfigObject{
+				k8sObject:    cm3,
+				singleFields: true,
+				fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+					"key2": struct{}{},
+				},
+			}))
+			Expect(currentChildren).To(ContainElement(ConfigObject{
+				k8sObject:    cm3,
+				singleFields: true,
+				fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+					"key2": struct{}{},
+				},
+			}))
 		})
 
 		It("returns Secrets referenced in Volumes", func() {
-			Expect(children).To(ContainElement(s1))
+			Expect(currentChildren).To(ContainElement(ConfigObject{
+				k8sObject:    s1,
+				singleFields: false,
+				fieldKeys:    map[string]struct{}{},
+			}))
 		})
 
 		It("returns Secrets referenced in EnvFrom", func() {
-			Expect(children).To(ContainElement(s2))
+			Expect(currentChildren).To(ContainElement(ConfigObject{
+				k8sObject:    s2,
+				singleFields: false,
+				fieldKeys:    map[string]struct{}{},
+			}))
+		})
+
+		It("returns Secrets referenced in Env", func() {
+			Expect(currentChildren).To(ContainElement(ConfigObject{
+				k8sObject:    s3,
+				singleFields: true,
+				fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+					"key2": struct{}{},
+				},
+			}))
+			Expect(currentChildren).To(ContainElement(ConfigObject{
+				k8sObject:    s3,
+				singleFields: true,
+				fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+					"key2": struct{}{},
+				},
+			}))
 		})
 
 		It("does not return duplicate children", func() {
-			Expect(children).To(HaveLen(4))
+			Expect(currentChildren).To(HaveLen(6))
 		})
 
 		It("returns an error if one of the referenced children is missing", func() {
@@ -128,9 +192,11 @@ var _ = Describe("Wave children Suite", func() {
 	Context("getChildNamesByType", func() {
 		var configMaps map[string]struct{}
 		var secrets map[string]struct{}
+		var configMapKeyReferences map[string]map[string]struct{}
+		var secretKeyReferences map[string]map[string]struct{}
 
 		BeforeEach(func() {
-			configMaps, secrets = getChildNamesByType(deployment)
+			configMaps, secrets, configMapKeyReferences, secretKeyReferences = getChildNamesByType(deployment)
 		})
 
 		It("returns ConfigMaps referenced in Volumes", func() {
@@ -141,6 +207,14 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(configMaps).To(HaveKey(cm2.GetName()))
 		})
 
+		It("returns ConfigMaps referenced in Env", func() {
+			Expect(configMapKeyReferences).To(HaveKey(cm1.GetName()))
+			Expect(configMapKeyReferences[cm1.GetName()]).To(HaveKey("key1"))
+			Expect(configMapKeyReferences).To(HaveKey(cm3.GetName()))
+			Expect(configMapKeyReferences[cm3.GetName()]).To(HaveKey("key1"))
+			Expect(configMapKeyReferences[cm3.GetName()]).To(HaveKey("key2"))
+		})
+
 		It("returns Secrets referenced in Volumes", func() {
 			Expect(secrets).To(HaveKey(s1.GetName()))
 		})
@@ -149,9 +223,19 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(secrets).To(HaveKey(s2.GetName()))
 		})
 
+		It("returns Secrets referenced in Env", func() {
+			Expect(secretKeyReferences).To(HaveKey(s1.GetName()))
+			Expect(secretKeyReferences[s1.GetName()]).To(HaveKey("key1"))
+			Expect(secretKeyReferences).To(HaveKey(s3.GetName()))
+			Expect(secretKeyReferences[s3.GetName()]).To(HaveKey("key1"))
+			Expect(secretKeyReferences[s3.GetName()]).To(HaveKey("key2"))
+		})
+
 		It("does not return extra children", func() {
 			Expect(configMaps).To(HaveLen(2))
 			Expect(secrets).To(HaveLen(2))
+			Expect(configMapKeyReferences).To(HaveLen(2))
+			Expect(secretKeyReferences).To(HaveLen(2))
 		})
 	})
 
@@ -168,28 +252,30 @@ var _ = Describe("Wave children Suite", func() {
 			}
 
 			var err error
-			children, err = h.getExistingChildren(deployment)
+			existingChildren, err = h.getExistingChildren(deployment)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("returns ConfigMaps with the correct OwnerReference", func() {
-			Expect(children).To(ContainElement(cm1))
+			Expect(existingChildren).To(ContainElement(cm1))
 		})
 
 		It("doesn't return ConfigMaps without OwnerReferences", func() {
-			Expect(children).NotTo(ContainElement(cm2))
+			Expect(existingChildren).NotTo(ContainElement(cm2))
+			Expect(existingChildren).NotTo(ContainElement(cm3))
 		})
 
 		It("returns Secrets with the correct OwnerReference", func() {
-			Expect(children).To(ContainElement(s1))
+			Expect(existingChildren).To(ContainElement(s1))
 		})
 
 		It("doesn't return Secrets without OwnerReferences", func() {
-			Expect(children).NotTo(ContainElement(s2))
+			Expect(existingChildren).NotTo(ContainElement(s2))
+			Expect(existingChildren).NotTo(ContainElement(s3))
 		})
 
 		It("does not return duplicate children", func() {
-			Expect(children).To(HaveLen(2))
+			Expect(existingChildren).To(HaveLen(2))
 		})
 	})
 

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018, 2019 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 
 // calculateConfigHash uses sha256 to hash the configuration within the child
 // objects and returns a hash as a string
-func calculateConfigHash(children []Object) (string, error) {
+func calculateConfigHash(children []ConfigObject) (string, error) {
 	// hashSource contains all the data to be hashed
 	hashSource := struct {
 		ConfigMaps map[string]map[string]string `json:"configMaps"`
@@ -42,13 +42,27 @@ func calculateConfigHash(children []Object) (string, error) {
 	// All children should be in the same namespace so each one should have a
 	// unique name
 	for _, obj := range children {
-		switch child := obj.(type) {
+		switch child := obj.k8sObject.(type) {
 		case *corev1.ConfigMap:
 			cm := corev1.ConfigMap(*child)
-			hashSource.ConfigMaps[child.GetName()] = cm.Data
+			if obj.singleFields {
+				hashSource.ConfigMaps[child.GetName()] = make(map[string]string)
+				for fieldKey := range obj.fieldKeys {
+					hashSource.ConfigMaps[child.GetName()][fieldKey] = cm.Data[fieldKey]
+				}
+			} else {
+				hashSource.ConfigMaps[child.GetName()] = cm.Data
+			}
 		case *corev1.Secret:
 			s := corev1.Secret(*child)
-			hashSource.Secrets[child.GetName()] = s.Data
+			if obj.singleFields {
+				hashSource.Secrets[child.GetName()] = make(map[string][]byte)
+				for fieldKey := range obj.fieldKeys {
+					hashSource.Secrets[child.GetName()][fieldKey] = s.Data[fieldKey]
+				}
+			} else {
+				hashSource.Secrets[child.GetName()] = s.Data
+			}
 		default:
 			return "", fmt.Errorf("passed unknown type: %v", reflect.TypeOf(child))
 		}

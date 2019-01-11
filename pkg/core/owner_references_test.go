@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018, 2019 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,8 +43,10 @@ var _ = Describe("Wave owner references Suite", func() {
 
 	var cm1 *corev1.ConfigMap
 	var cm2 *corev1.ConfigMap
+	var cm3 *corev1.ConfigMap
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
+	var s3 *corev1.Secret
 	var ownerRef metav1.OwnerReference
 
 	BeforeEach(func() {
@@ -57,13 +59,17 @@ var _ = Describe("Wave owner references Suite", func() {
 		// Create some configmaps and secrets
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
 		cm2 = utils.ExampleConfigMap2.DeepCopy()
+		cm3 = utils.ExampleConfigMap3.DeepCopy()
 		s1 = utils.ExampleSecret1.DeepCopy()
 		s2 = utils.ExampleSecret2.DeepCopy()
+		s3 = utils.ExampleSecret3.DeepCopy()
 
 		m.Create(cm1).Should(Succeed())
 		m.Create(cm2).Should(Succeed())
+		m.Create(cm3).Should(Succeed())
 		m.Create(s1).Should(Succeed())
 		m.Create(s2).Should(Succeed())
+		m.Create(s3).Should(Succeed())
 
 		deployment = utils.ExampleDeployment.DeepCopy()
 		m.Create(deployment).Should(Succeed())
@@ -143,20 +149,30 @@ var _ = Describe("Wave owner references Suite", func() {
 				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 
-			existing := []Object{cm2, s1, s2}
-			current := []Object{cm1, s1}
+			existing := []Object{cm2, cm3, s1, s2}
+			current := []ConfigObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s3, singleFields: true, fieldKeys: map[string]struct{}{
+					"key1": struct{}{},
+					"key2": struct{}{},
+				},
+				},
+			}
 			err := h.updateOwnerReferences(deployment, existing, current)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("removes owner references from those not in current", func() {
 			m.Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+			m.Eventually(cm3, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			m.Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 		})
 
 		It("adds owner references to those in current", func() {
 			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			m.Eventually(s1, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
+			m.Eventually(s3, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 		})
 	})
 
@@ -217,23 +233,83 @@ var _ = Describe("Wave owner references Suite", func() {
 
 	Context("getOrphans", func() {
 		It("returns an empty list when current and existing match", func() {
-			current := []Object{cm1, cm2, s1, s2}
-			existing := current
+			current := []ConfigObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+			}
+			existing := []Object{cm1, cm2, s1, s2}
 			Expect(getOrphans(existing, current)).To(BeEmpty())
 		})
 
 		It("returns an empty list when existing is a subset of current", func() {
+			current := []ConfigObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+			}
 			existing := []Object{cm1, s2}
-			current := append(existing, cm2, s1)
 			Expect(getOrphans(existing, current)).To(BeEmpty())
 		})
 
 		It("returns the correct objects when current is a subset of existing", func() {
-			current := []Object{cm1, s2}
-			existing := append(current, cm2, s1)
+			current := []ConfigObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+			}
+			existing := []Object{cm1, cm2, s1, s2}
 			orphans := getOrphans(existing, current)
 			Expect(orphans).To(ContainElement(cm2))
 			Expect(orphans).To(ContainElement(s1))
+		})
+
+		Context("when current contains multiple singleField entries", func() {
+			It("returns an empty list when current and existing match", func() {
+				current := []ConfigObject{
+					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]struct{}{
+						"key1": struct{}{},
+						"key2": struct{}{},
+					},
+					},
+					{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
+					{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				}
+				existing := []Object{cm1, cm2, s1, s2}
+				Expect(getOrphans(existing, current)).To(BeEmpty())
+			})
+
+			It("returns an empty list when existing is a subset of current", func() {
+				current := []ConfigObject{
+					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]struct{}{
+						"key1": struct{}{},
+						"key2": struct{}{},
+					},
+					},
+					{k8sObject: s1, singleFields: false, fieldKeys: map[string]struct{}{}},
+					{k8sObject: s2, singleFields: false, fieldKeys: map[string]struct{}{}},
+				}
+				existing := []Object{cm1, s2}
+				Expect(getOrphans(existing, current)).To(BeEmpty())
+			})
+
+			It("returns the correct objects when current is a subset of existing", func() {
+				current := []ConfigObject{
+					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]struct{}{}},
+					{k8sObject: s2, singleFields: true, fieldKeys: map[string]struct{}{
+						"key1": struct{}{},
+						"key2": struct{}{},
+					},
+					},
+				}
+				existing := []Object{cm1, cm2, s1, s2}
+				orphans := getOrphans(existing, current)
+				Expect(orphans).To(ContainElement(cm2))
+				Expect(orphans).To(ContainElement(s1))
+			})
 		})
 	})
 

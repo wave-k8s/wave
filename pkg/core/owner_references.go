@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018, 2019 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -55,13 +55,13 @@ func (h *Handler) removeOwnerReferences(obj *appsv1.Deployment, children []Objec
 // updateOwnerReferences determines which children need to have their
 // OwnerReferences added/updated and which need to have their OwnerReferences
 // removed and then performs all updates
-func (h *Handler) updateOwnerReferences(owner *appsv1.Deployment, existing, current []Object) error {
+func (h *Handler) updateOwnerReferences(owner *appsv1.Deployment, existing []Object, current []ConfigObject) error {
 	// Add an owner reference to each child object
 	errChan := make(chan error)
 	for _, obj := range current {
 		go func(child Object) {
 			errChan <- h.updateOwnerReference(owner, child)
-		}(obj)
+		}(obj.k8sObject)
 	}
 
 	// Return any errors encountered updating the child objects
@@ -110,7 +110,7 @@ func (h *Handler) updateOwnerReference(owner *appsv1.Deployment, child Object) e
 
 // getOrphans creates a slice of orphaned child objects that need their
 // OwnerReferences removing
-func getOrphans(existing, current []Object) []Object {
+func getOrphans(existing []Object, current []ConfigObject) []Object {
 	orphans := []Object{}
 	for _, child := range existing {
 		if !isIn(current, child) {
@@ -135,9 +135,9 @@ func getOwnerReference(obj *appsv1.Deployment) metav1.OwnerReference {
 }
 
 // isIn checks whether a child object exists within a slice of objects
-func isIn(list []Object, child Object) bool {
+func isIn(list []ConfigObject, child Object) bool {
 	for _, obj := range list {
-		if obj.GetUID() == child.GetUID() {
+		if obj.k8sObject.GetUID() == child.GetUID() {
 			return true
 		}
 	}

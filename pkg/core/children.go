@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018, 2019 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,57 +31,113 @@ import (
 // getResult is returned from the getObject method as a helper struct to be
 // passed into a channel
 type getResult struct {
-	err error
-	obj Object
+	err         error
+	obj         Object
+	singleField bool
+	fieldKey    string
 }
 
 // getCurrentChildren returns a list of all Secrets and ConfigMaps that are
-// referenced in the Deployment's spec
-func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]Object, error) {
-	configMaps, secrets := getChildNamesByType(obj)
+// referenced in the Deployment's spec.  Any reference to a whole ConfigMap or Secret
+// (i.e. via an EnvFrom or a Volume) will result in one entry in the list, irrespective of
+// whether individual elements are also references (i.e. via an Env entry).
+func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]ConfigObject, error) {
+	configMaps, secrets, configMapKeyReferences, secretKeyReferences := getChildNamesByType(obj)
+	var childCount int = 0
 
 	// get all of ConfigMaps and Secrets
 	resultsChan := make(chan getResult)
 	for name := range configMaps {
+		childCount++
 		go func(name string) {
 			resultsChan <- h.getConfigMap(obj.GetNamespace(), name)
 		}(name)
 	}
 	for name := range secrets {
+		childCount++
 		go func(name string) {
 			resultsChan <- h.getSecret(obj.GetNamespace(), name)
 		}(name)
 	}
+	for name := range configMapKeyReferences {
+		// Only include ConfigMaps that are not already pulled in as a whole via EnvFrom/Volumes
+		if _, ok := configMaps[name]; !ok {
+			for key := range configMapKeyReferences[name] {
+				childCount++
+				go func(name string, key string) {
+					resultsChan <- h.getConfigMapWithKey(obj.GetNamespace(), name, key)
+				}(name, key)
+			}
+		}
+	}
+	for name := range secretKeyReferences {
+		// Only include Secrets that are not already pulled in as a whole via EnvFrom/Volumes
+		if _, ok := secrets[name]; !ok {
+			for key := range secretKeyReferences[name] {
+				childCount++
+				go func(name string, key string) {
+					resultsChan <- h.getSecretWithKey(obj.GetNamespace(), name, key)
+				}(name, key)
+			}
+		}
+	}
 
 	// Range over and collect results from the gets
 	var errs []string
-	var children []Object
-	for i := 0; i < len(configMaps)+len(secrets); i++ {
+	var childMap = make(map[types.UID]ConfigObject)
+	for i := 0; i < childCount; i++ {
 		result := <-resultsChan
 		if result.err != nil {
 			errs = append(errs, result.err.Error())
 		}
 		if result.obj != nil {
-			children = append(children, result.obj)
+			if knownChild, exists := childMap[result.obj.GetUID()]; exists {
+				if result.singleField {
+					// If the known child only has single fields then just append the new single field,
+					// otherwise the whole object is already being used.
+					if knownChild.singleFields {
+						knownChild.fieldKeys[result.fieldKey] = struct{}{}
+					}
+				} else {
+					// Pulling in the whole object always overrides any use of single fields.
+					knownChild.singleFields = false
+					knownChild.fieldKeys = map[string]struct{}{}
+				}
+			} else {
+				childMap[result.obj.GetUID()] = ConfigObject{k8sObject: result.obj, singleFields: result.singleField, fieldKeys: map[string]struct{}{}}
+				if result.singleField {
+					childMap[result.obj.GetUID()].fieldKeys[result.fieldKey] = struct{}{}
+				}
+			}
 		}
 	}
 
 	// If there were any errors, don't return any children
 	if len(errs) > 0 {
-		return []Object{}, fmt.Errorf("error(s) encountered when geting children: %s", strings.Join(errs, ", "))
+		return []ConfigObject{}, fmt.Errorf("error(s) encountered when geting children: %s", strings.Join(errs, ", "))
+	}
+
+	// Convert the map of children into an array
+	var children []ConfigObject
+	for _, child := range childMap {
+		children = append(children, child)
 	}
 
 	// No errors, return the list of children
 	return children, nil
 }
 
-// getChildNamesByType parses the Depoyment object and returns two sets,
+// getChildNamesByType parses the Depoyment object and returns four sets,
 // the first containing the names of all referenced ConfigMaps,
-// the second containing the names of all referenced Secrets
-func getChildNamesByType(obj *appsv1.Deployment) (map[string]struct{}, map[string]struct{}) {
+// the second containing the names of all referenced Secrets,
+// the third containing the name/key pairs of all referenced keys in a Config Map
+// the forth containing the name/key pairs of all referenced keys in a Secret
+func getChildNamesByType(obj *appsv1.Deployment) (map[string]struct{}, map[string]struct{}, map[string]map[string]struct{}, map[string]map[string]struct{}) {
 	// Create sets for storing the names fo the ConfigMaps/Secrets
 	configMaps := make(map[string]struct{})
 	secrets := make(map[string]struct{})
+	configMapKeyReferences := make(map[string]map[string]struct{})
+	secretKeyReferences := make(map[string]map[string]struct{})
 
 	// Range through all Volumes and check the VolumeSources for ConfigMaps
 	// and Secrets
@@ -107,7 +163,27 @@ func getChildNamesByType(obj *appsv1.Deployment) (map[string]struct{}, map[strin
 		}
 	}
 
-	return configMaps, secrets
+	// Range through all Containers and their respective Env
+	for _, container := range obj.Spec.Template.Spec.Containers {
+		for _, env := range container.Env {
+			if valFrom := env.ValueFrom; valFrom != nil {
+				if cm := valFrom.ConfigMapKeyRef; cm != nil {
+					if configMapKeyReferences[cm.Name] == nil {
+						configMapKeyReferences[cm.Name] = make(map[string]struct{})
+					}
+					configMapKeyReferences[cm.Name][cm.Key] = struct{}{}
+				}
+				if s := valFrom.SecretKeyRef; s != nil {
+					if secretKeyReferences[s.Name] == nil {
+						secretKeyReferences[s.Name] = make(map[string]struct{})
+					}
+					secretKeyReferences[s.Name][s.Key] = struct{}{}
+				}
+			}
+		}
+	}
+
+	return configMaps, secrets, configMapKeyReferences, secretKeyReferences
 }
 
 // getConfigMap gets a ConfigMap with the given name and namespace from the
@@ -122,15 +198,38 @@ func (h *Handler) getSecret(namespace, name string) getResult {
 	return h.getObject(namespace, name, &corev1.Secret{})
 }
 
+// getConfigMap gets a ConfigMap with the given name and namespace from the
+// API server.
+func (h *Handler) getConfigMapWithKey(namespace, name, key string) getResult {
+	return h.getObjectWithKey(namespace, name, key, &corev1.ConfigMap{})
+}
+
+// getSecret gets a Secret with the given name and namespace from the
+// API server.
+func (h *Handler) getSecretWithKey(namespace, name, key string) getResult {
+	return h.getObjectWithKey(namespace, name, key, &corev1.Secret{})
+}
+
 // getObject gets the Object with the given name and namespace from the API
 // server
 func (h *Handler) getObject(namespace, name string, obj Object) getResult {
-	key := types.NamespacedName{Namespace: namespace, Name: name}
-	err := h.Get(context.TODO(), key, obj)
+	objectName := types.NamespacedName{Namespace: namespace, Name: name}
+	err := h.Get(context.TODO(), objectName, obj)
 	if err != nil {
 		return getResult{err: err}
 	}
-	return getResult{obj: obj}
+	return getResult{obj: obj, singleField: false}
+}
+
+// getObject gets the Object with the given name and namespace from the API
+// server, and records the specific key requested
+func (h *Handler) getObjectWithKey(namespace, name, key string, obj Object) getResult {
+	objectName := types.NamespacedName{Namespace: namespace, Name: name}
+	err := h.Get(context.TODO(), objectName, obj)
+	if err != nil {
+		return getResult{err: err}
+	}
+	return getResult{obj: obj, singleField: true, fieldKey: key}
 }
 
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are

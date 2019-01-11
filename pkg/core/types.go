@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018, 2019 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,4 +41,12 @@ const (
 type Object interface {
 	runtime.Object
 	metav1.Object
+}
+
+// ConfigObject is used as a container of an "Object" along with metadata
+// that Wave uses to determine what to use from that Object
+type ConfigObject struct {
+	k8sObject    Object
+	singleFields bool
+	fieldKeys    map[string]struct{}
 }
