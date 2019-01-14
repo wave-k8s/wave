@@ -128,7 +128,7 @@ func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]ConfigObject, er
 	return children, nil
 }
 
-// getChildNamesByType parses the Depoyment object and returns four sets,
+// getChildNamesByType parses the Deployment object and returns four sets,
 // the first containing the names of all referenced ConfigMaps,
 // the second containing the names of all referenced Secrets,
 // the third containing the name/key pairs of all referenced keys in a Config Map
@@ -261,7 +261,7 @@ func (h *Handler) getExistingChildren(obj *appsv1.Deployment) ([]Object, error) 
 	}
 
 	// Iterate over the ConfigMaps/Secrets and add the ones owned by the
-	// Deployment to the ouput list children
+	// Deployment to the output list children
 	children := []Object{}
 	for _, cm := range configMaps.Items {
 		if isOwnedBy(&cm, obj) {
