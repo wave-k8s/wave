@@ -26,7 +26,7 @@ var labels = map[string]string{
 	"app": "example",
 }
 
-var trueValue bool = true
+var trueValue = true
 
 // ExampleDeployment is an example Deployment object for use within test suites
 var ExampleDeployment = &appsv1.Deployment{

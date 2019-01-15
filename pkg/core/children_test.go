@@ -125,9 +125,9 @@ var _ = Describe("Wave children Suite", func() {
 				k8sObject:    cm3,
 				singleFields: true,
 				fieldKeys: map[string]ConfigField{
-					"key1": ConfigField{optional: false},
-					"key2": ConfigField{optional: false},
-					"key4": ConfigField{optional: true},
+					"key1": {optional: false},
+					"key2": {optional: false},
+					"key4": {optional: true},
 				},
 			}))
 		})
@@ -153,9 +153,9 @@ var _ = Describe("Wave children Suite", func() {
 				k8sObject:    s3,
 				singleFields: true,
 				fieldKeys: map[string]ConfigField{
-					"key1": ConfigField{optional: false},
-					"key2": ConfigField{optional: false},
-					"key4": ConfigField{optional: true},
+					"key1": {optional: false},
+					"key2": {optional: false},
+					"key4": {optional: true},
 				},
 			}))
 		})

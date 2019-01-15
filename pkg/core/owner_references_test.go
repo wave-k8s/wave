@@ -154,8 +154,8 @@ var _ = Describe("Wave owner references Suite", func() {
 				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
 				{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
 				{k8sObject: s3, singleFields: true, fieldKeys: map[string]ConfigField{
-					"key1": ConfigField{optional: false},
-					"key2": ConfigField{optional: false},
+					"key1": {optional: false},
+					"key2": {optional: false},
 				},
 				},
 			}
@@ -270,8 +270,8 @@ var _ = Describe("Wave owner references Suite", func() {
 				current := []ConfigObject{
 					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
 					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]ConfigField{
-						"key1": ConfigField{optional: false},
-						"key2": ConfigField{optional: false},
+						"key1": {optional: false},
+						"key2": {optional: false},
 					},
 					},
 					{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
@@ -285,8 +285,8 @@ var _ = Describe("Wave owner references Suite", func() {
 				current := []ConfigObject{
 					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
 					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]ConfigField{
-						"key1": ConfigField{optional: false},
-						"key2": ConfigField{optional: false},
+						"key1": {optional: false},
+						"key2": {optional: false},
 					},
 					},
 					{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
@@ -300,8 +300,8 @@ var _ = Describe("Wave owner references Suite", func() {
 				current := []ConfigObject{
 					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
 					{k8sObject: s2, singleFields: true, fieldKeys: map[string]ConfigField{
-						"key1": ConfigField{optional: false},
-						"key2": ConfigField{optional: false},
+						"key1": {optional: false},
+						"key2": {optional: false},
 					},
 					},
 				}

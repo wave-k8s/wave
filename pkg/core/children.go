@@ -44,7 +44,7 @@ type getResult struct {
 // whether individual elements are also references (i.e. via an Env entry).
 func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]ConfigObject, error) {
 	configMaps, secrets, configMapKeyReferences, secretKeyReferences := getChildNamesByType(obj)
-	var childCount int = 0
+	var childCount int
 
 	// get all of ConfigMaps and Secrets
 	resultsChan := make(chan getResult)
