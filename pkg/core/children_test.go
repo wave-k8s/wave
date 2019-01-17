@@ -1,5 +1,5 @@
 /*
-Copyright 2018, 2019 Pusher Ltd.
+Copyright 2018 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ var _ = Describe("Wave children Suite", func() {
 	var m utils.Matcher
 	var deployment *appsv1.Deployment
 	var existingChildren []Object
-	var currentChildren []ConfigObject
+	var currentChildren []configObject
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
@@ -105,26 +105,26 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns ConfigMaps referenced in Volumes", func() {
-			Expect(currentChildren).To(ContainElement(ConfigObject{
+			Expect(currentChildren).To(ContainElement(configObject{
 				k8sObject:    cm1,
 				singleFields: false,
-				fieldKeys:    map[string]ConfigField{},
+				fieldKeys:    map[string]configField{},
 			}))
 		})
 
 		It("returns ConfigMaps referenced in EnvFrom", func() {
-			Expect(currentChildren).To(ContainElement(ConfigObject{
+			Expect(currentChildren).To(ContainElement(configObject{
 				k8sObject:    cm2,
 				singleFields: false,
-				fieldKeys:    map[string]ConfigField{},
+				fieldKeys:    map[string]configField{},
 			}))
 		})
 
 		It("returns ConfigMaps referenced in Env", func() {
-			Expect(currentChildren).To(ContainElement(ConfigObject{
+			Expect(currentChildren).To(ContainElement(configObject{
 				k8sObject:    cm3,
 				singleFields: true,
-				fieldKeys: map[string]ConfigField{
+				fieldKeys: map[string]configField{
 					"key1": {optional: false},
 					"key2": {optional: false},
 					"key4": {optional: true},
@@ -133,26 +133,26 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns Secrets referenced in Volumes", func() {
-			Expect(currentChildren).To(ContainElement(ConfigObject{
+			Expect(currentChildren).To(ContainElement(configObject{
 				k8sObject:    s1,
 				singleFields: false,
-				fieldKeys:    map[string]ConfigField{},
+				fieldKeys:    map[string]configField{},
 			}))
 		})
 
 		It("returns Secrets referenced in EnvFrom", func() {
-			Expect(currentChildren).To(ContainElement(ConfigObject{
+			Expect(currentChildren).To(ContainElement(configObject{
 				k8sObject:    s2,
 				singleFields: false,
-				fieldKeys:    map[string]ConfigField{},
+				fieldKeys:    map[string]configField{},
 			}))
 		})
 
 		It("returns Secrets referenced in Env", func() {
-			Expect(currentChildren).To(ContainElement(ConfigObject{
+			Expect(currentChildren).To(ContainElement(configObject{
 				k8sObject:    s3,
 				singleFields: true,
-				fieldKeys: map[string]ConfigField{
+				fieldKeys: map[string]configField{
 					"key1": {optional: false},
 					"key2": {optional: false},
 					"key4": {optional: true},
@@ -178,8 +178,8 @@ var _ = Describe("Wave children Suite", func() {
 	Context("getChildNamesByType", func() {
 		var configMaps map[string]struct{}
 		var secrets map[string]struct{}
-		var configMapKeyReferences map[string]map[string]ConfigField
-		var secretKeyReferences map[string]map[string]ConfigField
+		var configMapKeyReferences map[string]map[string]configField
+		var secretKeyReferences map[string]map[string]configField
 
 		BeforeEach(func() {
 			configMaps, secrets, configMapKeyReferences, secretKeyReferences = getChildNamesByType(deployment)
@@ -194,16 +194,10 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns ConfigMaps referenced in Env", func() {
-			Expect(configMapKeyReferences).To(HaveKey(cm1.GetName()))
-			Expect(configMapKeyReferences[cm1.GetName()]).To(HaveKey("key1"))
-			Expect(configMapKeyReferences[cm1.GetName()]["key1"].optional).To(BeFalse())
-			Expect(configMapKeyReferences).To(HaveKey(cm3.GetName()))
-			Expect(configMapKeyReferences[cm3.GetName()]).To(HaveKey("key1"))
-			Expect(configMapKeyReferences[cm3.GetName()]["key1"].optional).To(BeFalse())
-			Expect(configMapKeyReferences[cm3.GetName()]).To(HaveKey("key2"))
-			Expect(configMapKeyReferences[cm3.GetName()]["key2"].optional).To(BeFalse())
-			Expect(configMapKeyReferences[cm3.GetName()]).To(HaveKey("key4"))
-			Expect(configMapKeyReferences[cm3.GetName()]["key4"].optional).To(BeTrue())
+      Expect(configMapKeyReferences).To(HaveKeyWithValue(cm1.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
+      Expect(configMapKeyReferences).To(HaveKeyWithValue(cm3.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
+      Expect(configMapKeyReferences).To(HaveKeyWithValue(cm3.GetName(), HaveKeyWithValue("key2", configField{optional: false})))
+      Expect(configMapKeyReferences).To(HaveKeyWithValue(cm3.GetName(), HaveKeyWithValue("key4", configField{optional: true})))
 		})
 
 		It("returns Secrets referenced in Volumes", func() {
@@ -215,16 +209,10 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns Secrets referenced in Env", func() {
-			Expect(secretKeyReferences).To(HaveKey(s1.GetName()))
-			Expect(secretKeyReferences[s1.GetName()]).To(HaveKey("key1"))
-			Expect(configMapKeyReferences[s1.GetName()]["key1"].optional).To(BeFalse())
-			Expect(secretKeyReferences).To(HaveKey(s3.GetName()))
-			Expect(secretKeyReferences[s3.GetName()]).To(HaveKey("key1"))
-			Expect(configMapKeyReferences[s3.GetName()]["key1"].optional).To(BeFalse())
-			Expect(secretKeyReferences[s3.GetName()]).To(HaveKey("key2"))
-			Expect(configMapKeyReferences[s3.GetName()]["key2"].optional).To(BeFalse())
-			Expect(secretKeyReferences[s3.GetName()]).To(HaveKey("key4"))
-			Expect(configMapKeyReferences[s3.GetName()]["key4"].optional).To(BeTrue())
+      Expect(secretKeyReferences).To(HaveKeyWithValue(s1.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
+      Expect(secretKeyReferences).To(HaveKeyWithValue(s3.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
+      Expect(secretKeyReferences).To(HaveKeyWithValue(s3.GetName(), HaveKeyWithValue("key2", configField{optional: false})))
+      Expect(secretKeyReferences).To(HaveKeyWithValue(s3.GetName(), HaveKeyWithValue("key4", configField{optional: true})))
 		})
 
 		It("does not return extra children", func() {

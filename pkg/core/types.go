@@ -43,16 +43,16 @@ type Object interface {
 	metav1.Object
 }
 
-// ConfigField is used to contain information about a specific field within
+// configField is used to contain information about a specific field within
 // a ConfigMap/Secret to control how Wave uses that field.
-type ConfigField struct {
+type configField struct {
 	optional bool
 }
 
-// ConfigObject is used as a container of an "Object" along with metadata
+// configObject is used as a container of an "Object" along with metadata
 // that Wave uses to determine what to use from that Object.
-type ConfigObject struct {
+type configObject struct {
 	k8sObject    Object
 	singleFields bool
-	fieldKeys    map[string]ConfigField
+	fieldKeys    map[string]configField
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2018, 2019 Pusher Ltd.
+Copyright 2018 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ type getResult struct {
 // referenced in the Deployment's spec.  Any reference to a whole ConfigMap or Secret
 // (i.e. via an EnvFrom or a Volume) will result in one entry in the list, irrespective of
 // whether individual elements are also references (i.e. via an Env entry).
-func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]ConfigObject, error) {
+func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]configObject, error) {
 	configMaps, secrets, configMapKeyReferences, secretKeyReferences := getChildNamesByType(obj)
 	var childCount int
 
@@ -85,7 +85,7 @@ func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]ConfigObject, er
 
 	// Range over and collect results from the gets
 	var errs []string
-	var childMap = make(map[types.UID]ConfigObject)
+	var childMap = make(map[types.UID]configObject)
 	for i := 0; i < childCount; i++ {
 		result := <-resultsChan
 		if result.err != nil {
@@ -97,17 +97,17 @@ func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]ConfigObject, er
 					// If the known child only has single fields then just append the new single field,
 					// otherwise the whole object is already being used.
 					if knownChild.singleFields {
-						knownChild.fieldKeys[result.fieldKey] = ConfigField{optional: result.fieldOptional}
+						knownChild.fieldKeys[result.fieldKey] = configField{optional: result.fieldOptional}
 					}
 				} else {
 					// Pulling in the whole object always overrides any use of single fields.
 					knownChild.singleFields = false
-					knownChild.fieldKeys = map[string]ConfigField{}
+					knownChild.fieldKeys = map[string]configField{}
 				}
 			} else {
-				childMap[result.obj.GetUID()] = ConfigObject{k8sObject: result.obj, singleFields: result.singleField, fieldKeys: map[string]ConfigField{}}
+				childMap[result.obj.GetUID()] = configObject{k8sObject: result.obj, singleFields: result.singleField, fieldKeys: map[string]configField{}}
 				if result.singleField {
-					childMap[result.obj.GetUID()].fieldKeys[result.fieldKey] = ConfigField{optional: result.fieldOptional}
+					childMap[result.obj.GetUID()].fieldKeys[result.fieldKey] = configField{optional: result.fieldOptional}
 				}
 			}
 		}
@@ -115,11 +115,11 @@ func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]ConfigObject, er
 
 	// If there were any errors, don't return any children
 	if len(errs) > 0 {
-		return []ConfigObject{}, fmt.Errorf("error(s) encountered when geting children: %s", strings.Join(errs, ", "))
+		return []configObject{}, fmt.Errorf("error(s) encountered when geting children: %s", strings.Join(errs, ", "))
 	}
 
 	// Convert the map of children into an array
-	var children []ConfigObject
+	var children []configObject
 	for _, child := range childMap {
 		children = append(children, child)
 	}
@@ -133,12 +133,12 @@ func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]ConfigObject, er
 // the second containing the names of all referenced Secrets,
 // the third containing the name/key pairs of all referenced keys in a Config Map
 // the forth containing the name/key pairs of all referenced keys in a Secret
-func getChildNamesByType(obj *appsv1.Deployment) (map[string]struct{}, map[string]struct{}, map[string]map[string]ConfigField, map[string]map[string]ConfigField) {
+func getChildNamesByType(obj *appsv1.Deployment) (map[string]struct{}, map[string]struct{}, map[string]map[string]configField, map[string]map[string]configField) {
 	// Create sets for storing the names fo the ConfigMaps/Secrets
 	configMaps := make(map[string]struct{})
 	secrets := make(map[string]struct{})
-	configMapKeyReferences := make(map[string]map[string]ConfigField)
-	secretKeyReferences := make(map[string]map[string]ConfigField)
+	configMapKeyReferences := make(map[string]map[string]configField)
+	secretKeyReferences := make(map[string]map[string]configField)
 
 	// Range through all Volumes and check the VolumeSources for ConfigMaps
 	// and Secrets
@@ -170,22 +170,22 @@ func getChildNamesByType(obj *appsv1.Deployment) (map[string]struct{}, map[strin
 			if valFrom := env.ValueFrom; valFrom != nil {
 				if cm := valFrom.ConfigMapKeyRef; cm != nil {
 					if configMapKeyReferences[cm.Name] == nil {
-						configMapKeyReferences[cm.Name] = map[string]ConfigField{cm.Key: {optional: false}}
+						configMapKeyReferences[cm.Name] = map[string]configField{cm.Key: {optional: false}}
 					}
 					if cm.Optional != nil {
-						configMapKeyReferences[cm.Name][cm.Key] = ConfigField{optional: *cm.Optional}
+						configMapKeyReferences[cm.Name][cm.Key] = configField{optional: *cm.Optional}
 					} else {
-						configMapKeyReferences[cm.Name][cm.Key] = ConfigField{optional: false}
+						configMapKeyReferences[cm.Name][cm.Key] = configField{optional: false}
 					}
 				}
 				if s := valFrom.SecretKeyRef; s != nil {
 					if secretKeyReferences[s.Name] == nil {
-						secretKeyReferences[s.Name] = map[string]ConfigField{s.Key: {optional: false}}
+						secretKeyReferences[s.Name] = map[string]configField{s.Key: {optional: false}}
 					}
 					if s.Optional != nil {
-						secretKeyReferences[s.Name][s.Key] = ConfigField{optional: *s.Optional}
+						secretKeyReferences[s.Name][s.Key] = configField{optional: *s.Optional}
 					} else {
-						secretKeyReferences[s.Name][s.Key] = ConfigField{optional: false}
+						secretKeyReferences[s.Name][s.Key] = configField{optional: false}
 					}
 				}
 			}

@@ -1,5 +1,5 @@
 /*
-Copyright 2018, 2019 Pusher Ltd.
+Copyright 2018 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -288,7 +288,7 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Does not update the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
+						m.Consistently(deployment, consistentlyTimeout).Should(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
 					})
 				})
 
@@ -372,7 +372,7 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Does not update the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
+						m.Consistently(deployment, consistentlyTimeout).Should(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
 					})
 				})
 			})

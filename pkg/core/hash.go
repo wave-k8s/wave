@@ -1,5 +1,5 @@
 /*
-Copyright 2018, 2019 Pusher Ltd.
+Copyright 2018 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 
 // calculateConfigHash uses sha256 to hash the configuration within the child
 // objects and returns a hash as a string
-func calculateConfigHash(children []ConfigObject) (string, error) {
+func calculateConfigHash(children []configObject) (string, error) {
 	// hashSource contains all the data to be hashed
 	hashSource := struct {
 		ConfigMaps map[string]map[string]string `json:"configMaps"`

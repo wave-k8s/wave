@@ -1,5 +1,5 @@
 /*
-Copyright 2018, 2019 Pusher Ltd.
+Copyright 2018 Pusher Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -150,10 +150,10 @@ var _ = Describe("Wave owner references Suite", func() {
 			}
 
 			existing := []Object{cm2, cm3, s1, s2}
-			current := []ConfigObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-				{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-				{k8sObject: s3, singleFields: true, fieldKeys: map[string]ConfigField{
+			current := []configObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]configField{}},
+				{k8sObject: s3, singleFields: true, fieldKeys: map[string]configField{
 					"key1": {optional: false},
 					"key2": {optional: false},
 				},
@@ -233,31 +233,31 @@ var _ = Describe("Wave owner references Suite", func() {
 
 	Context("getOrphans", func() {
 		It("returns an empty list when current and existing match", func() {
-			current := []ConfigObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]ConfigField{}},
-				{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]ConfigField{}},
+			current := []configObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]configField{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]configField{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
 			}
 			existing := []Object{cm1, cm2, s1, s2}
 			Expect(getOrphans(existing, current)).To(BeEmpty())
 		})
 
 		It("returns an empty list when existing is a subset of current", func() {
-			current := []ConfigObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]ConfigField{}},
-				{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]ConfigField{}},
+			current := []configObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
+				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]configField{}},
+				{k8sObject: s1, singleFields: false, fieldKeys: map[string]configField{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
 			}
 			existing := []Object{cm1, s2}
 			Expect(getOrphans(existing, current)).To(BeEmpty())
 		})
 
 		It("returns the correct objects when current is a subset of existing", func() {
-			current := []ConfigObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]ConfigField{}},
+			current := []configObject{
+				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
+				{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
 			}
 			existing := []Object{cm1, cm2, s1, s2}
 			orphans := getOrphans(existing, current)
@@ -267,39 +267,39 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		Context("when current contains multiple singleField entries", func() {
 			It("returns an empty list when current and existing match", func() {
-				current := []ConfigObject{
-					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]ConfigField{
+				current := []configObject{
+					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
+					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]configField{
 						"key1": {optional: false},
 						"key2": {optional: false},
 					},
 					},
-					{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-					{k8sObject: s2, singleFields: false, fieldKeys: map[string]ConfigField{}},
+					{k8sObject: s1, singleFields: false, fieldKeys: map[string]configField{}},
+					{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
 				}
 				existing := []Object{cm1, cm2, s1, s2}
 				Expect(getOrphans(existing, current)).To(BeEmpty())
 			})
 
 			It("returns an empty list when existing is a subset of current", func() {
-				current := []ConfigObject{
-					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]ConfigField{
+				current := []configObject{
+					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
+					{k8sObject: cm2, singleFields: true, fieldKeys: map[string]configField{
 						"key1": {optional: false},
 						"key2": {optional: false},
 					},
 					},
-					{k8sObject: s1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-					{k8sObject: s2, singleFields: false, fieldKeys: map[string]ConfigField{}},
+					{k8sObject: s1, singleFields: false, fieldKeys: map[string]configField{}},
+					{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
 				}
 				existing := []Object{cm1, s2}
 				Expect(getOrphans(existing, current)).To(BeEmpty())
 			})
 
 			It("returns the correct objects when current is a subset of existing", func() {
-				current := []ConfigObject{
-					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]ConfigField{}},
-					{k8sObject: s2, singleFields: true, fieldKeys: map[string]ConfigField{
+				current := []configObject{
+					{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
+					{k8sObject: s2, singleFields: true, fieldKeys: map[string]configField{
 						"key1": {optional: false},
 						"key2": {optional: false},
 					},
