@@ -194,10 +194,10 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns ConfigMaps referenced in Env", func() {
-      Expect(configMapKeyReferences).To(HaveKeyWithValue(cm1.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
-      Expect(configMapKeyReferences).To(HaveKeyWithValue(cm3.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
-      Expect(configMapKeyReferences).To(HaveKeyWithValue(cm3.GetName(), HaveKeyWithValue("key2", configField{optional: false})))
-      Expect(configMapKeyReferences).To(HaveKeyWithValue(cm3.GetName(), HaveKeyWithValue("key4", configField{optional: true})))
+			Expect(configMapKeyReferences).To(HaveKeyWithValue(cm1.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
+			Expect(configMapKeyReferences).To(HaveKeyWithValue(cm3.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
+			Expect(configMapKeyReferences).To(HaveKeyWithValue(cm3.GetName(), HaveKeyWithValue("key2", configField{optional: false})))
+			Expect(configMapKeyReferences).To(HaveKeyWithValue(cm3.GetName(), HaveKeyWithValue("key4", configField{optional: true})))
 		})
 
 		It("returns Secrets referenced in Volumes", func() {
@@ -209,10 +209,10 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns Secrets referenced in Env", func() {
-      Expect(secretKeyReferences).To(HaveKeyWithValue(s1.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
-      Expect(secretKeyReferences).To(HaveKeyWithValue(s3.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
-      Expect(secretKeyReferences).To(HaveKeyWithValue(s3.GetName(), HaveKeyWithValue("key2", configField{optional: false})))
-      Expect(secretKeyReferences).To(HaveKeyWithValue(s3.GetName(), HaveKeyWithValue("key4", configField{optional: true})))
+			Expect(secretKeyReferences).To(HaveKeyWithValue(s1.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
+			Expect(secretKeyReferences).To(HaveKeyWithValue(s3.GetName(), HaveKeyWithValue("key1", configField{optional: false})))
+			Expect(secretKeyReferences).To(HaveKeyWithValue(s3.GetName(), HaveKeyWithValue("key2", configField{optional: false})))
+			Expect(secretKeyReferences).To(HaveKeyWithValue(s3.GetName(), HaveKeyWithValue("key4", configField{optional: true})))
 		})
 
 		It("does not return extra children", func() {
