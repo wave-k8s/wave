@@ -258,7 +258,7 @@ var ExampleConfigMap3 = &corev1.ConfigMap{
 	},
 }
 
-// ExampleSecret1 is an example ConfigMap object for use within test suites
+// ExampleSecret1 is an example Secret object for use within test suites
 var ExampleSecret1 = &corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "example1",
@@ -272,7 +272,7 @@ var ExampleSecret1 = &corev1.Secret{
 	},
 }
 
-// ExampleSecret2 is an example ConfigMap object for use within test suites
+// ExampleSecret2 is an example Secret object for use within test suites
 var ExampleSecret2 = &corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "example2",
@@ -286,7 +286,7 @@ var ExampleSecret2 = &corev1.Secret{
 	},
 }
 
-// ExampleSecret3 is an example ConfigMap object for use within test suites
+// ExampleSecret3 is an example Secret object for use within test suites
 var ExampleSecret3 = &corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "example3",
