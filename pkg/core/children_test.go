@@ -226,9 +226,9 @@ var _ = Describe("Wave children Suite", func() {
 				required: true,
 				allKeys:  false,
 				keys: map[string]struct{}{
-					"key1": struct{}{},
-					"key2": struct{}{},
-					"key4": struct{}{},
+					"key1": {},
+					"key2": {},
+					"key4": {},
 				},
 			}))
 		})
@@ -246,9 +246,9 @@ var _ = Describe("Wave children Suite", func() {
 				required: true,
 				allKeys:  false,
 				keys: map[string]struct{}{
-					"key1": struct{}{},
-					"key2": struct{}{},
-					"key4": struct{}{},
+					"key1": {},
+					"key2": {},
+					"key4": {},
 				},
 			}))
 		})

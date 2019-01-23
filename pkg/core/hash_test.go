@@ -128,12 +128,12 @@ var _ = Describe("Wave hash Suite", func() {
 		It("returns a different hash when a single-field child's data is updated", func() {
 			c := []configObject{
 				{object: cm1, allKeys: false, keys: map[string]struct{}{
-					"key1": struct{}{},
+					"key1": {},
 				},
 				},
 				{object: cm2, allKeys: true, keys: map[string]struct{}{}},
 				{object: s1, allKeys: false, keys: map[string]struct{}{
-					"key1": struct{}{},
+					"key1": {},
 				},
 				},
 				{object: s2, allKeys: true, keys: map[string]struct{}{}},
@@ -155,12 +155,12 @@ var _ = Describe("Wave hash Suite", func() {
 		It("returns the same hash when a single-field child's data is updated but not for that field", func() {
 			c := []configObject{
 				{object: cm1, allKeys: false, keys: map[string]struct{}{
-					"key1": struct{}{},
+					"key1": {},
 				},
 				},
 				{object: cm2, allKeys: true, keys: map[string]struct{}{}},
 				{object: s1, allKeys: false, keys: map[string]struct{}{
-					"key1": struct{}{},
+					"key1": {},
 				},
 				},
 				{object: s2, allKeys: true, keys: map[string]struct{}{}},
@@ -203,15 +203,15 @@ var _ = Describe("Wave hash Suite", func() {
 				{object: cm1, allKeys: true, keys: map[string]struct{}{}},
 				{object: cm2, allKeys: true, keys: map[string]struct{}{}},
 				{object: cm3, allKeys: false, keys: map[string]struct{}{
-					"key1": struct{}{},
-					"key2": struct{}{},
+					"key1": {},
+					"key2": {},
 				},
 				},
 				{object: s1, allKeys: true, keys: map[string]struct{}{}},
 				{object: s2, allKeys: true, keys: map[string]struct{}{}},
 				{object: s3, allKeys: true, keys: map[string]struct{}{
-					"key1": struct{}{},
-					"key2": struct{}{},
+					"key1": {},
+					"key2": {},
 				},
 				},
 			}
@@ -219,15 +219,15 @@ var _ = Describe("Wave hash Suite", func() {
 				{object: cm1, allKeys: true, keys: map[string]struct{}{}},
 				{object: s2, allKeys: true, keys: map[string]struct{}{}},
 				{object: s3, allKeys: true, keys: map[string]struct{}{
-					"key1": struct{}{},
-					"key2": struct{}{},
+					"key1": {},
+					"key2": {},
 				},
 				},
 				{object: cm2, allKeys: true, keys: map[string]struct{}{}},
 				{object: s1, allKeys: true, keys: map[string]struct{}{}},
 				{object: cm3, allKeys: false, keys: map[string]struct{}{
-					"key2": struct{}{},
-					"key1": struct{}{},
+					"key2": {},
+					"key1": {},
 				},
 				},
 			}

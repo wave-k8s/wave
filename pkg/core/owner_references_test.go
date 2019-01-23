@@ -154,8 +154,8 @@ var _ = Describe("Wave owner references Suite", func() {
 				{object: cm1, allKeys: true, keys: map[string]struct{}{}},
 				{object: s1, allKeys: true, keys: map[string]struct{}{}},
 				{object: s3, allKeys: false, keys: map[string]struct{}{
-					"key1": struct{}{},
-					"key2": struct{}{},
+					"key1": {},
+					"key2": {},
 				},
 				},
 			}
@@ -270,8 +270,8 @@ var _ = Describe("Wave owner references Suite", func() {
 				current := []configObject{
 					{object: cm1, allKeys: true, keys: map[string]struct{}{}},
 					{object: cm2, allKeys: false, keys: map[string]struct{}{
-						"key1": struct{}{},
-						"key2": struct{}{},
+						"key1": {},
+						"key2": {},
 					},
 					},
 					{object: s1, allKeys: true, keys: map[string]struct{}{}},
@@ -285,8 +285,8 @@ var _ = Describe("Wave owner references Suite", func() {
 				current := []configObject{
 					{object: cm1, allKeys: true, keys: map[string]struct{}{}},
 					{object: cm2, allKeys: false, keys: map[string]struct{}{
-						"key1": struct{}{},
-						"key2": struct{}{},
+						"key1": {},
+						"key2": {},
 					},
 					},
 					{object: s1, allKeys: true, keys: map[string]struct{}{}},
@@ -300,8 +300,8 @@ var _ = Describe("Wave owner references Suite", func() {
 				current := []configObject{
 					{object: cm1, allKeys: true, keys: map[string]struct{}{}},
 					{object: s2, allKeys: false, keys: map[string]struct{}{
-						"key1": struct{}{},
-						"key2": struct{}{},
+						"key1": {},
+						"key2": {},
 					},
 					},
 				}
