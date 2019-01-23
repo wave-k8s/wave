@@ -41,38 +41,36 @@ func calculateConfigHash(children []configObject) (string, error) {
 	// Add the data from each child to the hashSource
 	// All children should be in the same namespace so each one should have a
 	// unique name
-	for _, obj := range children {
-		switch child := obj.k8sObject.(type) {
-		case *corev1.ConfigMap:
-			cm := corev1.ConfigMap(*child)
-			if obj.singleFields {
-				hashSource.ConfigMaps[child.GetName()] = make(map[string]string)
-				for fieldKey, fieldMetadata := range obj.fieldKeys {
-					if fieldValue, exists := cm.Data[fieldKey]; exists {
-						hashSource.ConfigMaps[child.GetName()][fieldKey] = fieldValue
-					} else if !fieldMetadata.optional {
-						return "", fmt.Errorf("tried to access non-optional field %s but it does not exist in ConfigMap %s", fieldKey, child.GetName())
+	for _, child := range children {
+		if child.object != nil {
+			switch childObject := child.object.(type) {
+			case *corev1.ConfigMap:
+				cm := corev1.ConfigMap(*childObject)
+				if child.allKeys {
+					hashSource.ConfigMaps[childObject.GetName()] = cm.Data
+				} else {
+					hashSource.ConfigMaps[childObject.GetName()] = make(map[string]string)
+					for key := range child.keys {
+						if value, exists := cm.Data[key]; exists {
+							hashSource.ConfigMaps[childObject.GetName()][key] = value
+						}
 					}
 				}
-			} else {
-				hashSource.ConfigMaps[child.GetName()] = cm.Data
-			}
-		case *corev1.Secret:
-			s := corev1.Secret(*child)
-			if obj.singleFields {
-				hashSource.Secrets[child.GetName()] = make(map[string][]byte)
-				for fieldKey, fieldMetadata := range obj.fieldKeys {
-					if fieldValue, exists := s.Data[fieldKey]; exists {
-						hashSource.Secrets[child.GetName()][fieldKey] = fieldValue
-					} else if !fieldMetadata.optional {
-						return "", fmt.Errorf("tried to access non-optional field %s but it does not exist in Secret %s", fieldKey, child.GetName())
+			case *corev1.Secret:
+				s := corev1.Secret(*childObject)
+				if child.allKeys {
+					hashSource.Secrets[childObject.GetName()] = s.Data
+				} else {
+					hashSource.Secrets[childObject.GetName()] = make(map[string][]byte)
+					for key := range child.keys {
+						if value, exists := s.Data[key]; exists {
+							hashSource.Secrets[childObject.GetName()][key] = value
+						}
 					}
 				}
-			} else {
-				hashSource.Secrets[child.GetName()] = s.Data
+			default:
+				return "", fmt.Errorf("passed unknown type: %v", reflect.TypeOf(child))
 			}
-		default:
-			return "", fmt.Errorf("passed unknown type: %v", reflect.TypeOf(child))
 		}
 	}
 

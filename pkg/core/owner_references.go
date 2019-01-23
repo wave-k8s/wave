@@ -61,7 +61,7 @@ func (h *Handler) updateOwnerReferences(owner *appsv1.Deployment, existing []Obj
 	for _, obj := range current {
 		go func(child Object) {
 			errChan <- h.updateOwnerReference(owner, child)
-		}(obj.k8sObject)
+		}(obj.object)
 	}
 
 	// Return any errors encountered updating the child objects
@@ -137,7 +137,7 @@ func getOwnerReference(obj *appsv1.Deployment) metav1.OwnerReference {
 // isIn checks whether a child object exists within a slice of objects
 func isIn(list []configObject, child Object) bool {
 	for _, obj := range list {
-		if obj.k8sObject.GetUID() == child.GetUID() {
+		if obj.object.GetUID() == child.GetUID() {
 			return true
 		}
 	}

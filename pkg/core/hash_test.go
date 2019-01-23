@@ -87,12 +87,12 @@ var _ = Describe("Wave hash Suite", func() {
 			)
 		})
 
-		It("returns a different hash when an all-field child's data is updated", func() {
+		It("returns a different hash when an allKeys child's data is updated", func() {
 			c := []configObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s1, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
+				{object: cm1, allKeys: true, keys: map[string]struct{}{}},
+				{object: cm2, allKeys: true, keys: map[string]struct{}{}},
+				{object: s1, allKeys: true, keys: map[string]struct{}{}},
+				{object: s2, allKeys: true, keys: map[string]struct{}{}},
 			}
 
 			h1, err := calculateConfigHash(c)
@@ -108,10 +108,10 @@ var _ = Describe("Wave hash Suite", func() {
 
 		It("returns a different hash when an all-field child's data is updated", func() {
 			c := []configObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s1, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
+				{object: cm1, allKeys: true, keys: map[string]struct{}{}},
+				{object: cm2, allKeys: true, keys: map[string]struct{}{}},
+				{object: s1, allKeys: true, keys: map[string]struct{}{}},
+				{object: s2, allKeys: true, keys: map[string]struct{}{}},
 			}
 
 			h1, err := calculateConfigHash(c)
@@ -127,16 +127,16 @@ var _ = Describe("Wave hash Suite", func() {
 
 		It("returns a different hash when a single-field child's data is updated", func() {
 			c := []configObject{
-				{k8sObject: cm1, singleFields: true, fieldKeys: map[string]configField{
-					"key1": {optional: false},
+				{object: cm1, allKeys: false, keys: map[string]struct{}{
+					"key1": struct{}{},
 				},
 				},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s1, singleFields: true, fieldKeys: map[string]configField{
-					"key1": {optional: false},
+				{object: cm2, allKeys: true, keys: map[string]struct{}{}},
+				{object: s1, allKeys: false, keys: map[string]struct{}{
+					"key1": struct{}{},
 				},
 				},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
+				{object: s2, allKeys: true, keys: map[string]struct{}{}},
 			}
 
 			h1, err := calculateConfigHash(c)
@@ -152,47 +152,18 @@ var _ = Describe("Wave hash Suite", func() {
 			Expect(h2).NotTo(Equal(h1))
 		})
 
-		It("returns a different hash when an optional single-field child's data is created", func() {
-			c := []configObject{
-				{k8sObject: cm1, singleFields: true, fieldKeys: map[string]configField{
-					"key1": {optional: false},
-					"key4": {optional: true},
-				},
-				},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s1, singleFields: true, fieldKeys: map[string]configField{
-					"key1": {optional: false},
-					"key4": {optional: true},
-				},
-				},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
-			}
-
-			h1, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
-
-			cm1.Data["key4"] = "modified"
-			m.Update(cm1).Should(Succeed())
-			s1.Data["key4"] = []byte("modified")
-			m.Update(s1).Should(Succeed())
-			h2, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(h2).NotTo(Equal(h1))
-		})
-
 		It("returns the same hash when a single-field child's data is updated but not for that field", func() {
 			c := []configObject{
-				{k8sObject: cm1, singleFields: true, fieldKeys: map[string]configField{
-					"key1": {optional: false},
+				{object: cm1, allKeys: false, keys: map[string]struct{}{
+					"key1": struct{}{},
 				},
 				},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s1, singleFields: true, fieldKeys: map[string]configField{
-					"key1": {optional: false},
+				{object: cm2, allKeys: true, keys: map[string]struct{}{}},
+				{object: s1, allKeys: false, keys: map[string]struct{}{
+					"key1": struct{}{},
 				},
 				},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
+				{object: s2, allKeys: true, keys: map[string]struct{}{}},
 			}
 
 			h1, err := calculateConfigHash(c)
@@ -210,10 +181,10 @@ var _ = Describe("Wave hash Suite", func() {
 
 		It("returns the same hash when a child's metadata is updated", func() {
 			c := []configObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s1, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
+				{object: cm1, allKeys: true, keys: map[string]struct{}{}},
+				{object: cm2, allKeys: true, keys: map[string]struct{}{}},
+				{object: s1, allKeys: true, keys: map[string]struct{}{}},
+				{object: s2, allKeys: true, keys: map[string]struct{}{}},
 			}
 
 			h1, err := calculateConfigHash(c)
@@ -229,34 +200,34 @@ var _ = Describe("Wave hash Suite", func() {
 
 		It("returns the same hash independent of child ordering", func() {
 			c1 := []configObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: cm3, singleFields: true, fieldKeys: map[string]configField{
-					"key1": {optional: false},
-					"key2": {optional: false},
+				{object: cm1, allKeys: true, keys: map[string]struct{}{}},
+				{object: cm2, allKeys: true, keys: map[string]struct{}{}},
+				{object: cm3, allKeys: false, keys: map[string]struct{}{
+					"key1": struct{}{},
+					"key2": struct{}{},
 				},
 				},
-				{k8sObject: s1, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s3, singleFields: false, fieldKeys: map[string]configField{
-					"key1": {optional: false},
-					"key2": {optional: false},
+				{object: s1, allKeys: true, keys: map[string]struct{}{}},
+				{object: s2, allKeys: true, keys: map[string]struct{}{}},
+				{object: s3, allKeys: true, keys: map[string]struct{}{
+					"key1": struct{}{},
+					"key2": struct{}{},
 				},
 				},
 			}
 			c2 := []configObject{
-				{k8sObject: cm1, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s2, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s3, singleFields: false, fieldKeys: map[string]configField{
-					"key1": {optional: false},
-					"key2": {optional: false},
+				{object: cm1, allKeys: true, keys: map[string]struct{}{}},
+				{object: s2, allKeys: true, keys: map[string]struct{}{}},
+				{object: s3, allKeys: true, keys: map[string]struct{}{
+					"key1": struct{}{},
+					"key2": struct{}{},
 				},
 				},
-				{k8sObject: cm2, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: s1, singleFields: false, fieldKeys: map[string]configField{}},
-				{k8sObject: cm3, singleFields: true, fieldKeys: map[string]configField{
-					"key2": {optional: false},
-					"key1": {optional: false},
+				{object: cm2, allKeys: true, keys: map[string]struct{}{}},
+				{object: s1, allKeys: true, keys: map[string]struct{}{}},
+				{object: cm3, allKeys: false, keys: map[string]struct{}{
+					"key2": struct{}{},
+					"key1": struct{}{},
 				},
 				},
 			}
