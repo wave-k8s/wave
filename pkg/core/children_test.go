@@ -117,7 +117,6 @@ var _ = Describe("Wave children Suite", func() {
 				object:   cm1,
 				required: true,
 				allKeys:  true,
-				keys:     map[string]struct{}{},
 			}))
 		})
 
@@ -126,7 +125,6 @@ var _ = Describe("Wave children Suite", func() {
 				object:   cm2,
 				required: true,
 				allKeys:  true,
-				keys:     map[string]struct{}{},
 			}))
 		})
 
@@ -156,7 +154,6 @@ var _ = Describe("Wave children Suite", func() {
 				object:   s1,
 				required: true,
 				allKeys:  true,
-				keys:     map[string]struct{}{},
 			}))
 		})
 
@@ -165,7 +162,6 @@ var _ = Describe("Wave children Suite", func() {
 				object:   s2,
 				required: true,
 				allKeys:  true,
-				keys:     map[string]struct{}{},
 			}))
 		})
 
@@ -206,23 +202,23 @@ var _ = Describe("Wave children Suite", func() {
 	})
 
 	Context("getChildNamesByType", func() {
-		var configMaps map[string]*configMetadata
-		var secrets map[string]*configMetadata
+		var configMaps map[string]configMetadata
+		var secrets map[string]configMetadata
 
 		BeforeEach(func() {
 			configMaps, secrets = getChildNamesByType(deployment)
 		})
 
 		It("returns ConfigMaps referenced in Volumes", func() {
-			Expect(configMaps).To(HaveKeyWithValue(cm1.GetName(), &configMetadata{required: true, allKeys: true, keys: map[string]struct{}{}}))
+			Expect(configMaps).To(HaveKeyWithValue(cm1.GetName(), configMetadata{required: true, allKeys: true}))
 		})
 
 		It("returns ConfigMaps referenced in EnvFrom", func() {
-			Expect(configMaps).To(HaveKeyWithValue(cm2.GetName(), &configMetadata{required: true, allKeys: true, keys: map[string]struct{}{}}))
+			Expect(configMaps).To(HaveKeyWithValue(cm2.GetName(), configMetadata{required: true, allKeys: true}))
 		})
 
 		It("returns ConfigMaps referenced in Env", func() {
-			Expect(configMaps).To(HaveKeyWithValue(cm3.GetName(), &configMetadata{
+			Expect(configMaps).To(HaveKeyWithValue(cm3.GetName(), configMetadata{
 				required: true,
 				allKeys:  false,
 				keys: map[string]struct{}{
@@ -234,15 +230,15 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns Secrets referenced in Volumes", func() {
-			Expect(secrets).To(HaveKeyWithValue(s1.GetName(), &configMetadata{required: true, allKeys: true, keys: map[string]struct{}{}}))
+			Expect(secrets).To(HaveKeyWithValue(s1.GetName(), configMetadata{required: true, allKeys: true}))
 		})
 
 		It("returns Secrets referenced in EnvFrom", func() {
-			Expect(secrets).To(HaveKeyWithValue(s2.GetName(), &configMetadata{required: true, allKeys: true, keys: map[string]struct{}{}}))
+			Expect(secrets).To(HaveKeyWithValue(s2.GetName(), configMetadata{required: true, allKeys: true}))
 		})
 
 		It("returns Secrets referenced in Env", func() {
-			Expect(configMaps).To(HaveKeyWithValue(s3.GetName(), &configMetadata{
+			Expect(configMaps).To(HaveKeyWithValue(s3.GetName(), configMetadata{
 				required: true,
 				allKeys:  false,
 				keys: map[string]struct{}{

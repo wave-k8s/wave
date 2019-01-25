@@ -43,31 +43,11 @@ func calculateConfigHash(children []configObject) (string, error) {
 	// unique name
 	for _, child := range children {
 		if child.object != nil {
-			switch childObject := child.object.(type) {
+			switch child.object.(type) {
 			case *corev1.ConfigMap:
-				cm := corev1.ConfigMap(*childObject)
-				if child.allKeys {
-					hashSource.ConfigMaps[childObject.GetName()] = cm.Data
-				} else {
-					hashSource.ConfigMaps[childObject.GetName()] = make(map[string]string)
-					for key := range child.keys {
-						if value, exists := cm.Data[key]; exists {
-							hashSource.ConfigMaps[childObject.GetName()][key] = value
-						}
-					}
-				}
+				hashSource.ConfigMaps[child.object.GetName()] = getConfigMapData(child)
 			case *corev1.Secret:
-				s := corev1.Secret(*childObject)
-				if child.allKeys {
-					hashSource.Secrets[childObject.GetName()] = s.Data
-				} else {
-					hashSource.Secrets[childObject.GetName()] = make(map[string][]byte)
-					for key := range child.keys {
-						if value, exists := s.Data[key]; exists {
-							hashSource.Secrets[childObject.GetName()][key] = value
-						}
-					}
-				}
+				hashSource.Secrets[child.object.GetName()] = getSecretData(child)
 			default:
 				return "", fmt.Errorf("passed unknown type: %v", reflect.TypeOf(child))
 			}
@@ -82,6 +62,38 @@ func calculateConfigHash(children []configObject) (string, error) {
 
 	hashBytes := sha256.Sum256(hashSourceBytes)
 	return fmt.Sprintf("%x", hashBytes), nil
+}
+
+// getConfigMapData extracts all the relevant data from the ConfigMap, whether that is
+// the whole ConfigMap or only the specified keys.
+func getConfigMapData(child configObject) map[string]string {
+	cm := corev1.ConfigMap(*child.object.(*corev1.ConfigMap))
+	if child.allKeys {
+		return cm.Data
+	}
+	keyData := make(map[string]string)
+	for key := range child.keys {
+		if value, exists := cm.Data[key]; exists {
+			keyData[key] = value
+		}
+	}
+	return keyData
+}
+
+// getSecretData extracts all the relevant data from the Secret, whether that is
+// the whole Secret or only the specified keys.
+func getSecretData(child configObject) map[string][]byte {
+	s := corev1.Secret(*child.object.(*corev1.Secret))
+	if child.allKeys {
+		return s.Data
+	}
+	keyData := make(map[string][]byte)
+	for key := range child.keys {
+		if value, exists := s.Data[key]; exists {
+			keyData[key] = value
+		}
+	}
+	return keyData
 }
 
 // setConfigHash upates the configuration hash of the given Deployment to the
