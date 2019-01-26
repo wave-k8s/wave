@@ -67,7 +67,7 @@ func calculateConfigHash(children []configObject) (string, error) {
 // getConfigMapData extracts all the relevant data from the ConfigMap, whether that is
 // the whole ConfigMap or only the specified keys.
 func getConfigMapData(child configObject) map[string]string {
-	cm := corev1.ConfigMap(*child.object.(*corev1.ConfigMap))
+	cm := *child.object.(*corev1.ConfigMap)
 	if child.allKeys {
 		return cm.Data
 	}
@@ -83,7 +83,7 @@ func getConfigMapData(child configObject) map[string]string {
 // getSecretData extracts all the relevant data from the Secret, whether that is
 // the whole Secret or only the specified keys.
 func getSecretData(child configObject) map[string][]byte {
-	s := corev1.Secret(*child.object.(*corev1.Secret))
+	s := *child.object.(*corev1.Secret)
 	if child.allKeys {
 		return s.Data
 	}
