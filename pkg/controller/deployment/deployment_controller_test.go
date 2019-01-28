@@ -51,8 +51,10 @@ var _ = Describe("Deployment controller Suite", func() {
 	var ownerRef metav1.OwnerReference
 	var cm1 *corev1.ConfigMap
 	var cm2 *corev1.ConfigMap
+	var cm3 *corev1.ConfigMap
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
+	var s3 *corev1.Secret
 
 	var waitForDeploymentReconciled = func(obj core.Object) {
 		request := reconcile.Request{
@@ -80,17 +82,23 @@ var _ = Describe("Deployment controller Suite", func() {
 		// Create some configmaps and secrets
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
 		cm2 = utils.ExampleConfigMap2.DeepCopy()
+		cm3 = utils.ExampleConfigMap3.DeepCopy()
 		s1 = utils.ExampleSecret1.DeepCopy()
 		s2 = utils.ExampleSecret2.DeepCopy()
+		s3 = utils.ExampleSecret3.DeepCopy()
 
 		m.Create(cm1).Should(Succeed())
 		m.Create(cm2).Should(Succeed())
+		m.Create(cm3).Should(Succeed())
 		m.Create(s1).Should(Succeed())
 		m.Create(s2).Should(Succeed())
+		m.Create(s3).Should(Succeed())
 		m.Get(cm1, timeout).Should(Succeed())
 		m.Get(cm2, timeout).Should(Succeed())
+		m.Get(cm3, timeout).Should(Succeed())
 		m.Get(s1, timeout).Should(Succeed())
 		m.Get(s2, timeout).Should(Succeed())
+		m.Get(s3, timeout).Should(Succeed())
 
 		deployment = utils.ExampleDeployment.DeepCopy()
 
@@ -160,7 +168,7 @@ var _ = Describe("Deployment controller Suite", func() {
 			})
 
 			It("Adds OwnerReferences to all children", func() {
-				for _, obj := range []core.Object{cm1, cm2, s1, s2} {
+				for _, obj := range []core.Object{cm1, cm2, cm3, s1, s2, s3} {
 					m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
@@ -181,7 +189,7 @@ var _ = Describe("Deployment controller Suite", func() {
 					return event.Message
 				}
 
-				hashMessage := "Configuration hash updated to 198df8455a4fd702fc0c7fdfa4bdb213363b96240bfd48b7b098d936499315a1"
+				hashMessage := "Configuration hash updated to ebabf80ef45218b27078a41ca16b35a4f91cb5672f389e520ae9da6ee3df3b1c"
 				m.Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
 
@@ -212,7 +220,7 @@ var _ = Describe("Deployment controller Suite", func() {
 				})
 
 				It("Updates the config hash in the Pod Template", func() {
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+					m.Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 				})
 			})
 

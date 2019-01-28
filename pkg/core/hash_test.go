@@ -41,8 +41,10 @@ var _ = Describe("Wave hash Suite", func() {
 
 		var cm1 *corev1.ConfigMap
 		var cm2 *corev1.ConfigMap
+		var cm3 *corev1.ConfigMap
 		var s1 *corev1.Secret
 		var s2 *corev1.Secret
+		var s3 *corev1.Secret
 
 		BeforeEach(func() {
 			mgr, err := manager.New(cfg, manager.Options{})
@@ -54,18 +56,24 @@ var _ = Describe("Wave hash Suite", func() {
 
 			cm1 = utils.ExampleConfigMap1.DeepCopy()
 			cm2 = utils.ExampleConfigMap2.DeepCopy()
+			cm3 = utils.ExampleConfigMap3.DeepCopy()
 			s1 = utils.ExampleSecret1.DeepCopy()
 			s2 = utils.ExampleSecret2.DeepCopy()
+			s3 = utils.ExampleSecret3.DeepCopy()
 
 			m.Create(cm1).Should(Succeed())
 			m.Create(cm2).Should(Succeed())
+			m.Create(cm3).Should(Succeed())
 			m.Create(s1).Should(Succeed())
 			m.Create(s2).Should(Succeed())
+			m.Create(s3).Should(Succeed())
 
 			m.Get(cm1, timeout).Should(Succeed())
 			m.Get(cm2, timeout).Should(Succeed())
+			m.Get(cm3, timeout).Should(Succeed())
 			m.Get(s1, timeout).Should(Succeed())
 			m.Get(s2, timeout).Should(Succeed())
+			m.Get(s3, timeout).Should(Succeed())
 		})
 
 		AfterEach(func() {
@@ -79,8 +87,13 @@ var _ = Describe("Wave hash Suite", func() {
 			)
 		})
 
-		It("returns a different hash when a child's data is updated", func() {
-			c := []Object{cm1, cm2, s1, s2}
+		It("returns a different hash when an allKeys child's data is updated", func() {
+			c := []configObject{
+				{object: cm1, allKeys: true},
+				{object: cm2, allKeys: true},
+				{object: s1, allKeys: true},
+				{object: s2, allKeys: true},
+			}
 
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
@@ -93,8 +106,86 @@ var _ = Describe("Wave hash Suite", func() {
 			Expect(h2).NotTo(Equal(h1))
 		})
 
+		It("returns a different hash when an all-field child's data is updated", func() {
+			c := []configObject{
+				{object: cm1, allKeys: true},
+				{object: cm2, allKeys: true},
+				{object: s1, allKeys: true},
+				{object: s2, allKeys: true},
+			}
+
+			h1, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			cm1.Data["key1"] = "modified"
+			m.Update(cm1).Should(Succeed())
+			h2, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(h2).NotTo(Equal(h1))
+		})
+
+		It("returns a different hash when a single-field child's data is updated", func() {
+			c := []configObject{
+				{object: cm1, allKeys: false, keys: map[string]struct{}{
+					"key1": {},
+				},
+				},
+				{object: cm2, allKeys: true},
+				{object: s1, allKeys: false, keys: map[string]struct{}{
+					"key1": {},
+				},
+				},
+				{object: s2, allKeys: true},
+			}
+
+			h1, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			cm1.Data["key1"] = "modified"
+			m.Update(cm1).Should(Succeed())
+			s1.Data["key1"] = []byte("modified")
+			m.Update(s1).Should(Succeed())
+			h2, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(h2).NotTo(Equal(h1))
+		})
+
+		It("returns the same hash when a single-field child's data is updated but not for that field", func() {
+			c := []configObject{
+				{object: cm1, allKeys: false, keys: map[string]struct{}{
+					"key1": {},
+				},
+				},
+				{object: cm2, allKeys: true},
+				{object: s1, allKeys: false, keys: map[string]struct{}{
+					"key1": {},
+				},
+				},
+				{object: s2, allKeys: true},
+			}
+
+			h1, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			cm1.Data["key3"] = "modified"
+			m.Update(cm1).Should(Succeed())
+			s1.Data["key3"] = []byte("modified")
+			m.Update(s1).Should(Succeed())
+			h2, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(h2).To(Equal(h1))
+		})
+
 		It("returns the same hash when a child's metadata is updated", func() {
-			c := []Object{cm1, cm2, s1, s2}
+			c := []configObject{
+				{object: cm1, allKeys: true},
+				{object: cm2, allKeys: true},
+				{object: s1, allKeys: true},
+				{object: s2, allKeys: true},
+			}
 
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
@@ -108,8 +199,38 @@ var _ = Describe("Wave hash Suite", func() {
 		})
 
 		It("returns the same hash independent of child ordering", func() {
-			c1 := []Object{cm1, cm2, s1, s2}
-			c2 := []Object{cm1, s2, cm2, s1}
+			c1 := []configObject{
+				{object: cm1, allKeys: true},
+				{object: cm2, allKeys: true},
+				{object: cm3, allKeys: false, keys: map[string]struct{}{
+					"key1": {},
+					"key2": {},
+				},
+				},
+				{object: s1, allKeys: true},
+				{object: s2, allKeys: true},
+				{object: s3, allKeys: false, keys: map[string]struct{}{
+					"key1": {},
+					"key2": {},
+				},
+				},
+			}
+			c2 := []configObject{
+				{object: cm1, allKeys: true},
+				{object: s2, allKeys: true},
+				{object: s3, allKeys: false, keys: map[string]struct{}{
+					"key1": {},
+					"key2": {},
+				},
+				},
+				{object: cm2, allKeys: true},
+				{object: s1, allKeys: true},
+				{object: cm3, allKeys: false, keys: map[string]struct{}{
+					"key2": {},
+					"key1": {},
+				},
+				},
+			}
 
 			h1, err := calculateConfigHash(c1)
 			Expect(err).NotTo(HaveOccurred())

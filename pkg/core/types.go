@@ -42,3 +42,12 @@ type Object interface {
 	runtime.Object
 	metav1.Object
 }
+
+// configObject is used as a container of an "Object" along with metadata
+// that Wave uses to determine what to use from that Object.
+type configObject struct {
+	object   Object
+	required bool
+	allKeys  bool
+	keys     map[string]struct{}
+}
