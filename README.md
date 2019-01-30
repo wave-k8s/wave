@@ -100,7 +100,7 @@ standby will be promoted to master.
 To enable leader election, set the following flags:
 
 ```
---leader-elect=true
+--leader-election=true
 --leader-election-id=<name-of-leader-election-configmap>
 --leader-election-namespace=<namespace-controller-runs-in>
 ```
