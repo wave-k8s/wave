@@ -38,7 +38,8 @@ var _ = Describe("Wave owner references Suite", func() {
 	var c client.Client
 	var h *Handler
 	var m utils.Matcher
-	var deployment *appsv1.Deployment
+	var deploymentObject *appsv1.Deployment
+	var podControllerDeployment podController
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
@@ -59,13 +60,15 @@ var _ = Describe("Wave owner references Suite", func() {
 		m.Create(utils.ExampleSecret1.DeepCopy()).Should(Succeed())
 		m.Create(utils.ExampleSecret2.DeepCopy()).Should(Succeed())
 
-		deployment = utils.ExampleDeployment.DeepCopy()
-		m.Create(deployment).Should(Succeed())
+		deploymentObject = utils.ExampleDeployment.DeepCopy()
+		podControllerDeployment = &deployment{deploymentObject}
 
-		ownerRef = utils.GetOwnerRef(deployment)
+		m.Create(deploymentObject).Should(Succeed())
+
+		ownerRef = utils.GetOwnerRef(deploymentObject)
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
-		m.Get(deployment, timeout).Should(Succeed())
+		m.Get(deploymentObject, timeout).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -96,41 +99,41 @@ var _ = Describe("Wave owner references Suite", func() {
 				m.Update(obj).Should(Succeed())
 			}
 
-			f := deployment.GetFinalizers()
+			f := deploymentObject.GetFinalizers()
 			f = append(f, FinalizerString)
 			f = append(f, "keep.me.around/finalizer")
-			deployment.SetFinalizers(f)
-			m.Update(deployment).Should(Succeed())
+			deploymentObject.SetFinalizers(f)
+			m.Update(deploymentObject).Should(Succeed())
 
-			_, err := h.handleDelete(deployment)
+			_, err := h.handleDelete(podControllerDeployment)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
 			// Make sure to delete any finalizers (if the deployment exists)
 			Eventually(func() error {
-				key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-				err := c.Get(context.TODO(), key, deployment)
+				key := types.NamespacedName{Namespace: deploymentObject.GetNamespace(), Name: deploymentObject.GetName()}
+				err := c.Get(context.TODO(), key, deploymentObject)
 				if err != nil && errors.IsNotFound(err) {
 					return nil
 				}
 				if err != nil {
 					return err
 				}
-				deployment.SetFinalizers([]string{})
-				return c.Update(context.TODO(), deployment)
+				deploymentObject.SetFinalizers([]string{})
+				return c.Update(context.TODO(), deploymentObject)
 			}, timeout).Should(Succeed())
 
 			Eventually(func() error {
-				key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-				err := c.Get(context.TODO(), key, deployment)
+				key := types.NamespacedName{Namespace: deploymentObject.GetNamespace(), Name: deploymentObject.GetName()}
+				err := c.Get(context.TODO(), key, deploymentObject)
 				if err != nil && errors.IsNotFound(err) {
 					return nil
 				}
 				if err != nil {
 					return err
 				}
-				if len(deployment.GetFinalizers()) > 0 {
+				if len(deploymentObject.GetFinalizers()) > 0 {
 					return fmt.Errorf("Finalizers not upated")
 				}
 				return nil
@@ -144,7 +147,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		})
 
 		It("removes the finalizer from the deployment", func() {
-			m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
+			m.Eventually(deploymentObject, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
 		})
 	})
 
@@ -152,12 +155,12 @@ var _ = Describe("Wave owner references Suite", func() {
 	Context("toBeDeleted", func() {
 		It("returns true if deletion timestamp is non-nil", func() {
 			t := metav1.NewTime(time.Now())
-			deployment.SetDeletionTimestamp(&t)
-			Expect(toBeDeleted(deployment)).To(BeTrue())
+			deploymentObject.SetDeletionTimestamp(&t)
+			Expect(toBeDeleted(deploymentObject)).To(BeTrue())
 		})
 
 		It("returns false if the deleteion timestamp is nil", func() {
-			Expect(toBeDeleted(deployment)).To(BeFalse())
+			Expect(toBeDeleted(deploymentObject)).To(BeFalse())
 		})
 
 	})

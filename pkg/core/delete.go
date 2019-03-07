@@ -21,14 +21,13 @@ import (
 	"fmt"
 	"reflect"
 
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // handleDelete removes all existing Owner References pointing to the object
 // before removing the object's Finalizer
-func (h *Handler) handleDelete(obj *appsv1.Deployment) (reconcile.Result, error) {
+func (h *Handler) handleDelete(obj podController) (reconcile.Result, error) {
 	// Fetch all children with an OwnerReference pointing to the object
 	existing, err := h.getExistingChildren(obj)
 	if err != nil {
@@ -45,7 +44,7 @@ func (h *Handler) handleDelete(obj *appsv1.Deployment) (reconcile.Result, error)
 	copy := obj.DeepCopy()
 	removeFinalizer(copy)
 	if !reflect.DeepEqual(obj, copy) {
-		err := h.Update(context.TODO(), copy)
+		err := h.Update(context.TODO(), copy.GetObject())
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("error updating Deployment: %v", err)
 		}

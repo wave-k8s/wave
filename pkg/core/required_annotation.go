@@ -16,13 +16,9 @@ limitations under the License.
 
 package core
 
-import (
-	appsv1 "k8s.io/api/apps/v1"
-)
-
-// hasRequiredAnnotation returns true if the given Deployment has the wave
+// hasRequiredAnnotation returns true if the given PodController has the wave
 // annotation present
-func hasRequiredAnnotation(obj *appsv1.Deployment) bool {
+func hasRequiredAnnotation(obj podController) bool {
 	annotations := obj.GetAnnotations()
 	if value, ok := annotations[RequiredAnnotation]; ok {
 		if value == "true" {
