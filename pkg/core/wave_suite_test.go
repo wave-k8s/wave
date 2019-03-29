@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pusher/wave/pkg/apis"
+	"github.com/pusher/wave/test/reporters"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -38,7 +39,7 @@ var cfg *rest.Config
 
 func TestMain(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Wave Controller Suite")
+	RunSpecsWithDefaultAndCustomReporters(t, "Wave Controller Suite", reporters.Reporters())
 }
 
 var t *envtest.Environment
