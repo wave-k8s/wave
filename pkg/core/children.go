@@ -203,7 +203,7 @@ func (h *Handler) getExistingChildren(obj podController) ([]Object, error) {
 
 	// List all ConfigMaps in the Deployment's namespace
 	configMaps := &corev1.ConfigMapList{}
-	err := h.List(context.TODO(), configMaps inNamespace)
+	err := h.List(context.TODO(), configMaps, inNamespace)
 	if err != nil {
 		return []Object{}, fmt.Errorf("error listing ConfigMaps: %v", err)
 	}
