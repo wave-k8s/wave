@@ -53,7 +53,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
-		h = NewHandler(c, mgr.GetRecorder("wave"))
+		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
 		m = utils.Matcher{Client: c}
 
 		// Create some configmaps and secrets
