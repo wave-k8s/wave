@@ -1,5 +1,5 @@
 box:
-  id: golang:1.10
+  id: golang:1.12
 
 dep-install:
   steps:
@@ -17,7 +17,7 @@ dep-install:
     - script:
       name: Fetch dependencies
       code: |
-        dep ensure --vendor-only
+        dep ensure -v --vendor-only
         shopt -s dotglob
         mv ./* $WERCKER_OUTPUT_DIR
 
@@ -25,6 +25,9 @@ generate:
   steps:
     - wercker/setup-go-workspace:
         package-dir: github.com/pusher/wave
+    - script:
+        name: configure make
+        code: touch .env && make prepare-env-1.13
     - script:
         name: Generate code
         code: make generate
@@ -39,55 +42,23 @@ lint:
   steps:
   - wercker/setup-go-workspace:
       package-dir: github.com/pusher/wave
-  - script:
-      name: Install gometalinter
-      code: |
-        go get -u github.com/alecthomas/gometalinter
-        gometalinter --install
-  - script:
-      name: Run gometalinter
-      code: |
-       gometalinter --vendor --disable-all \
-       --enable=vet \
-       --enable=vetshadow \
-       --enable=golint \
-       --enable=ineffassign \
-       --enable=goconst \
-       --enable=deadcode \
-       --enable=gofmt \
-       --enable=goimports \
-       --tests ./... \
-       --deadline=60s
+      - script:
+          name: configure make
+          code: touch .env && make prepare-env-1.13
+      - script:
+          name: Run linter(s)
+          code: make lint
 
 test:
   steps:
   - wercker/setup-go-workspace:
       package-dir: github.com/pusher/wave
   - script:
-    name: Install Ginkgo CLI
-    code: |
-      go get -u github.com/onsi/ginkgo/ginkgo
-  - script:
-      name: Setup Test environment
-      code: |
-        export TEST_ASSET_DIR=/usr/local/bin
-        export TEST_ASSET_KUBECTL=$TEST_ASSET_DIR/kubectl
-        export TEST_ASSET_KUBE_APISERVER=$TEST_ASSET_DIR/kube-apiserver
-        export TEST_ASSET_ETCD=$TEST_ASSET_DIR/etcd
-
-        # Download test framework binaries
-        export TEST_ASSET_URL=https://storage.googleapis.com/k8s-c10s-test-binaries
-        curl $TEST_ASSET_URL/etcd-Linux-x86_64 --output $TEST_ASSET_ETCD
-        curl $TEST_ASSET_URL/kube-apiserver-Linux-x86_64 --output $TEST_ASSET_KUBE_APISERVER
-        curl https://storage.googleapis.com/kubernetes-release/release/v1.11.0/bin/linux/amd64/kubectl --output $TEST_ASSET_KUBECTL
-        chmod +x $TEST_ASSET_ETCD
-        chmod +x $TEST_ASSET_KUBE_APISERVER
-        chmod +x $TEST_ASSET_KUBECTL
+      name: configure make
+      code: touch .env && make prepare-env-1.13
   - script:
       name: ginkgo
-      code: ginkgo -v -race -randomizeAllSpecs ./pkg/... ./cmd/...
-
-build:
+      code: make test
   steps:
   - wercker/setup-go-workspace:
       package-dir: github.com/pusher/wave

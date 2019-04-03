@@ -2,6 +2,7 @@ required = [
     "github.com/emicklei/go-restful",
     "github.com/onsi/ginkgo", # for test framework
     "github.com/onsi/gomega", # for test matchers
+    "github.com/kubernetes-sigs/kubebuilder", # For tests
     "k8s.io/client-go/plugin/pkg/client/auth", # for development against real clusters
     "k8s.io/code-generator/cmd/client-gen", # for go generate
     "k8s.io/code-generator/cmd/deepcopy-gen", # for go generate
@@ -20,16 +21,6 @@ required = [
   go-tests = true
 
 
-# STANZAS BELOW ARE GENERATED AND MAY BE WRITTEN - DO NOT MODIFY BELOW THIS LINE.
-
-[[constraint]]
-  name="sigs.k8s.io/controller-runtime"
-  version="v0.1.4"
-
-[[constraint]]
-  name="sigs.k8s.io/controller-tools"
-  version="v0.1.4"
-
 # For dependency below: Refer to issue https://github.com/golang/dep/issues/1799
 [[override]]
 name = "gopkg.in/fsnotify.v1"
@@ -44,21 +35,41 @@ version="v10.15.5"
 # Overridefor kubernetes dependencies to pin them to a particular version
 [[override]]
 name="k8s.io/api"
-version="kubernetes-1.11.0"
+version="kubernetes-1.13.1"
 
 [[override]]
 name="k8s.io/apiextensions-apiserver"
-version="kubernetes-1.11.0"
+version="kubernetes-1.13.1"
 
 [[override]]
 name="k8s.io/apimachinery"
-version="kubernetes-1.11.0"
+version="kubernetes-1.13.1"
 
 [[override]]
 name="k8s.io/client-go"
-version="kubernetes-1.11.0"
+version="kubernetes-1.13.1"
 
-# Override for testing suite
-[[constraint]]
-name="github.com/kubernetes-sigs/kubebuilder"
-version="v1.0.5"
+[[override]]
+name="k8s.io/kube-aggregator"
+version="kubernetes-1.13.1"
+
+[[override]]
+name="k8s.io/code-generator"
+version="kubernetes-1.13.1"
+
+[[override]]
+name="k8s.io/gengo"
+revision="0689ccc1d7d65d9dd1bedcc3b0b1ed7df91ba266"
+
+[[override]]
+name="sigs.k8s.io/controller-runtime"
+source="github.com/pusher/controller-runtime"
+branch="list-gvk"
+
+[[override]]
+name="sigs.k8s.io/controller-tools"
+version="v0.1.10"
+
+[[override]]
+name="sigs.k8s.io/testing_frameworks"
+version="v0.1.1"
