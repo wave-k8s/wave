@@ -33,7 +33,7 @@ func DeleteAll(cfg *rest.Config, timeout time.Duration, objLists ...runtime.Obje
 	g.Expect(err).ToNot(g.HaveOccurred())
 	for _, objList := range objLists {
 		g.Eventually(func() error {
-			return c.List(context.TODO(), &client.ListOptions{}, objList)
+			return c.List(context.TODO(), objList)
 		}, timeout).Should(g.Succeed())
 		objs, err := apimeta.ExtractList(objList)
 		g.Expect(err).ToNot(g.HaveOccurred())

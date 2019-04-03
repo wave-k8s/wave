@@ -199,18 +199,18 @@ func (h *Handler) getObject(namespace, name string, metadata configMetadata, obj
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are
 // owned by the Deployment instance
 func (h *Handler) getExistingChildren(obj podController) ([]Object, error) {
-	opts := client.InNamespace(obj.GetNamespace())
+	inNamespace := client.InNamespace(obj.GetNamespace())
 
 	// List all ConfigMaps in the Deployment's namespace
 	configMaps := &corev1.ConfigMapList{}
-	err := h.List(context.TODO(), opts, configMaps)
+	err := h.List(context.TODO(), inNamespace, configMaps)
 	if err != nil {
 		return []Object{}, fmt.Errorf("error listing ConfigMaps: %v", err)
 	}
 
 	// List all Secrets in the Deployment's namespcae
 	secrets := &corev1.SecretList{}
-	err = h.List(context.TODO(), opts, secrets)
+	err = h.List(context.TODO(), inNamespace, configMaps)
 	if err != nil {
 		return []Object{}, fmt.Errorf("error listing Secrets: %v", err)
 	}

@@ -41,7 +41,7 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileDeployment{
 		scheme:  mgr.GetScheme(),
-		handler: core.NewHandler(mgr.GetClient(), mgr.GetRecorder("wave")),
+		handler: core.NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
 	}
 }
 
