@@ -242,16 +242,18 @@ var _ = Describe("Wave hash Suite", func() {
 	})
 
 	Context("setConfigHash", func() {
-		var deployment *appsv1.Deployment
+		var deploymentObject *appsv1.Deployment
+		var podControllerDeployment podController
 
 		BeforeEach(func() {
-			deployment = utils.ExampleDeployment.DeepCopy()
+			deploymentObject = utils.ExampleDeployment.DeepCopy()
+			podControllerDeployment = &deployment{deploymentObject}
 		})
 
 		It("sets the hash annotation to the provided value", func() {
-			setConfigHash(deployment, "1234")
+			setConfigHash(podControllerDeployment, "1234")
 
-			podAnnotations := deployment.Spec.Template.GetAnnotations()
+			podAnnotations := deploymentObject.Spec.Template.GetAnnotations()
 			Expect(podAnnotations).NotTo(BeNil())
 
 			hash, ok := podAnnotations[ConfigHashAnnotation]
@@ -261,18 +263,18 @@ var _ = Describe("Wave hash Suite", func() {
 
 		It("leaves existing annotations in place", func() {
 			// Add an annotation to the pod spec
-			podAnnotations := deployment.Spec.Template.GetAnnotations()
+			podAnnotations := deploymentObject.Spec.Template.GetAnnotations()
 			if podAnnotations == nil {
 				podAnnotations = make(map[string]string)
 			}
 			podAnnotations["existing"] = "annotation"
-			deployment.Spec.Template.SetAnnotations(podAnnotations)
+			deploymentObject.Spec.Template.SetAnnotations(podAnnotations)
 
 			// Set the config hash
-			setConfigHash(deployment, "1234")
+			setConfigHash(podControllerDeployment, "1234")
 
 			// Check the existing annotation is still in place
-			podAnnotations = deployment.Spec.Template.GetAnnotations()
+			podAnnotations = deploymentObject.Spec.Template.GetAnnotations()
 			Expect(podAnnotations).NotTo(BeNil())
 
 			hash, ok := podAnnotations["existing"]

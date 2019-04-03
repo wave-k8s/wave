@@ -24,37 +24,39 @@ import (
 )
 
 var _ = Describe("Wave required annotation Suite", func() {
-	var deployment *appsv1.Deployment
+	var deploymentObject *appsv1.Deployment
+	var podControllerDeployment podController
 
 	BeforeEach(func() {
-		deployment = utils.ExampleDeployment.DeepCopy()
+		deploymentObject = utils.ExampleDeployment.DeepCopy()
+		podControllerDeployment = &deployment{deploymentObject}
 	})
 
 	Context("hasRequiredAnnotation", func() {
 		It("returns true when the annotation has value true", func() {
-			annotations := deployment.GetAnnotations()
+			annotations := deploymentObject.GetAnnotations()
 			if annotations == nil {
 				annotations = make(map[string]string)
 			}
 			annotations[RequiredAnnotation] = "true"
-			deployment.SetAnnotations(annotations)
+			deploymentObject.SetAnnotations(annotations)
 
-			Expect(hasRequiredAnnotation(deployment)).To(BeTrue())
+			Expect(hasRequiredAnnotation(podControllerDeployment)).To(BeTrue())
 		})
 
 		It("returns false when the annotation has value other than true", func() {
-			annotations := deployment.GetAnnotations()
+			annotations := deploymentObject.GetAnnotations()
 			if annotations == nil {
 				annotations = make(map[string]string)
 			}
 			annotations[RequiredAnnotation] = "false"
-			deployment.SetAnnotations(annotations)
+			deploymentObject.SetAnnotations(annotations)
 
-			Expect(hasRequiredAnnotation(deployment)).To(BeFalse())
+			Expect(hasRequiredAnnotation(podControllerDeployment)).To(BeFalse())
 		})
 
 		It("returns false when the annotation is not set", func() {
-			Expect(hasRequiredAnnotation(deployment)).To(BeFalse())
+			Expect(hasRequiredAnnotation(podControllerDeployment)).To(BeFalse())
 		})
 
 	})
