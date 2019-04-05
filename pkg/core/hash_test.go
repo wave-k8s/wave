@@ -46,6 +46,8 @@ var _ = Describe("Wave hash Suite", func() {
 		var s2 *corev1.Secret
 		var s3 *corev1.Secret
 
+		var modified = "modified"
+
 		BeforeEach(func() {
 			mgr, err := manager.New(cfg, manager.Options{})
 			Expect(err).NotTo(HaveOccurred())
@@ -98,7 +100,7 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key1"] = "modified"
+			cm1.Data["key1"] = modified
 			m.Update(cm1).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
@@ -117,7 +119,7 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key1"] = "modified"
+			cm1.Data["key1"] = modified
 			m.Update(cm1).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
@@ -142,7 +144,7 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key1"] = "modified"
+			cm1.Data["key1"] = modified
 			m.Update(cm1).Should(Succeed())
 			s1.Data["key1"] = []byte("modified")
 			m.Update(s1).Should(Succeed())
@@ -169,7 +171,7 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key3"] = "modified"
+			cm1.Data["key3"] = modified
 			m.Update(cm1).Should(Succeed())
 			s1.Data["key3"] = []byte("modified")
 			m.Update(s1).Should(Succeed())

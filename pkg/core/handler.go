@@ -40,12 +40,13 @@ func NewHandler(c client.Client, r record.EventRecorder) *Handler {
 	return &Handler{Client: c, recorder: r}
 }
 
+// HandleDeployment is called by the deployment controller to reconcile deployments
 func (h *Handler) HandleDeployment(instance *appsv1.Deployment) (reconcile.Result, error) {
-	return h.HandlePodController(&deployment{Deployment: instance})
+	return h.handlePodController(&deployment{Deployment: instance})
 }
 
-// HandlePodController is called by the deployment controller
-func (h *Handler) HandlePodController(instance podController) (reconcile.Result, error) {
+// handlePodController reconciles the state of a podController
+func (h *Handler) handlePodController(instance podController) (reconcile.Result, error) {
 	log := logf.Log.WithName("wave")
 
 	// If the required annotation isn't present, ignore the instance

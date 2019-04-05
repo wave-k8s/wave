@@ -38,7 +38,7 @@ var _ = Describe("Wave required annotation Suite", func() {
 			if annotations == nil {
 				annotations = make(map[string]string)
 			}
-			annotations[RequiredAnnotation] = "true"
+			annotations[RequiredAnnotation] = requiredAnnotationValue
 			deploymentObject.SetAnnotations(annotations)
 
 			Expect(hasRequiredAnnotation(podControllerDeployment)).To(BeTrue())
