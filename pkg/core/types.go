@@ -35,6 +35,10 @@ const (
 	// RequiredAnnotation is the key of the annotation on the Deployment that Wave
 	// checks for before processing the deployment
 	RequiredAnnotation = "wave.pusher.com/update-on-config-change"
+
+	// requiredAnnotationValue is the value of the annotation on the Deployment that Wave
+	// checks for before processing the deployment
+	requiredAnnotationValue = "true"
 )
 
 // Object is used as a helper interface when passing Kubernetes resources

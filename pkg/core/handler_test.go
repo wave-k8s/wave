@@ -54,6 +54,8 @@ var _ = Describe("Wave controller Suite", func() {
 	var s2 *corev1.Secret
 	var s3 *corev1.Secret
 
+	var modified = "modified"
+
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
@@ -143,7 +145,7 @@ var _ = Describe("Wave controller Suite", func() {
 				if annotations == nil {
 					annotations = make(map[string]string)
 				}
-				annotations[RequiredAnnotation] = "true"
+				annotations[RequiredAnnotation] = requiredAnnotationValue
 				deployment.SetAnnotations(annotations)
 
 				m.Update(deployment).Should(Succeed())
@@ -223,7 +225,7 @@ var _ = Describe("Wave controller Suite", func() {
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
 						m.Get(cm1, timeout).Should(Succeed())
-						cm1.Data["key1"] = "modified"
+						cm1.Data["key1"] = modified
 						m.Update(cm1).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
@@ -241,7 +243,7 @@ var _ = Describe("Wave controller Suite", func() {
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
 						m.Get(cm2, timeout).Should(Succeed())
-						cm2.Data["key1"] = "modified"
+						cm2.Data["key1"] = modified
 						m.Update(cm2).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
@@ -259,7 +261,7 @@ var _ = Describe("Wave controller Suite", func() {
 				Context("A ConfigMap Env for a key being used is updated", func() {
 					BeforeEach(func() {
 						m.Get(cm3, timeout).Should(Succeed())
-						cm3.Data["key1"] = "modified"
+						cm3.Data["key1"] = modified
 						m.Update(cm3).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
@@ -277,7 +279,7 @@ var _ = Describe("Wave controller Suite", func() {
 				Context("A ConfigMap Env for a key that is not being used is updated", func() {
 					BeforeEach(func() {
 						m.Get(cm3, timeout).Should(Succeed())
-						cm3.Data["key3"] = "modified"
+						cm3.Data["key3"] = modified
 						m.Update(cm3).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
@@ -298,7 +300,7 @@ var _ = Describe("Wave controller Suite", func() {
 						if s1.StringData == nil {
 							s1.StringData = make(map[string]string)
 						}
-						s1.StringData["key1"] = "modified"
+						s1.StringData["key1"] = modified
 						m.Update(s1).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
@@ -319,7 +321,7 @@ var _ = Describe("Wave controller Suite", func() {
 						if s2.StringData == nil {
 							s2.StringData = make(map[string]string)
 						}
-						s2.StringData["key1"] = "modified"
+						s2.StringData["key1"] = modified
 						m.Update(s2).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
@@ -340,7 +342,7 @@ var _ = Describe("Wave controller Suite", func() {
 						if s3.StringData == nil {
 							s3.StringData = make(map[string]string)
 						}
-						s3.StringData["key1"] = "modified"
+						s3.StringData["key1"] = modified
 						m.Update(s3).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
@@ -361,7 +363,7 @@ var _ = Describe("Wave controller Suite", func() {
 						if s3.StringData == nil {
 							s3.StringData = make(map[string]string)
 						}
-						s3.StringData["key3"] = "modified"
+						s3.StringData["key3"] = modified
 						m.Update(s3).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)

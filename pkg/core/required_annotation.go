@@ -21,7 +21,7 @@ package core
 func hasRequiredAnnotation(obj podController) bool {
 	annotations := obj.GetAnnotations()
 	if value, ok := annotations[RequiredAnnotation]; ok {
-		if value == "true" {
+		if value == requiredAnnotationValue {
 			return true
 		}
 	}
