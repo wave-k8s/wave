@@ -1,4 +1,5 @@
-bin
-vendor
-cover.out
+vendor/
+release/
 .env
+cover.out
+wave
