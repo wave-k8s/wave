@@ -1,5 +1,4 @@
 vendor/
 release/
-.env
-cover.out
+.git/
 wave
