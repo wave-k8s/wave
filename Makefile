@@ -134,7 +134,7 @@ manifests: vendor
 # Build the docker image
 .PHONY: docker-build
 docker-build:
-	docker build . -t ${IMG}:${VERSION}
+	docker build --build-arg VERSION=${VERSION} -t ${IMG}:${VERSION} .
 	@echo "\033[36mBuilt $(IMG):$(VERSION)\033[0m"
 
 TAGS ?= latest

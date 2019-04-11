@@ -18,7 +18,9 @@ package main
 
 import (
 	goflag "flag"
+	"fmt"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/go-logr/glogr"
@@ -38,6 +40,7 @@ var (
 	leaderElectionID        = flag.String("leader-election-id", "", "Name of the configmap used by the leader election system")
 	leaderElectionNamespace = flag.String("leader-election-namespace", "", "Namespace for the configmap used by the leader election system")
 	syncPeriod              = flag.Duration("sync-period", 5*time.Minute, "Reconcile sync period")
+	showVersion             = flag.Bool("version", false, "Show version and exit")
 )
 
 func main() {
@@ -45,6 +48,11 @@ func main() {
 	goflag.Lookup("logtostderr").Value.Set("true")
 	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("wave %s (built with %s)\n", VERSION, runtime.Version())
+		return
+	}
 
 	logf.SetLogger(glogr.New())
 	log := logf.Log.WithName("entrypoint")
