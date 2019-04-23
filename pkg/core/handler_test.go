@@ -94,7 +94,7 @@ var _ = Describe("Wave controller Suite", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		m.Get(deployment).Should(Succeed())
-		ownerRef = utils.GetOwnerRef(deployment)
+		ownerRef = utils.GetOwnerRefDeployment(deployment)
 	})
 
 	AfterEach(func() {

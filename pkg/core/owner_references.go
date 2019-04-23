@@ -125,7 +125,7 @@ func getOwnerReference(obj podController) metav1.OwnerReference {
 	f := false
 	return metav1.OwnerReference{
 		APIVersion:         "apps/v1",
-		Kind:               "Deployment",
+		Kind:               kindOf(obj),
 		Name:               obj.GetName(),
 		UID:                obj.GetUID(),
 		BlockOwnerDeletion: &t,
@@ -150,6 +150,10 @@ func kindOf(obj Object) string {
 		return "ConfigMap"
 	case *corev1.Secret:
 		return "Secret"
+	case *deployment:
+		return "Deployment"
+	case *statefulset:
+		return "StatefulSet"
 	default:
 		return "Unknown"
 	}

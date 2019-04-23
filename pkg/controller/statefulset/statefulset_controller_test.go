@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package deployment
+package statefulset
 
 import (
 	"context"
@@ -36,11 +36,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var _ = Describe("Deployment controller Suite", func() {
+var _ = Describe("StatefulSet controller Suite", func() {
 	var c client.Client
 	var m utils.Matcher
 
-	var deployment *appsv1.Deployment
+	var statefulset *appsv1.StatefulSet
 	var requests <-chan reconcile.Request
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
@@ -56,16 +56,14 @@ var _ = Describe("Deployment controller Suite", func() {
 	var s2 *corev1.Secret
 	var s3 *corev1.Secret
 
-	var modified = "modified"
-
-	var waitForDeploymentReconciled = func(obj core.Object) {
+	var waitForStatefulSetReconciled = func(obj core.Object) {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      obj.GetName(),
 				Namespace: obj.GetNamespace(),
 			},
 		}
-		// wait for reconcile for creating the Deployment
+		// wait for reconcile for creating the StatefulSet
 		Eventually(requests, timeout).Should(Receive(Equal(request)))
 	}
 
@@ -102,40 +100,40 @@ var _ = Describe("Deployment controller Suite", func() {
 		m.Get(s2, timeout).Should(Succeed())
 		m.Get(s3, timeout).Should(Succeed())
 
-		deployment = utils.ExampleDeployment.DeepCopy()
+		statefulset = utils.ExampleStatefulSet.DeepCopy()
 
-		// Create a deployment and wait for it to be reconciled
-		m.Create(deployment).Should(Succeed())
-		waitForDeploymentReconciled(deployment)
+		// Create a statefulset and wait for it to be reconciled
+		m.Create(statefulset).Should(Succeed())
+		waitForStatefulSetReconciled(statefulset)
 
-		ownerRef = utils.GetOwnerRefDeployment(deployment)
+		ownerRef = utils.GetOwnerRefStatefulSet(statefulset)
 	})
 
 	AfterEach(func() {
-		// Make sure to delete any finalizers (if the deployment exists)
+		// Make sure to delete any finalizers (if the statefulset exists)
 		Eventually(func() error {
-			key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-			err := c.Get(context.TODO(), key, deployment)
+			key := types.NamespacedName{Namespace: statefulset.GetNamespace(), Name: statefulset.GetName()}
+			err := c.Get(context.TODO(), key, statefulset)
 			if err != nil && errors.IsNotFound(err) {
 				return nil
 			}
 			if err != nil {
 				return err
 			}
-			deployment.SetFinalizers([]string{})
-			return c.Update(context.TODO(), deployment)
+			statefulset.SetFinalizers([]string{})
+			return c.Update(context.TODO(), statefulset)
 		}, timeout).Should(Succeed())
 
 		Eventually(func() error {
-			key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-			err := c.Get(context.TODO(), key, deployment)
+			key := types.NamespacedName{Namespace: statefulset.GetNamespace(), Name: statefulset.GetName()}
+			err := c.Get(context.TODO(), key, statefulset)
 			if err != nil && errors.IsNotFound(err) {
 				return nil
 			}
 			if err != nil {
 				return err
 			}
-			if len(deployment.GetFinalizers()) > 0 {
+			if len(statefulset.GetFinalizers()) > 0 {
 				return fmt.Errorf("Finalizers not upated")
 			}
 			return nil
@@ -145,28 +143,28 @@ var _ = Describe("Deployment controller Suite", func() {
 		mgrStopped.Wait()
 
 		utils.DeleteAll(cfg, timeout,
-			&appsv1.DeploymentList{},
+			&appsv1.StatefulSetList{},
 			&corev1.ConfigMapList{},
 			&corev1.SecretList{},
 			&corev1.EventList{},
 		)
 	})
 
-	Context("When a Deployment is reconciled", func() {
+	Context("When a StatefulSet is reconciled", func() {
 		Context("And it has the required annotation", func() {
 			BeforeEach(func() {
-				annotations := deployment.GetAnnotations()
+				annotations := statefulset.GetAnnotations()
 				if annotations == nil {
 					annotations = make(map[string]string)
 				}
 				annotations[core.RequiredAnnotation] = "true"
-				deployment.SetAnnotations(annotations)
+				statefulset.SetAnnotations(annotations)
 
-				m.Update(deployment).Should(Succeed())
-				waitForDeploymentReconciled(deployment)
+				m.Update(statefulset).Should(Succeed())
+				waitForStatefulSetReconciled(statefulset)
 
-				// Get the updated Deployment
-				m.Get(deployment, timeout).Should(Succeed())
+				// Get the updated StatefulSet
+				m.Get(statefulset, timeout).Should(Succeed())
 			})
 
 			It("Adds OwnerReferences to all children", func() {
@@ -175,16 +173,16 @@ var _ = Describe("Deployment controller Suite", func() {
 				}
 			})
 
-			It("Adds a finalizer to the Deployment", func() {
-				m.Eventually(deployment, timeout).Should(utils.WithFinalizers(ContainElement(core.FinalizerString)))
+			It("Adds a finalizer to the StatefulSet", func() {
+				m.Eventually(statefulset, timeout).Should(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
-				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+				m.Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 			})
 
 			It("Sends an event when updating the hash", func() {
-				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+				m.Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 
 				events := &corev1.EventList{}
 				eventMessage := func(event *corev1.Event) string {
@@ -198,19 +196,19 @@ var _ = Describe("Deployment controller Suite", func() {
 			Context("And a child is removed", func() {
 				var originalHash string
 				BeforeEach(func() {
-					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
-					originalHash = deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+					m.Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					originalHash = statefulset.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
-					containers := deployment.Spec.Template.Spec.Containers
+					containers := statefulset.Spec.Template.Spec.Containers
 					Expect(containers[0].Name).To(Equal("container1"))
-					deployment.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
-					m.Update(deployment).Should(Succeed())
-					waitForDeploymentReconciled(deployment)
+					statefulset.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
+					m.Update(statefulset).Should(Succeed())
+					waitForStatefulSetReconciled(statefulset)
 
-					// Get the updated Deployment
-					m.Get(deployment, timeout).Should(Succeed())
+					// Get the updated StatefulSet
+					m.Get(statefulset, timeout).Should(Succeed())
 				})
 
 				It("Removes the OwnerReference from the orphaned ConfigMap", func() {
@@ -222,7 +220,7 @@ var _ = Describe("Deployment controller Suite", func() {
 				})
 
 				It("Updates the config hash in the Pod Template", func() {
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+					m.Eventually(statefulset, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 				})
 			})
 
@@ -230,41 +228,41 @@ var _ = Describe("Deployment controller Suite", func() {
 				var originalHash string
 
 				BeforeEach(func() {
-					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
-					originalHash = deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+					m.Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					originalHash = statefulset.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
 				})
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
 						m.Get(cm1, timeout).Should(Succeed())
-						cm1.Data["key1"] = modified
+						cm1.Data["key1"] = "modified"
 						m.Update(cm1).Should(Succeed())
 
-						waitForDeploymentReconciled(deployment)
+						waitForStatefulSetReconciled(statefulset)
 
-						// Get the updated Deployment
-						m.Get(deployment, timeout).Should(Succeed())
+						// Get the updated StatefulSet
+						m.Get(statefulset, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
 						m.Get(cm2, timeout).Should(Succeed())
-						cm2.Data["key1"] = modified
+						cm2.Data["key1"] = "modified"
 						m.Update(cm2).Should(Succeed())
 
-						waitForDeploymentReconciled(deployment)
+						waitForStatefulSetReconciled(statefulset)
 
-						// Get the updated Deployment
-						m.Get(deployment, timeout).Should(Succeed())
+						// Get the updated StatefulSet
+						m.Get(statefulset, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
@@ -274,17 +272,17 @@ var _ = Describe("Deployment controller Suite", func() {
 						if s1.StringData == nil {
 							s1.StringData = make(map[string]string)
 						}
-						s1.StringData["key1"] = modified
+						s1.StringData["key1"] = "modified"
 						m.Update(s1).Should(Succeed())
 
-						waitForDeploymentReconciled(deployment)
+						waitForStatefulSetReconciled(statefulset)
 
-						// Get the updated Deployment
-						m.Get(deployment, timeout).Should(Succeed())
+						// Get the updated StatefulSet
+						m.Get(statefulset, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
@@ -294,29 +292,29 @@ var _ = Describe("Deployment controller Suite", func() {
 						if s2.StringData == nil {
 							s2.StringData = make(map[string]string)
 						}
-						s2.StringData["key1"] = modified
+						s2.StringData["key1"] = "modified"
 						m.Update(s2).Should(Succeed())
 
-						waitForDeploymentReconciled(deployment)
+						waitForStatefulSetReconciled(statefulset)
 
-						// Get the updated Deployment
-						m.Get(deployment, timeout).Should(Succeed())
+						// Get the updated StatefulSet
+						m.Get(statefulset, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 			})
 
 			Context("And the annotation is removed", func() {
 				BeforeEach(func() {
-					m.Get(deployment, timeout).Should(Succeed())
-					deployment.SetAnnotations(make(map[string]string))
-					m.Update(deployment).Should(Succeed())
-					waitForDeploymentReconciled(deployment)
+					m.Get(statefulset, timeout).Should(Succeed())
+					statefulset.SetAnnotations(make(map[string]string))
+					m.Update(statefulset).Should(Succeed())
+					waitForStatefulSetReconciled(statefulset)
 
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
+					m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
 				})
 
 				It("Removes the OwnerReference from the all children", func() {
@@ -325,21 +323,21 @@ var _ = Describe("Deployment controller Suite", func() {
 					}
 				})
 
-				It("Removes the Deployment's finalizer", func() {
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
+				It("Removes the StatefulSet's finalizer", func() {
+					m.Eventually(statefulset, timeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 				})
 			})
 
 			Context("And is deleted", func() {
 				BeforeEach(func() {
 					// Make sure the cache has synced before we run the test
-					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
-					m.Delete(deployment).Should(Succeed())
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
-					waitForDeploymentReconciled(deployment)
+					m.Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					m.Delete(statefulset).Should(Succeed())
+					m.Eventually(statefulset, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
+					waitForStatefulSetReconciled(statefulset)
 
-					// Get the updated Deployment
-					m.Get(deployment, timeout).Should(Succeed())
+					// Get the updated StatefulSet
+					m.Get(statefulset, timeout).Should(Succeed())
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []core.Object{cm1, cm2, s1, s2} {
@@ -347,17 +345,17 @@ var _ = Describe("Deployment controller Suite", func() {
 					}
 				})
 
-				It("Removes the Deployment's finalizer", func() {
-					// Removing the finalizer causes the deployment to be deleted
-					m.Get(deployment, timeout).ShouldNot(Succeed())
+				It("Removes the StatefulSet's finalizer", func() {
+					// Removing the finalizer causes the statefulset to be deleted
+					m.Get(statefulset, timeout).ShouldNot(Succeed())
 				})
 			})
 		})
 
 		Context("And it does not have the required annotation", func() {
 			BeforeEach(func() {
-				// Get the updated Deployment
-				m.Get(deployment, timeout).Should(Succeed())
+				// Get the updated StatefulSet
+				m.Get(statefulset, timeout).Should(Succeed())
 			})
 
 			It("Doesn't add any OwnerReferences to any children", func() {
@@ -366,12 +364,12 @@ var _ = Describe("Deployment controller Suite", func() {
 				}
 			})
 
-			It("Doesn't add a finalizer to the Deployment", func() {
-				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
+			It("Doesn't add a finalizer to the StatefulSet", func() {
+				m.Consistently(statefulset, consistentlyTimeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 			})
 
 			It("Doesn't add a config hash to the Pod Template", func() {
-				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(core.ConfigHashAnnotation)))
+				m.Consistently(statefulset, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(core.ConfigHashAnnotation)))
 			})
 		})
 	})
