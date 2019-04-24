@@ -153,14 +153,17 @@ var _ = Describe("StatefulSet controller Suite", func() {
 	Context("When a StatefulSet is reconciled", func() {
 		Context("And it has the required annotation", func() {
 			BeforeEach(func() {
-				annotations := statefulset.GetAnnotations()
-				if annotations == nil {
-					annotations = make(map[string]string)
+				addAnnotation := func(obj utils.Object) utils.Object {
+					annotations := obj.GetAnnotations()
+					if annotations == nil {
+						annotations = make(map[string]string)
+					}
+					annotations[core.RequiredAnnotation] = "true"
+					obj.SetAnnotations(annotations)
+					return obj
 				}
-				annotations[core.RequiredAnnotation] = "true"
-				statefulset.SetAnnotations(annotations)
 
-				m.Update(statefulset).Should(Succeed())
+				m.UpdateWithFunc(statefulset, addAnnotation).Should(Succeed())
 				waitForStatefulSetReconciled(statefulset)
 
 				// Get the updated StatefulSet
@@ -201,10 +204,15 @@ var _ = Describe("StatefulSet controller Suite", func() {
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
-					containers := statefulset.Spec.Template.Spec.Containers
-					Expect(containers[0].Name).To(Equal("container1"))
-					statefulset.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
-					m.Update(statefulset).Should(Succeed())
+					removeContainer2 := func(obj utils.Object) utils.Object {
+						ss, _ := obj.(*appsv1.StatefulSet)
+						containers := ss.Spec.Template.Spec.Containers
+						Expect(containers[0].Name).To(Equal("container1"))
+						ss.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
+						return ss
+					}
+
+					m.UpdateWithFunc(statefulset, removeContainer2).Should(Succeed())
 					waitForStatefulSetReconciled(statefulset)
 
 					// Get the updated StatefulSet
@@ -234,9 +242,12 @@ var _ = Describe("StatefulSet controller Suite", func() {
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
-						m.Get(cm1, timeout).Should(Succeed())
-						cm1.Data["key1"] = "modified"
-						m.Update(cm1).Should(Succeed())
+						modifyCM := func(obj utils.Object) utils.Object {
+							cm, _ := obj.(*corev1.ConfigMap)
+							cm.Data["key1"] = "modified"
+							return cm
+						}
+						m.UpdateWithFunc(cm1, modifyCM).Should(Succeed())
 
 						waitForStatefulSetReconciled(statefulset)
 
@@ -251,9 +262,12 @@ var _ = Describe("StatefulSet controller Suite", func() {
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.Get(cm2, timeout).Should(Succeed())
-						cm2.Data["key1"] = "modified"
-						m.Update(cm2).Should(Succeed())
+						modifyCM := func(obj utils.Object) utils.Object {
+							cm, _ := obj.(*corev1.ConfigMap)
+							cm.Data["key1"] = "modified"
+							return cm
+						}
+						m.UpdateWithFunc(cm2, modifyCM).Should(Succeed())
 
 						waitForStatefulSetReconciled(statefulset)
 
@@ -268,12 +282,15 @@ var _ = Describe("StatefulSet controller Suite", func() {
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
-						m.Get(s1, timeout).Should(Succeed())
-						if s1.StringData == nil {
-							s1.StringData = make(map[string]string)
+						modifyS := func(obj utils.Object) utils.Object {
+							s, _ := obj.(*corev1.Secret)
+							if s.StringData == nil {
+								s.StringData = make(map[string]string)
+							}
+							s.StringData["key1"] = "modified"
+							return s
 						}
-						s1.StringData["key1"] = "modified"
-						m.Update(s1).Should(Succeed())
+						m.UpdateWithFunc(s1, modifyS).Should(Succeed())
 
 						waitForStatefulSetReconciled(statefulset)
 
@@ -288,12 +305,15 @@ var _ = Describe("StatefulSet controller Suite", func() {
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.Get(s2, timeout).Should(Succeed())
-						if s2.StringData == nil {
-							s2.StringData = make(map[string]string)
+						modifyS := func(obj utils.Object) utils.Object {
+							s, _ := obj.(*corev1.Secret)
+							if s.StringData == nil {
+								s.StringData = make(map[string]string)
+							}
+							s.StringData["key1"] = "modified"
+							return s
 						}
-						s2.StringData["key1"] = "modified"
-						m.Update(s2).Should(Succeed())
+						m.UpdateWithFunc(s2, modifyS).Should(Succeed())
 
 						waitForStatefulSetReconciled(statefulset)
 
@@ -309,9 +329,11 @@ var _ = Describe("StatefulSet controller Suite", func() {
 
 			Context("And the annotation is removed", func() {
 				BeforeEach(func() {
-					m.Get(statefulset, timeout).Should(Succeed())
-					statefulset.SetAnnotations(make(map[string]string))
-					m.Update(statefulset).Should(Succeed())
+					removeAnnotations := func(obj utils.Object) utils.Object {
+						obj.SetAnnotations(make(map[string]string))
+						return obj
+					}
+					m.UpdateWithFunc(statefulset, removeAnnotations).Should(Succeed())
 					waitForStatefulSetReconciled(statefulset)
 
 					m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
