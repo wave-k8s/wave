@@ -56,8 +56,6 @@ var _ = Describe("Deployment controller Suite", func() {
 	var s2 *corev1.Secret
 	var s3 *corev1.Secret
 
-	var modified = "modified"
-
 	var waitForDeploymentReconciled = func(obj core.Object) {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -155,14 +153,17 @@ var _ = Describe("Deployment controller Suite", func() {
 	Context("When a Deployment is reconciled", func() {
 		Context("And it has the required annotation", func() {
 			BeforeEach(func() {
-				annotations := deployment.GetAnnotations()
-				if annotations == nil {
-					annotations = make(map[string]string)
+				addAnnotation := func(obj utils.Object) utils.Object {
+					annotations := obj.GetAnnotations()
+					if annotations == nil {
+						annotations = make(map[string]string)
+					}
+					annotations[core.RequiredAnnotation] = "true"
+					obj.SetAnnotations(annotations)
+					return obj
 				}
-				annotations[core.RequiredAnnotation] = "true"
-				deployment.SetAnnotations(annotations)
 
-				m.Update(deployment).Should(Succeed())
+				m.UpdateWithFunc(deployment, addAnnotation).Should(Succeed())
 				waitForDeploymentReconciled(deployment)
 
 				// Get the updated Deployment
@@ -203,10 +204,15 @@ var _ = Describe("Deployment controller Suite", func() {
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
-					containers := deployment.Spec.Template.Spec.Containers
-					Expect(containers[0].Name).To(Equal("container1"))
-					deployment.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
-					m.Update(deployment).Should(Succeed())
+					removeContainer2 := func(obj utils.Object) utils.Object {
+						dep, _ := obj.(*appsv1.Deployment)
+						containers := dep.Spec.Template.Spec.Containers
+						Expect(containers[0].Name).To(Equal("container1"))
+						dep.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
+						return dep
+					}
+
+					m.UpdateWithFunc(deployment, removeContainer2).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment
@@ -236,9 +242,12 @@ var _ = Describe("Deployment controller Suite", func() {
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
-						m.Get(cm1, timeout).Should(Succeed())
-						cm1.Data["key1"] = modified
-						m.Update(cm1).Should(Succeed())
+						modifyCM := func(obj utils.Object) utils.Object {
+							cm, _ := obj.(*corev1.ConfigMap)
+							cm.Data["key1"] = "modified"
+							return cm
+						}
+						m.UpdateWithFunc(cm1, modifyCM).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -253,9 +262,12 @@ var _ = Describe("Deployment controller Suite", func() {
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.Get(cm2, timeout).Should(Succeed())
-						cm2.Data["key1"] = modified
-						m.Update(cm2).Should(Succeed())
+						modifyCM := func(obj utils.Object) utils.Object {
+							cm, _ := obj.(*corev1.ConfigMap)
+							cm.Data["key1"] = "modified"
+							return cm
+						}
+						m.UpdateWithFunc(cm2, modifyCM).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -270,12 +282,15 @@ var _ = Describe("Deployment controller Suite", func() {
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
-						m.Get(s1, timeout).Should(Succeed())
-						if s1.StringData == nil {
-							s1.StringData = make(map[string]string)
+						modifyS := func(obj utils.Object) utils.Object {
+							s, _ := obj.(*corev1.Secret)
+							if s.StringData == nil {
+								s.StringData = make(map[string]string)
+							}
+							s.StringData["key1"] = "modified"
+							return s
 						}
-						s1.StringData["key1"] = modified
-						m.Update(s1).Should(Succeed())
+						m.UpdateWithFunc(s1, modifyS).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -290,12 +305,15 @@ var _ = Describe("Deployment controller Suite", func() {
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.Get(s2, timeout).Should(Succeed())
-						if s2.StringData == nil {
-							s2.StringData = make(map[string]string)
+						modifyS := func(obj utils.Object) utils.Object {
+							s, _ := obj.(*corev1.Secret)
+							if s.StringData == nil {
+								s.StringData = make(map[string]string)
+							}
+							s.StringData["key1"] = "modified"
+							return s
 						}
-						s2.StringData["key1"] = modified
-						m.Update(s2).Should(Succeed())
+						m.UpdateWithFunc(s2, modifyS).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -311,9 +329,11 @@ var _ = Describe("Deployment controller Suite", func() {
 
 			Context("And the annotation is removed", func() {
 				BeforeEach(func() {
-					m.Get(deployment, timeout).Should(Succeed())
-					deployment.SetAnnotations(make(map[string]string))
-					m.Update(deployment).Should(Succeed())
+					removeAnnotations := func(obj utils.Object) utils.Object {
+						obj.SetAnnotations(make(map[string]string))
+						return obj
+					}
+					m.UpdateWithFunc(deployment, removeAnnotations).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
 					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))

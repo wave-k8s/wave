@@ -41,6 +41,10 @@ type Object interface {
 	metav1.Object
 }
 
+// UpdateFunc modifies the object fetched from the API server before sending
+// the update
+type UpdateFunc func(Object) Object
+
 // Create creates the object on the API server
 func (m *Matcher) Create(obj Object, extras ...interface{}) gomega.GomegaAssertion {
 	err := m.Client.Create(context.TODO(), obj)
@@ -57,6 +61,23 @@ func (m *Matcher) Delete(obj Object, extras ...interface{}) gomega.GomegaAsserti
 func (m *Matcher) Update(obj Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
 	update := func() error {
 		return m.Client.Update(context.TODO(), obj)
+	}
+	return gomega.Eventually(update, intervals...)
+}
+
+// UpdateWithFunc udpates the object on the API server by fetching the object
+// and applying a mutating UpdateFunc before sending the update
+func (m *Matcher) UpdateWithFunc(obj Object, fn UpdateFunc, intervals ...interface{}) gomega.GomegaAsyncAssertion {
+	key := types.NamespacedName{
+		Name:      obj.GetName(),
+		Namespace: obj.GetNamespace(),
+	}
+	update := func() error {
+		err := m.Client.Get(context.TODO(), key, obj)
+		if err != nil {
+			return err
+		}
+		return m.Client.Update(context.TODO(), fn(obj))
 	}
 	return gomega.Eventually(update, intervals...)
 }
