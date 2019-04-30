@@ -196,6 +196,8 @@ func WithPodTemplateAnnotations(matcher gtypes.GomegaMatcher) gtypes.GomegaMatch
 			return obj.(*appsv1.Deployment).Spec.Template.GetAnnotations()
 		case *appsv1.StatefulSet:
 			return obj.(*appsv1.StatefulSet).Spec.Template.GetAnnotations()
+		case *appsv1.DaemonSet:
+			return obj.(*appsv1.DaemonSet).Spec.Template.GetAnnotations()
 		default:
 			panic("Unknown pod template type.")
 		}

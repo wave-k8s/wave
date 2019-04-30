@@ -48,3 +48,17 @@ func GetOwnerRefStatefulSet(sts *appsv1.StatefulSet) metav1.OwnerReference {
 		BlockOwnerDeletion: &t,
 	}
 }
+
+// GetOwnerRefDaemonSet constructs an owner reference for the DaemonSet given
+func GetOwnerRefDaemonSet(sts *appsv1.DaemonSet) metav1.OwnerReference {
+	f := false
+	t := true
+	return metav1.OwnerReference{
+		APIVersion:         "apps/v1",
+		Kind:               "DaemonSet",
+		Name:               sts.Name,
+		UID:                sts.UID,
+		Controller:         &f,
+		BlockOwnerDeletion: &t,
+	}
+}

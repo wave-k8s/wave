@@ -154,6 +154,8 @@ func kindOf(obj Object) string {
 		return "Deployment"
 	case *statefulset:
 		return "StatefulSet"
+	case *daemonset:
+		return "DaemonSet"
 	default:
 		return "Unknown"
 	}
