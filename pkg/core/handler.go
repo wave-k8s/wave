@@ -50,6 +50,11 @@ func (h *Handler) HandleStatefulSet(instance *appsv1.StatefulSet) (reconcile.Res
 	return h.handlePodController(&statefulset{StatefulSet: instance})
 }
 
+// HandleDaemonSet is called by the DaemonSet controller to reconcile DaemonSets
+func (h *Handler) HandleDaemonSet(instance *appsv1.DaemonSet) (reconcile.Result, error) {
+	return h.handlePodController(&daemonset{DaemonSet: instance})
+}
+
 // handlePodController reconciles the state of a podController
 func (h *Handler) handlePodController(instance podController) (reconcile.Result, error) {
 	log := logf.Log.WithName("wave")
