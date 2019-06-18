@@ -41,8 +41,6 @@ spec:
         controller-tools.k8s.io: "1.0"
     spec:
       containers:
-      - command:
-        - /bin/wave
         image: controller:latest
         imagePullPolicy: Always
         name: manager
