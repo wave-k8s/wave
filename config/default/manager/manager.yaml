@@ -42,7 +42,7 @@ spec:
     spec:
       containers:
       - command:
-        - /bin/manager
+        - /bin/wave
         image: controller:latest
         imagePullPolicy: Always
         name: manager
