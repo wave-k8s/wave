@@ -36,6 +36,13 @@ kustomize:
 	 	go get -u sigs.k8s.io/kustomize; \
 	fi
 
+.PHONY: kubebuilder-tools-1.14
+kubebuilder-tools-1.14:
+	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
+	if [ "$$ver" != "2.0.0-beta.0" ]; then \
+	  kubebuilder_version=2.0.0-beta.0 kubernetes_version=1.14 make install-kubebuilder-tools; \
+	fi
+
 .PHONY: kubebuilder-tools-1.13
 kubebuilder-tools-1.13:
 	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
@@ -58,8 +65,8 @@ kubebuilder-tools-1.11:
 	fi
 
 # latest stable version
-kubebuilder_version ?= 1.0.8
-kubernetes_version ?= 1.13
+kubebuilder_version ?= 2.0.0-beta.0
+kubernetes_version ?= 1.14
 os := $(shell uname | awk '{print tolower($$0)}')
 # Version string should be approx v1.x.x_linux_amd64
 kubebuilder_version_string=$(kubebuilder_version)_$(os)_amd64
