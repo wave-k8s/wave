@@ -38,28 +38,28 @@ kustomize:
 
 .PHONY: kubebuilder-tools-1.14
 kubebuilder-tools-1.14:
-	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
+	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9+])?"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
 	if [ "$$ver" != "2.0.0-beta.0" ]; then \
 	  kubebuilder_version=2.0.0-beta.0 kubernetes_version=1.14 make install-kubebuilder-tools; \
 	fi
 
 .PHONY: kubebuilder-tools-1.13
 kubebuilder-tools-1.13:
-	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
+	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9+])?"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
 	if [ "$$ver" != "1.0.8" ]; then \
 	  kubebuilder_version=1.0.8 kubernetes_version=1.13 make install-kubebuilder-tools; \
 	fi
 
 .PHONY: kubebuilder-tools-1.12
 kubebuilder-tools-1.12:
-	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
+	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[[0-9]\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9+])?"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
 	if [ "$$ver" != "1.0.7" ]; then \
 	  kubebuilder_version=1.0.7 kubernetes_version=1.12 make install-kubebuilder-tools; \
 	fi
 
 .PHONY: kubebuilder-tools-1.11
 kubebuilder-tools-1.11:
-	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
+	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9+])?"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
 	if [ "$$ver" != "1.0.5" ]; then \
 	  kubebuilder_version=1.0.5 kubernetes_version=1.11 make install-kubebuilder-tools; \
 	fi
