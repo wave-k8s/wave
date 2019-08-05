@@ -35,27 +35,27 @@ version="v1.3.0"
 # Overridefor kubernetes dependencies to pin them to a particular version
 [[override]]
 name="k8s.io/api"
-version="kubernetes-1.13.1"
+version="kubernetes-1.14.4"
 
 [[override]]
 name="k8s.io/apiextensions-apiserver"
-version="kubernetes-1.13.1"
+version="kubernetes-1.14.4"
 
 [[override]]
 name="k8s.io/apimachinery"
-version="kubernetes-1.13.1"
+version="kubernetes-1.14.4"
 
 [[override]]
 name="k8s.io/client-go"
-version="kubernetes-1.13.1"
+version="kubernetes-1.14.4"
 
 [[override]]
 name="k8s.io/kube-aggregator"
-version="kubernetes-1.13.1"
+version="kubernetes-1.14.4"
 
 [[override]]
 name="k8s.io/code-generator"
-version="kubernetes-1.13.1"
+version="kubernetes-1.14.4"
 
 [[override]]
 name="k8s.io/gengo"
@@ -63,8 +63,7 @@ revision="0689ccc1d7d65d9dd1bedcc3b0b1ed7df91ba266"
 
 [[override]]
 name="sigs.k8s.io/controller-runtime"
-source="github.com/pusher/controller-runtime"
-branch="list-gvk"
+version="v0.2.0-beta.4"
 
 [[override]]
 name="sigs.k8s.io/controller-tools"
