@@ -57,7 +57,7 @@ var ExampleDeployment = &appsv1.Deployment{
 						Name: "secret-optional",
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
-								SecretName: "example1-optional",
+								SecretName: "volume-optional",
 								Optional:   &trueValue,
 							},
 						},
@@ -73,11 +73,11 @@ var ExampleDeployment = &appsv1.Deployment{
 						},
 					},
 					{
-						Name: "configmap1-optional",
+						Name: "configmap-optional",
 						VolumeSource: corev1.VolumeSource{
 							ConfigMap: &corev1.ConfigMapVolumeSource{
 								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "example1-optional",
+									Name: "volume-optional",
 								},
 								Optional: &trueValue,
 							},
@@ -204,7 +204,7 @@ var ExampleDeployment = &appsv1.Deployment{
 							{
 								ConfigMapRef: &corev1.ConfigMapEnvSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "envfrom1-optional",
+										Name: "envfrom-optional",
 									},
 									Optional: &trueValue,
 								},
@@ -219,7 +219,7 @@ var ExampleDeployment = &appsv1.Deployment{
 							{
 								SecretRef: &corev1.SecretEnvSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "envfrom1-optional",
+										Name: "envfrom-optional",
 									},
 									Optional: &trueValue,
 								},
@@ -231,11 +231,11 @@ var ExampleDeployment = &appsv1.Deployment{
 						Image: "container2",
 						Env: []corev1.EnvVar{
 							{
-								Name: "example3_key2-optional",
+								Name: "env_optional_key2",
 								ValueFrom: &corev1.EnvVarSource{
 									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "env-configmap-optional",
+											Name: "env-optional",
 										},
 										Key:      "key2",
 										Optional: &trueValue,
@@ -265,11 +265,11 @@ var ExampleDeployment = &appsv1.Deployment{
 								},
 							},
 							{
-								Name: "example3_secret_key2-optional",
+								Name: "env_optional_secret_key2",
 								ValueFrom: &corev1.EnvVarSource{
 									SecretKeyRef: &corev1.SecretKeySelector{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "env-secret-optional",
+											Name: "env-optional",
 										},
 										Key:      "key2",
 										Optional: &trueValue,
