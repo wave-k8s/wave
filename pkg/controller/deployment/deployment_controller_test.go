@@ -214,6 +214,7 @@ var _ = Describe("Deployment controller Suite", func() {
 
 					m.UpdateWithFunc(deployment, removeContainer2).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
+					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment
 					m.Get(deployment, timeout).Should(Succeed())
