@@ -105,10 +105,10 @@ func getChildNamesByType(obj podController) (map[string]configMetadata, map[stri
 	// and Secrets
 	for _, vol := range obj.GetPodTemplate().Spec.Volumes {
 		if cm := vol.VolumeSource.ConfigMap; cm != nil {
-			configMaps[cm.Name] = configMetadata{required: true, allKeys: true}
+			configMaps[cm.Name] = configMetadata{required: isRequired(cm.Optional), allKeys: true}
 		}
 		if s := vol.VolumeSource.Secret; s != nil {
-			secrets[s.SecretName] = configMetadata{required: true, allKeys: true}
+			secrets[s.SecretName] = configMetadata{required: isRequired(s.Optional), allKeys: true}
 		}
 	}
 
@@ -117,10 +117,10 @@ func getChildNamesByType(obj podController) (map[string]configMetadata, map[stri
 	for _, container := range obj.GetPodTemplate().Spec.Containers {
 		for _, env := range container.EnvFrom {
 			if cm := env.ConfigMapRef; cm != nil {
-				configMaps[cm.Name] = configMetadata{required: true, allKeys: true}
+				configMaps[cm.Name] = configMetadata{required: isRequired(cm.Optional), allKeys: true}
 			}
 			if s := env.SecretRef; s != nil {
-				secrets[s.Name] = configMetadata{required: true, allKeys: true}
+				secrets[s.Name] = configMetadata{required: isRequired(s.Optional), allKeys: true}
 			}
 		}
 	}
@@ -140,6 +140,10 @@ func getChildNamesByType(obj podController) (map[string]configMetadata, map[stri
 	}
 
 	return configMaps, secrets
+}
+
+func isRequired(b *bool) bool {
+	return b == nil || !*b
 }
 
 // parseConfigMapKeyRef updates the metadata for a ConfigMap to include the keys specified in this ConfigMapKeySelector

@@ -54,12 +54,32 @@ var ExampleDeployment = &appsv1.Deployment{
 						},
 					},
 					{
+						Name: "secret-optional",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: "volume-optional",
+								Optional:   &trueValue,
+							},
+						},
+					},
+					{
 						Name: "configmap1",
 						VolumeSource: corev1.VolumeSource{
 							ConfigMap: &corev1.ConfigMapVolumeSource{
 								LocalObjectReference: corev1.LocalObjectReference{
 									Name: "example1",
 								},
+							},
+						},
+					},
+					{
+						Name: "configmap-optional",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "volume-optional",
+								},
+								Optional: &trueValue,
 							},
 						},
 					},
@@ -182,10 +202,26 @@ var ExampleDeployment = &appsv1.Deployment{
 								},
 							},
 							{
+								ConfigMapRef: &corev1.ConfigMapEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "envfrom-optional",
+									},
+									Optional: &trueValue,
+								},
+							},
+							{
 								SecretRef: &corev1.SecretEnvSource{
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "example1",
 									},
+								},
+							},
+							{
+								SecretRef: &corev1.SecretEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "envfrom-optional",
+									},
+									Optional: &trueValue,
 								},
 							},
 						},
@@ -194,6 +230,18 @@ var ExampleDeployment = &appsv1.Deployment{
 						Name:  "container2",
 						Image: "container2",
 						Env: []corev1.EnvVar{
+							{
+								Name: "env_optional_key2",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "env-optional",
+										},
+										Key:      "key2",
+										Optional: &trueValue,
+									},
+								},
+							},
 							{
 								Name: "example3_key2",
 								ValueFrom: &corev1.EnvVarSource{
@@ -213,6 +261,18 @@ var ExampleDeployment = &appsv1.Deployment{
 											Name: "example3",
 										},
 										Key: "key2",
+									},
+								},
+							},
+							{
+								Name: "env_optional_secret_key2",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "env-optional",
+										},
+										Key:      "key2",
+										Optional: &trueValue,
 									},
 								},
 							},

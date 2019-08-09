@@ -216,8 +216,20 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(configMaps).To(HaveKeyWithValue(cm1.GetName(), configMetadata{required: true, allKeys: true}))
 		})
 
+		It("optional ConfigMaps referenced in Volumes are returned as optional", func() {
+			Expect(configMaps).To(HaveKeyWithValue("volume-optional", configMetadata{required: false, allKeys: true}))
+		})
+
+		It("optional Secrets referenced in Volumes are returned as optional", func() {
+			Expect(secrets).To(HaveKeyWithValue("volume-optional", configMetadata{required: false, allKeys: true}))
+		})
+
 		It("returns ConfigMaps referenced in EnvFrom", func() {
 			Expect(configMaps).To(HaveKeyWithValue(cm2.GetName(), configMetadata{required: true, allKeys: true}))
+		})
+
+		It("optional ConfigMaps referenced in EnvFrom are returned as optional", func() {
+			Expect(configMaps).To(HaveKeyWithValue("envfrom-optional", configMetadata{required: false, allKeys: true}))
 		})
 
 		It("returns ConfigMaps referenced in Env", func() {
@@ -232,6 +244,16 @@ var _ = Describe("Wave children Suite", func() {
 			}))
 		})
 
+		It("returns ConfigMaps referenced in Env as optional correctly", func() {
+			Expect(configMaps).To(HaveKeyWithValue("env-optional", configMetadata{
+				required: false,
+				allKeys:  false,
+				keys: map[string]struct{}{
+					"key2": {},
+				},
+			}))
+		})
+
 		It("returns Secrets referenced in Volumes", func() {
 			Expect(secrets).To(HaveKeyWithValue(s1.GetName(), configMetadata{required: true, allKeys: true}))
 		})
@@ -240,8 +262,12 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(secrets).To(HaveKeyWithValue(s2.GetName(), configMetadata{required: true, allKeys: true}))
 		})
 
+		It("optional Secrets referenced in EnvFrom are returned as optional", func() {
+			Expect(secrets).To(HaveKeyWithValue("envfrom-optional", configMetadata{required: false, allKeys: true}))
+		})
+
 		It("returns Secrets referenced in Env", func() {
-			Expect(configMaps).To(HaveKeyWithValue(s3.GetName(), configMetadata{
+			Expect(secrets).To(HaveKeyWithValue(s3.GetName(), configMetadata{
 				required: true,
 				allKeys:  false,
 				keys: map[string]struct{}{
@@ -252,9 +278,19 @@ var _ = Describe("Wave children Suite", func() {
 			}))
 		})
 
+		It("returns secrets referenced in Env as optional correctly", func() {
+			Expect(secrets).To(HaveKeyWithValue("env-optional", configMetadata{
+				required: false,
+				allKeys:  false,
+				keys: map[string]struct{}{
+					"key2": {},
+				},
+			}))
+		})
+
 		It("does not return extra children", func() {
-			Expect(configMaps).To(HaveLen(4))
-			Expect(secrets).To(HaveLen(4))
+			Expect(configMaps).To(HaveLen(7))
+			Expect(secrets).To(HaveLen(7))
 		})
 	})
 
