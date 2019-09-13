@@ -50,7 +50,7 @@ vet:
 	$(GO) vet ./pkg/... ./cmd/...
 
 .PHONY: lint
-lint:
+lint: vendor
 	@ echo "\033[36mLinting code\033[0m"
 	$(LINTER) run --disable-all \
                 --exclude-use-default=false \
