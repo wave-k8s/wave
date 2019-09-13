@@ -56,6 +56,8 @@ var _ = Describe("Deployment controller Suite", func() {
 	var s2 *corev1.Secret
 	var s3 *corev1.Secret
 
+	const modified = "modified"
+
 	var waitForDeploymentReconciled = func(obj core.Object) {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -245,7 +247,7 @@ var _ = Describe("Deployment controller Suite", func() {
 					BeforeEach(func() {
 						modifyCM := func(obj utils.Object) utils.Object {
 							cm, _ := obj.(*corev1.ConfigMap)
-							cm.Data["key1"] = "modified"
+							cm.Data["key1"] = modified
 							return cm
 						}
 						m.UpdateWithFunc(cm1, modifyCM).Should(Succeed())
@@ -265,7 +267,7 @@ var _ = Describe("Deployment controller Suite", func() {
 					BeforeEach(func() {
 						modifyCM := func(obj utils.Object) utils.Object {
 							cm, _ := obj.(*corev1.ConfigMap)
-							cm.Data["key1"] = "modified"
+							cm.Data["key1"] = modified
 							return cm
 						}
 						m.UpdateWithFunc(cm2, modifyCM).Should(Succeed())
@@ -288,7 +290,7 @@ var _ = Describe("Deployment controller Suite", func() {
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
 							}
-							s.StringData["key1"] = "modified"
+							s.StringData["key1"] = modified
 							return s
 						}
 						m.UpdateWithFunc(s1, modifyS).Should(Succeed())
@@ -311,7 +313,7 @@ var _ = Describe("Deployment controller Suite", func() {
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
 							}
-							s.StringData["key1"] = "modified"
+							s.StringData["key1"] = modified
 							return s
 						}
 						m.UpdateWithFunc(s2, modifyS).Should(Succeed())
