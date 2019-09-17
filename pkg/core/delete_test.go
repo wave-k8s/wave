@@ -95,15 +95,19 @@ var _ = Describe("Wave owner references Suite", func() {
 			s2 = utils.ExampleSecret2.DeepCopy()
 
 			for _, obj := range []Object{cm1, cm2, s1, s2} {
-				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-				m.Update(obj).Should(Succeed())
+				m.UpdateWithFunc(obj, func(obj utils.Object) utils.Object {
+					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+					return obj
+				}, timeout).Should(Succeed())
 			}
 
 			f := deploymentObject.GetFinalizers()
 			f = append(f, FinalizerString)
 			f = append(f, "keep.me.around/finalizer")
-			deploymentObject.SetFinalizers(f)
-			m.Update(deploymentObject).Should(Succeed())
+			m.UpdateWithFunc(deploymentObject, func(obj utils.Object) utils.Object {
+				obj.SetFinalizers(f)
+				return obj
+			}, timeout).Should(Succeed())
 
 			_, err := h.handleDelete(podControllerDeployment)
 			Expect(err).NotTo(HaveOccurred())

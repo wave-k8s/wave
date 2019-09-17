@@ -102,8 +102,10 @@ var _ = Describe("Wave owner references Suite", func() {
 			for _, obj := range []Object{cm1, cm2, s1, s2} {
 				otherRef := ownerRef.DeepCopy()
 				otherRef.UID = obj.GetUID()
-				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef, *otherRef})
-				m.Update(obj).Should(Succeed())
+				m.UpdateWithFunc(obj, func(obj utils.Object) utils.Object {
+					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef, *otherRef})
+					return obj
+				}, timeout).Should(Succeed())
 
 				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ConsistOf(ownerRef, *otherRef)))
 			}
@@ -146,9 +148,10 @@ var _ = Describe("Wave owner references Suite", func() {
 	Context("updateOwnerReferences", func() {
 		BeforeEach(func() {
 			for _, obj := range []Object{cm2, s1, s2} {
-				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-				m.Update(obj).Should(Succeed())
-
+				m.UpdateWithFunc(obj, func(obj utils.Object) utils.Object {
+					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+					return obj
+				}, timeout).Should(Succeed())
 				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 
@@ -182,8 +185,12 @@ var _ = Describe("Wave owner references Suite", func() {
 	Context("updateOwnerReference", func() {
 		BeforeEach(func() {
 			// Add an OwnerReference to cm2
-			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-			m.Update(cm2).Should(Succeed())
+			m.UpdateWithFunc(cm2, func(obj utils.Object) utils.Object {
+				cm2 := obj.(*corev1.ConfigMap)
+				cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+
+				return cm2
+			}, timeout).Should(Succeed())
 			m.Eventually(cm2, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 
 			m.Get(cm1, timeout).Should(Succeed())
@@ -194,8 +201,12 @@ var _ = Describe("Wave owner references Suite", func() {
 			// Add an OwnerReference to cm1
 			otherRef := ownerRef
 			otherRef.UID = cm1.GetUID()
-			cm1.SetOwnerReferences([]metav1.OwnerReference{otherRef})
-			m.Update(cm1).Should(Succeed())
+			m.UpdateWithFunc(cm1, func(obj utils.Object) utils.Object {
+				cm1 := obj.(*corev1.ConfigMap)
+				cm1.SetOwnerReferences([]metav1.OwnerReference{otherRef})
+
+				return cm1
+			}, timeout).Should(Succeed())
 			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(otherRef)))
 
 			m.Get(cm1, timeout).Should(Succeed())
@@ -205,8 +216,12 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		It("doesn't update the child object if there is already and OwnerReference present", func() {
 			// Add an OwnerReference to cm2
-			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-			m.Update(cm2).Should(Succeed())
+			m.UpdateWithFunc(cm2, func(obj utils.Object) utils.Object {
+				cm2 := obj.(*corev1.ConfigMap)
+				cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+
+				return cm2
+			}, timeout).Should(Succeed())
 			m.Eventually(cm2, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 
 			// Get the original version
