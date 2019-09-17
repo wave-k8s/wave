@@ -24,6 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/pusher/wave/pkg/core"
 	"github.com/pusher/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -70,6 +72,9 @@ var _ = Describe("Deployment controller Suite", func() {
 	}
 
 	BeforeEach(func() {
+		// Reset the Prometheus Registry before each test to avoid errors
+		metrics.Registry = prometheus.NewRegistry()
+
 		mgr, err := manager.New(cfg, manager.Options{})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
