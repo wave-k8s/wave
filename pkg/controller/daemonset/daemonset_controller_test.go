@@ -170,7 +170,7 @@ var _ = Describe("DaemonSet controller Suite", func() {
 					return obj
 				}
 
-				m.UpdateWithFunc(daemonset, addAnnotation).Should(Succeed())
+				m.Update(daemonset, addAnnotation).Should(Succeed())
 				waitForDaemonSetReconciled(daemonset)
 
 				// Get the updated DaemonSet
@@ -219,7 +219,7 @@ var _ = Describe("DaemonSet controller Suite", func() {
 						return ss
 					}
 
-					m.UpdateWithFunc(daemonset, removeContainer2).Should(Succeed())
+					m.Update(daemonset, removeContainer2).Should(Succeed())
 					waitForDaemonSetReconciled(daemonset)
 
 					// Get the updated DaemonSet
@@ -254,7 +254,7 @@ var _ = Describe("DaemonSet controller Suite", func() {
 							cm.Data["key1"] = modified
 							return cm
 						}
-						m.UpdateWithFunc(cm1, modifyCM).Should(Succeed())
+						m.Update(cm1, modifyCM).Should(Succeed())
 
 						waitForDaemonSetReconciled(daemonset)
 
@@ -274,7 +274,7 @@ var _ = Describe("DaemonSet controller Suite", func() {
 							cm.Data["key1"] = modified
 							return cm
 						}
-						m.UpdateWithFunc(cm2, modifyCM).Should(Succeed())
+						m.Update(cm2, modifyCM).Should(Succeed())
 
 						waitForDaemonSetReconciled(daemonset)
 
@@ -297,7 +297,7 @@ var _ = Describe("DaemonSet controller Suite", func() {
 							s.StringData["key1"] = modified
 							return s
 						}
-						m.UpdateWithFunc(s1, modifyS).Should(Succeed())
+						m.Update(s1, modifyS).Should(Succeed())
 
 						waitForDaemonSetReconciled(daemonset)
 
@@ -320,7 +320,7 @@ var _ = Describe("DaemonSet controller Suite", func() {
 							s.StringData["key1"] = modified
 							return s
 						}
-						m.UpdateWithFunc(s2, modifyS).Should(Succeed())
+						m.Update(s2, modifyS).Should(Succeed())
 
 						waitForDaemonSetReconciled(daemonset)
 
@@ -340,7 +340,7 @@ var _ = Describe("DaemonSet controller Suite", func() {
 						obj.SetAnnotations(make(map[string]string))
 						return obj
 					}
-					m.UpdateWithFunc(daemonset, removeAnnotations).Should(Succeed())
+					m.Update(daemonset, removeAnnotations).Should(Succeed())
 					waitForDaemonSetReconciled(daemonset)
 
 					m.Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))

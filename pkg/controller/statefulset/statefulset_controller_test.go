@@ -170,7 +170,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 					return obj
 				}
 
-				m.UpdateWithFunc(statefulset, addAnnotation).Should(Succeed())
+				m.Update(statefulset, addAnnotation).Should(Succeed())
 				waitForStatefulSetReconciled(statefulset)
 
 				// Get the updated StatefulSet
@@ -219,7 +219,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 						return ss
 					}
 
-					m.UpdateWithFunc(statefulset, removeContainer2).Should(Succeed())
+					m.Update(statefulset, removeContainer2).Should(Succeed())
 					waitForStatefulSetReconciled(statefulset)
 
 					// Get the updated StatefulSet
@@ -254,7 +254,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 							cm.Data["key1"] = modified
 							return cm
 						}
-						m.UpdateWithFunc(cm1, modifyCM).Should(Succeed())
+						m.Update(cm1, modifyCM).Should(Succeed())
 
 						waitForStatefulSetReconciled(statefulset)
 
@@ -274,7 +274,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 							cm.Data["key1"] = modified
 							return cm
 						}
-						m.UpdateWithFunc(cm2, modifyCM).Should(Succeed())
+						m.Update(cm2, modifyCM).Should(Succeed())
 
 						waitForStatefulSetReconciled(statefulset)
 
@@ -297,7 +297,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 							s.StringData["key1"] = modified
 							return s
 						}
-						m.UpdateWithFunc(s1, modifyS).Should(Succeed())
+						m.Update(s1, modifyS).Should(Succeed())
 
 						waitForStatefulSetReconciled(statefulset)
 
@@ -320,7 +320,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 							s.StringData["key1"] = modified
 							return s
 						}
-						m.UpdateWithFunc(s2, modifyS).Should(Succeed())
+						m.Update(s2, modifyS).Should(Succeed())
 
 						waitForStatefulSetReconciled(statefulset)
 
@@ -340,7 +340,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 						obj.SetAnnotations(make(map[string]string))
 						return obj
 					}
-					m.UpdateWithFunc(statefulset, removeAnnotations).Should(Succeed())
+					m.Update(statefulset, removeAnnotations).Should(Succeed())
 					waitForStatefulSetReconciled(statefulset)
 
 					m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))

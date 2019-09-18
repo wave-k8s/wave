@@ -170,7 +170,7 @@ var _ = Describe("Deployment controller Suite", func() {
 					return obj
 				}
 
-				m.UpdateWithFunc(deployment, addAnnotation).Should(Succeed())
+				m.Update(deployment, addAnnotation).Should(Succeed())
 				waitForDeploymentReconciled(deployment)
 
 				// Get the updated Deployment
@@ -219,7 +219,7 @@ var _ = Describe("Deployment controller Suite", func() {
 						return dep
 					}
 
-					m.UpdateWithFunc(deployment, removeContainer2).Should(Succeed())
+					m.Update(deployment, removeContainer2).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 					waitForDeploymentReconciled(deployment)
 
@@ -255,7 +255,7 @@ var _ = Describe("Deployment controller Suite", func() {
 							cm.Data["key1"] = modified
 							return cm
 						}
-						m.UpdateWithFunc(cm1, modifyCM).Should(Succeed())
+						m.Update(cm1, modifyCM).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -275,7 +275,7 @@ var _ = Describe("Deployment controller Suite", func() {
 							cm.Data["key1"] = modified
 							return cm
 						}
-						m.UpdateWithFunc(cm2, modifyCM).Should(Succeed())
+						m.Update(cm2, modifyCM).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -298,7 +298,7 @@ var _ = Describe("Deployment controller Suite", func() {
 							s.StringData["key1"] = modified
 							return s
 						}
-						m.UpdateWithFunc(s1, modifyS).Should(Succeed())
+						m.Update(s1, modifyS).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -321,7 +321,7 @@ var _ = Describe("Deployment controller Suite", func() {
 							s.StringData["key1"] = modified
 							return s
 						}
-						m.UpdateWithFunc(s2, modifyS).Should(Succeed())
+						m.Update(s2, modifyS).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -341,7 +341,7 @@ var _ = Describe("Deployment controller Suite", func() {
 						obj.SetAnnotations(make(map[string]string))
 						return obj
 					}
-					m.UpdateWithFunc(deployment, removeAnnotations).Should(Succeed())
+					m.Update(deployment, removeAnnotations).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
 					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))

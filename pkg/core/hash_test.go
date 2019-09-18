@@ -100,8 +100,12 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key1"] = modified
-			m.Update(cm1).Should(Succeed())
+			m.Update(cm1, func(obj utils.Object) utils.Object {
+				cm := obj.(*corev1.ConfigMap)
+				cm.Data["key1"] = modified
+
+				return cm
+			}, timeout).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -119,8 +123,12 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key1"] = modified
-			m.Update(cm1).Should(Succeed())
+			m.Update(cm1, func(obj utils.Object) utils.Object {
+				cm := obj.(*corev1.ConfigMap)
+				cm.Data["key1"] = modified
+
+				return cm
+			}, timeout).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -144,10 +152,19 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key1"] = modified
-			m.Update(cm1).Should(Succeed())
-			s1.Data["key1"] = []byte("modified")
-			m.Update(s1).Should(Succeed())
+			m.Update(cm1, func(obj utils.Object) utils.Object {
+				cm := obj.(*corev1.ConfigMap)
+				cm.Data["key1"] = modified
+
+				return cm
+			}, timeout).Should(Succeed())
+
+			m.Update(s1, func(obj utils.Object) utils.Object {
+				s := obj.(*corev1.Secret)
+				s.Data["key1"] = []byte("modified")
+
+				return s
+			}, timeout).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -171,10 +188,19 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key3"] = modified
-			m.Update(cm1).Should(Succeed())
-			s1.Data["key3"] = []byte("modified")
-			m.Update(s1).Should(Succeed())
+			m.Update(cm1, func(obj utils.Object) utils.Object {
+				cm := obj.(*corev1.ConfigMap)
+				cm.Data["key3"] = modified
+
+				return cm
+			}, timeout).Should(Succeed())
+
+			m.Update(s1, func(obj utils.Object) utils.Object {
+				s1 := obj.(*corev1.Secret)
+				s1.Data["key3"] = []byte("modified")
+
+				return s1
+			}, timeout).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -192,8 +218,12 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			s1.Annotations = map[string]string{"new": "annotations"}
-			m.Update(s1).Should(Succeed())
+			m.Update(s1, func(obj utils.Object) utils.Object {
+				s := obj.(*corev1.Secret)
+				s.Annotations = map[string]string{"new": "annotations"}
+
+				return s
+			}, timeout).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
