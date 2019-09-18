@@ -300,7 +300,7 @@ var _ = Describe("Wave children Suite", func() {
 			ownerRef := utils.GetOwnerRefDeployment(deploymentObject)
 
 			for _, obj := range []Object{cm1, s1} {
-				m.UpdateWithFunc(obj, func(obj utils.Object) utils.Object {
+				m.Update(obj, func(obj utils.Object) utils.Object {
 					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 					return obj
 				}, timeout).Should(Succeed())

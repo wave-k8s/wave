@@ -102,7 +102,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			for _, obj := range []Object{cm1, cm2, s1, s2} {
 				otherRef := ownerRef.DeepCopy()
 				otherRef.UID = obj.GetUID()
-				m.UpdateWithFunc(obj, func(obj utils.Object) utils.Object {
+				m.Update(obj, func(obj utils.Object) utils.Object {
 					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef, *otherRef})
 					return obj
 				}, timeout).Should(Succeed())
@@ -148,7 +148,7 @@ var _ = Describe("Wave owner references Suite", func() {
 	Context("updateOwnerReferences", func() {
 		BeforeEach(func() {
 			for _, obj := range []Object{cm2, s1, s2} {
-				m.UpdateWithFunc(obj, func(obj utils.Object) utils.Object {
+				m.Update(obj, func(obj utils.Object) utils.Object {
 					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 					return obj
 				}, timeout).Should(Succeed())
@@ -185,7 +185,7 @@ var _ = Describe("Wave owner references Suite", func() {
 	Context("updateOwnerReference", func() {
 		BeforeEach(func() {
 			// Add an OwnerReference to cm2
-			m.UpdateWithFunc(cm2, func(obj utils.Object) utils.Object {
+			m.Update(cm2, func(obj utils.Object) utils.Object {
 				cm2 := obj.(*corev1.ConfigMap)
 				cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 
@@ -201,7 +201,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			// Add an OwnerReference to cm1
 			otherRef := ownerRef
 			otherRef.UID = cm1.GetUID()
-			m.UpdateWithFunc(cm1, func(obj utils.Object) utils.Object {
+			m.Update(cm1, func(obj utils.Object) utils.Object {
 				cm1 := obj.(*corev1.ConfigMap)
 				cm1.SetOwnerReferences([]metav1.OwnerReference{otherRef})
 
@@ -216,7 +216,7 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		It("doesn't update the child object if there is already and OwnerReference present", func() {
 			// Add an OwnerReference to cm2
-			m.UpdateWithFunc(cm2, func(obj utils.Object) utils.Object {
+			m.Update(cm2, func(obj utils.Object) utils.Object {
 				cm2 := obj.(*corev1.ConfigMap)
 				cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 

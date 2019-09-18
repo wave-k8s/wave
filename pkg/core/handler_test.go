@@ -147,7 +147,7 @@ var _ = Describe("Wave controller Suite", func() {
 				}
 				annotations[RequiredAnnotation] = requiredAnnotationValue
 
-				m.UpdateWithFunc(deployment, func(obj utils.Object) utils.Object {
+				m.Update(deployment, func(obj utils.Object) utils.Object {
 					obj.SetAnnotations(annotations)
 					return obj
 				}, timeout).Should(Succeed())
@@ -194,7 +194,7 @@ var _ = Describe("Wave controller Suite", func() {
 					// example2
 					containers := deployment.Spec.Template.Spec.Containers
 					Expect(containers[0].Name).To(Equal("container1"))
-					m.UpdateWithFunc(deployment, func(obj utils.Object) utils.Object {
+					m.Update(deployment, func(obj utils.Object) utils.Object {
 						dpl := obj.(*appsv1.Deployment)
 						dpl.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
 						return dpl
@@ -229,7 +229,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
-						m.UpdateWithFunc(cm1, func(obj utils.Object) utils.Object {
+						m.Update(cm1, func(obj utils.Object) utils.Object {
 							cm := obj.(*corev1.ConfigMap)
 							cm.Data["key1"] = modified
 							return cm
@@ -249,7 +249,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.UpdateWithFunc(cm2, func(obj utils.Object) utils.Object {
+						m.Update(cm2, func(obj utils.Object) utils.Object {
 							cm := obj.(*corev1.ConfigMap)
 							cm.Data["key1"] = modified
 							return cm
@@ -269,7 +269,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A ConfigMap Env for a key being used is updated", func() {
 					BeforeEach(func() {
-						m.UpdateWithFunc(cm3, func(obj utils.Object) utils.Object {
+						m.Update(cm3, func(obj utils.Object) utils.Object {
 							cm := obj.(*corev1.ConfigMap)
 							cm.Data["key1"] = modified
 
@@ -290,7 +290,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A ConfigMap Env for a key that is not being used is updated", func() {
 					BeforeEach(func() {
-						m.UpdateWithFunc(cm3, func(obj utils.Object) utils.Object {
+						m.Update(cm3, func(obj utils.Object) utils.Object {
 							cm := obj.(*corev1.ConfigMap)
 							cm.Data["key3"] = modified
 
@@ -311,7 +311,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
-						m.UpdateWithFunc(s1, func(obj utils.Object) utils.Object {
+						m.Update(s1, func(obj utils.Object) utils.Object {
 							s := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -335,7 +335,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.UpdateWithFunc(s2, func(obj utils.Object) utils.Object {
+						m.Update(s2, func(obj utils.Object) utils.Object {
 							s := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -359,7 +359,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A Secret Env for a key being used is updated", func() {
 					BeforeEach(func() {
-						m.UpdateWithFunc(s3, func(obj utils.Object) utils.Object {
+						m.Update(s3, func(obj utils.Object) utils.Object {
 							s := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -383,7 +383,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A Secret Env for a key that is not being used is updated", func() {
 					BeforeEach(func() {
-						m.UpdateWithFunc(s3, func(obj utils.Object) utils.Object {
+						m.Update(s3, func(obj utils.Object) utils.Object {
 							s := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -410,7 +410,7 @@ var _ = Describe("Wave controller Suite", func() {
 				BeforeEach(func() {
 					// Make sure the cache has synced before we run the test
 					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
-					m.UpdateWithFunc(deployment, func(obj utils.Object) utils.Object {
+					m.Update(deployment, func(obj utils.Object) utils.Object {
 						obj.SetAnnotations(make(map[string]string))
 
 						return obj

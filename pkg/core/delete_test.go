@@ -95,7 +95,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			s2 = utils.ExampleSecret2.DeepCopy()
 
 			for _, obj := range []Object{cm1, cm2, s1, s2} {
-				m.UpdateWithFunc(obj, func(obj utils.Object) utils.Object {
+				m.Update(obj, func(obj utils.Object) utils.Object {
 					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 					return obj
 				}, timeout).Should(Succeed())
@@ -104,7 +104,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			f := deploymentObject.GetFinalizers()
 			f = append(f, FinalizerString)
 			f = append(f, "keep.me.around/finalizer")
-			m.UpdateWithFunc(deploymentObject, func(obj utils.Object) utils.Object {
+			m.Update(deploymentObject, func(obj utils.Object) utils.Object {
 				obj.SetFinalizers(f)
 				return obj
 			}, timeout).Should(Succeed())

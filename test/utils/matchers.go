@@ -57,9 +57,9 @@ func (m *Matcher) Delete(obj Object, extras ...interface{}) gomega.GomegaAsserti
 	return gomega.Expect(err, extras)
 }
 
-// UpdateWithFunc udpates the object on the API server by fetching the object
+// Update udpates the object on the API server by fetching the object
 // and applying a mutating UpdateFunc before sending the update
-func (m *Matcher) UpdateWithFunc(obj Object, fn UpdateFunc, intervals ...interface{}) gomega.GomegaAsyncAssertion {
+func (m *Matcher) Update(obj Object, fn UpdateFunc, intervals ...interface{}) gomega.GomegaAsyncAssertion {
 	key := types.NamespacedName{
 		Name:      obj.GetName(),
 		Namespace: obj.GetNamespace(),

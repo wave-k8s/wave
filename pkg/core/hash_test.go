@@ -100,7 +100,7 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			m.UpdateWithFunc(cm1, func(obj utils.Object) utils.Object {
+			m.Update(cm1, func(obj utils.Object) utils.Object {
 				cm := obj.(*corev1.ConfigMap)
 				cm.Data["key1"] = modified
 
@@ -123,7 +123,7 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			m.UpdateWithFunc(cm1, func(obj utils.Object) utils.Object {
+			m.Update(cm1, func(obj utils.Object) utils.Object {
 				cm := obj.(*corev1.ConfigMap)
 				cm.Data["key1"] = modified
 
@@ -152,14 +152,14 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			m.UpdateWithFunc(cm1, func(obj utils.Object) utils.Object {
+			m.Update(cm1, func(obj utils.Object) utils.Object {
 				cm := obj.(*corev1.ConfigMap)
 				cm.Data["key1"] = modified
 
 				return cm
 			}, timeout).Should(Succeed())
 
-			m.UpdateWithFunc(s1, func(obj utils.Object) utils.Object {
+			m.Update(s1, func(obj utils.Object) utils.Object {
 				s := obj.(*corev1.Secret)
 				s.Data["key1"] = []byte("modified")
 
@@ -188,14 +188,14 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			m.UpdateWithFunc(cm1, func(obj utils.Object) utils.Object {
+			m.Update(cm1, func(obj utils.Object) utils.Object {
 				cm := obj.(*corev1.ConfigMap)
 				cm.Data["key3"] = modified
 
 				return cm
 			}, timeout).Should(Succeed())
 
-			m.UpdateWithFunc(s1, func(obj utils.Object) utils.Object {
+			m.Update(s1, func(obj utils.Object) utils.Object {
 				s1 := obj.(*corev1.Secret)
 				s1.Data["key3"] = []byte("modified")
 
@@ -218,7 +218,7 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			m.UpdateWithFunc(s1, func(obj utils.Object) utils.Object {
+			m.Update(s1, func(obj utils.Object) utils.Object {
 				s := obj.(*corev1.Secret)
 				s.Annotations = map[string]string{"new": "annotations"}
 
