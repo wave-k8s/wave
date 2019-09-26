@@ -53,7 +53,9 @@ var _ = Describe("Wave children Suite", func() {
 	var s4 *corev1.Secret
 
 	BeforeEach(func() {
-		mgr, err := manager.New(cfg, manager.Options{})
+		mgr, err := manager.New(cfg, manager.Options{
+			MetricsBindAddress: "0",
+		})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
 		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
