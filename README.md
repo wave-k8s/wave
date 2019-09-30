@@ -224,7 +224,7 @@ Deployment is deleted.
 When Wave encounters a Deployment marked for deletion that has the Wave
 Finalizer, it checks for all ConfigMaps and Secrets with an OwnerReference
 pointing to the Deployment and removes the OwnerReference. Thus preventing the
-ConfigMaps and Secrets from being delted by the Garbage Collector.
+ConfigMaps and Secrets from being deleted by the Garbage Collector.
 
 Read the docs for more about
 [Kubernetes Garbage Collection](https://kubernetes.io/docs/concepts/workloads/controllers/garbage-collection/).
