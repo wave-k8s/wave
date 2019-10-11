@@ -4,7 +4,6 @@ kind: ClusterRoleBinding
 metadata:
   labels:
 {{ include "wave-labels.chart" . | indent 4 }}
-{{ include "wave-labels.selector" . | indent 4 }}
   name: {{ template "wave-fullname" . }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
