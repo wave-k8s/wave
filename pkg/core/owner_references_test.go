@@ -51,7 +51,9 @@ var _ = Describe("Wave owner references Suite", func() {
 	var ownerRef metav1.OwnerReference
 
 	BeforeEach(func() {
-		mgr, err := manager.New(cfg, manager.Options{})
+		mgr, err := manager.New(cfg, manager.Options{
+			MetricsBindAddress: "0",
+		})
 		Expect(err).NotTo(HaveOccurred())
 		c = mgr.GetClient()
 		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))

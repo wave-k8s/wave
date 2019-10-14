@@ -49,7 +49,9 @@ var _ = Describe("Wave hash Suite", func() {
 		var modified = "modified"
 
 		BeforeEach(func() {
-			mgr, err := manager.New(cfg, manager.Options{})
+			mgr, err := manager.New(cfg, manager.Options{
+				MetricsBindAddress: "0",
+			})
 			Expect(err).NotTo(HaveOccurred())
 			c = mgr.GetClient()
 			m = utils.Matcher{Client: c}
