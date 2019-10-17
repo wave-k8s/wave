@@ -27,7 +27,7 @@ ginkgo-cli:
 .PHONY: golangci-lint
 golangci-lint:
 	@ if [ ! $$(which golangci-lint) ]; then \
-		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.15.0; \
+		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $$(go env GOPATH)/bin v1.15.0; \
 	fi
 
 .PHONY: kustomize
