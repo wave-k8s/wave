@@ -1,7 +1,7 @@
 .PHONY: prepare-env-%
 prepare-env-%: gopath dep ginkgo-cli golangci-lint kustomize
-	PATH=$$GOPATH/bin:/usr/local/kubebuilder-$*/bin:$$PATH make kubebuilder-tools-$*
-	PATH=$$GOPATH/bin:/usr/local/kubebuilder-$*/bin:$$PATH ./configure
+	PATH=$$GOPATH/bin:/usr/local/kubebuilder-$*/bin:/usr/local/opt/kubebuilder-$*/bin:$$PATH make kubebuilder-tools-$*
+	PATH=$$GOPATH/bin:/usr/local/kubebuilder-$*/bin:/usr/local/opt/kubebuilder-$*/bin:$$PATH ./configure
 
 .PHONY: gopath
 gopath:
@@ -78,7 +78,7 @@ install-kubebuilder-tools:
 	tar -zxvf kubebuilder_$(kubebuilder_version_string).tar.gz
 	rm kubebuilder_$(kubebuilder_version_string).tar.gz
 
-	export TEST_ASSET_DIR=/usr/local/kubebuilder-${kubernetes_version}/bin; \
+	export TEST_ASSET_DIR=/usr/local/opt/kubebuilder-${kubernetes_version}/bin; \
 	export TEST_ASSET_KUBECTL=$$TEST_ASSET_DIR/kubectl \
 	TEST_ASSET_KUBE_APISERVER=$$TEST_ASSET_DIR/kube-apiserver \
 	TEST_ASSET_ETCD=$$TEST_ASSET_DIR/etcd \
