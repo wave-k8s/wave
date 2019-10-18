@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
 if (( ${BASH_VERSION:0:1} < 4 )); then
-  echo "This configure script requires bash 4"
+  echo "This configure script requires at least Bash 4"
+  if [[ "$OSTYPE" == darwin* ]]; then
+    echo "On macOS, you can upgrade it using Homebrew <https://brew.sh/> by typing: brew install bash"
+  fi
   exit 1
 fi
 
