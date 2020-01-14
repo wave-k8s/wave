@@ -5,7 +5,9 @@ go 1.13
 require (
 	cloud.google.com/go v0.51.0
 	contrib.go.opencensus.io/exporter/ocagent v0.4.10
-	github.com/Azure/go-autorest v11.7.0+incompatible
+	github.com/Azure/go-autorest v13.3.1+incompatible
+	github.com/Azure/go-autorest/autorest v0.9.3 // indirect
+	github.com/Azure/go-autorest/autorest/adal v0.8.1 // indirect
 	github.com/apache/thrift v0.12.0 // indirect
 	github.com/beorn7/perks v1.0.1
 	github.com/census-instrumentation/opencensus-proto v0.2.1
