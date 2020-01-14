@@ -3,90 +3,36 @@ module github.com/pusher/wave
 go 1.13
 
 require (
-	cloud.google.com/go v0.51.0
-	contrib.go.opencensus.io/exporter/ocagent v0.4.10
-	github.com/Azure/go-autorest v13.3.1+incompatible
+	cloud.google.com/go v0.51.0 // indirect
 	github.com/Azure/go-autorest/autorest v0.9.3 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.8.1 // indirect
-	github.com/apache/thrift v0.12.0 // indirect
-	github.com/beorn7/perks v1.0.1
-	github.com/census-instrumentation/opencensus-proto v0.2.1
-	github.com/davecgh/go-spew v1.1.1
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/directxman12/logr v0.0.0-20180603174816-087cf386d618
-	github.com/emicklei/go-restful v2.9.5+incompatible
-	github.com/evanphx/json-patch v4.5.0+incompatible
-	github.com/fsnotify/fsnotify v1.4.7
-	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/glogr v0.1.0
-	github.com/go-logr/logr v0.1.0
-	github.com/go-logr/zapr v0.1.1
-	github.com/gobuffalo/envy v1.6.5
-	github.com/gogo/protobuf v1.3.1
-	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/golang/groupcache v0.0.0-20191227052852-215e87163ea7
-	github.com/golang/protobuf v1.3.2
+	github.com/go-logr/zapr v0.1.1 // indirect
+	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/google/go-cmp v0.4.0 // indirect
-	github.com/google/gofuzz v1.0.0
-	github.com/google/uuid v1.1.1
-	github.com/googleapis/gnostic v0.3.1
-	github.com/gophercloud/gophercloud v0.7.0
-	github.com/grpc-ecosystem/grpc-gateway v1.8.5
-	github.com/hashicorp/golang-lru v0.5.3
-	github.com/hpcloud/tail v1.0.0
-	github.com/imdario/mergo v0.3.8
-	github.com/inconshreveable/mousetrap v1.0.0
-	github.com/joho/godotenv v1.3.0
-	github.com/json-iterator/go v1.1.9
+	github.com/gophercloud/gophercloud v0.7.0 // indirect
+	github.com/hashicorp/golang-lru v0.5.3 // indirect
+	github.com/imdario/mergo v0.3.8 // indirect
+	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kubernetes-sigs/kubebuilder v0.1.11-0.20180607060409-29bccabffb06
-	github.com/markbates/inflect v1.0.1
-	github.com/matttproud/golang_protobuf_extensions v1.0.1
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
-	github.com/modern-go/reflect2 v1.0.1
 	github.com/onsi/ginkgo v1.10.1
 	github.com/onsi/gomega v1.7.0
-	github.com/openzipkin/zipkin-go v0.1.6 // indirect
-	github.com/pborman/uuid v1.2.0
-	github.com/pkg/errors v0.9.0
+	github.com/pkg/errors v0.9.0 // indirect
 	github.com/prometheus/client_golang v1.3.0
-	github.com/prometheus/client_model v0.1.0
-	github.com/prometheus/common v0.8.0
-	github.com/prometheus/procfs v0.0.8
-	github.com/spf13/afero v1.2.2
-	github.com/spf13/cobra v0.0.5
+	github.com/prometheus/common v0.8.0 // indirect
 	github.com/spf13/pflag v1.0.5
-	go.opencensus.io v0.22.2
-	go.uber.org/atomic v1.5.1
-	go.uber.org/multierr v1.4.0
-	go.uber.org/zap v1.13.0
-	golang.org/x/crypto v0.0.0-20200109152110-61a87790db17
-	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200113162924-86b910548bc1
-	golang.org/x/text v0.3.2
-	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
-	golang.org/x/tools v0.0.0-20200114052453-d31a08c2edf2
-	gomodules.xyz/jsonpatch v2.0.0+incompatible
-	google.golang.org/api v0.15.0
-	google.golang.org/appengine v1.6.5
-	google.golang.org/genproto v0.0.0-20191230161307-f3c370f40bfb
-	google.golang.org/grpc v1.26.0
-	gopkg.in/inf.v0 v0.9.1
-	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
-	gopkg.in/yaml.v2 v2.2.7
+	go.uber.org/atomic v1.5.1 // indirect
+	go.uber.org/multierr v1.4.0 // indirect
+	go.uber.org/zap v1.13.0 // indirect
+	golang.org/x/crypto v0.0.0-20200109152110-61a87790db17 // indirect
+	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
+	golang.org/x/sys v0.0.0-20200113162924-86b910548bc1 // indirect
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
+	golang.org/x/tools v0.0.0-20200114052453-d31a08c2edf2 // indirect
 	k8s.io/api v0.17.0
-	k8s.io/apiextensions-apiserver v0.0.0-20190918161926-8f644eb6e783
 	k8s.io/apimachinery v0.17.0
-	k8s.io/client-go v11.0.1-0.20190708175433-62e1c231c5dc+incompatible
-	k8s.io/code-generator v0.0.0-20190912054826-cd179ad6a269
-	k8s.io/gengo v0.0.0-20190822140433-26a664648505
-	k8s.io/klog v1.0.0
-	k8s.io/kube-aggregator v0.0.0-20190708180508-5c6c51a77ba7
-	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
-	k8s.io/utils v0.0.0-20200109141947-94aeca20bf09
+	k8s.io/client-go v0.17.0
+	k8s.io/kube-aggregator v0.0.0-20190708180508-5c6c51a77ba7 // indirect
+	k8s.io/utils v0.0.0-20200109141947-94aeca20bf09 // indirect
 	sigs.k8s.io/controller-runtime v0.4.0
-	sigs.k8s.io/controller-tools v0.1.10
-	sigs.k8s.io/testing_frameworks v0.1.2
-	sigs.k8s.io/yaml v1.1.0
 )
