@@ -113,6 +113,7 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 
 	err = h.initialiseHashBank(instance.GetName(), current)
 	if err != nil {
+		fmt.Printf("error initialising hashbank: %v", err)
 		return reconcile.Result{}, fmt.Errorf("error initialising hashbank for %s: %v", instance.GetName(), err)
 	}
 	log.V(0).Info("Hashbank Initialised for podController", instance.GetName())
@@ -135,16 +136,19 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 		// retrieve the hashes of the children
 		oldHashes, err := h.retrieveFromHashBank(current)
 		if err != nil {
+			fmt.Printf("error retrieving old hashes: %v", err)
 			return reconcile.Result{}, fmt.Errorf("Error retrieving from hashbank: %v", err)
 		}
 
 		// calculate the new hashes of the children, update hashbank
 		err = h.calculateNewHashBankEntries(instance.GetName(), current)
 		if err != nil {
+			fmt.Printf("error calculating new hashes: %v", err)
 			return reconcile.Result{}, fmt.Errorf("Error calculating new hash bank entires for %s: %v", instance.GetName(), err)
 		}
 		newHashes, err := h.retrieveFromHashBank(current)
 		if err != nil {
+			fmt.Printf("error retrieving new hashes: %v", err)
 			return reconcile.Result{}, fmt.Errorf("Error retrieving from hashbank: %v", err)
 		}
 
@@ -154,9 +158,9 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 		for objectName, hash1 := range oldHashes {
 			if hash2, ok := newHashes[objectName]; ok {
 				if hash2 != hash1 {
-					fmt.Printf("Hashes for key %s differ: %s:%s", objectName, hash1, hash2)
+					fmt.Printf("Hashes for key %s differ: %s:%s\n", objectName, hash1, hash2)
 					log.V(0).Info("Hashes differ for object", "object", objectName, "hash1", hash1, "hash2", hash2)
-					h.recorder.Eventf(copy.GetObject(), corev1.EventTypeNormal, "RolloutTriggered", "A rollout was triggered by %s changing", objectName)
+					// h.recorder.Eventf(copy.GetObject(), corev1.EventTypeNormal, "RolloutTriggered", "A rollout was triggered by %s changing", objectName)
 				}
 			}
 		}
