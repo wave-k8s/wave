@@ -379,7 +379,7 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
+						m.Eventually(deployment, 2*timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
 					})
 				})
 

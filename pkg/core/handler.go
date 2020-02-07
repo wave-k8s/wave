@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,11 +34,28 @@ import (
 type Handler struct {
 	client.Client
 	recorder record.EventRecorder
+	store    inMemoryHashBank
+}
+
+// inMemoryHashbank stores the hashes of the children of each podController.
+// This is *only* used for debugging: determining what changed, causing wave to
+// trigger a rollout.
+type inMemoryHashBank struct {
+	Bank        map[string]hashEntry //podController[childrenHashes]
+	initialised map[string]bool
+	sync.RWMutex
+}
+
+// hashEntry is what goes in the hashBank. It's a struct as it may make sense to
+// change the underlying type later on.
+type hashEntry struct {
+	entry string
 }
 
 // NewHandler constructs a new instance of Handler
 func NewHandler(c client.Client, r record.EventRecorder) *Handler {
-	return &Handler{Client: c, recorder: r}
+	hashBank := make(map[string]hashEntry)
+	return &Handler{Client: c, recorder: r, store: inMemoryHashBank{Bank: hashBank}}
 }
 
 // HandleDeployment is called by the deployment controller to reconcile deployments
@@ -93,6 +111,12 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 		return reconcile.Result{}, fmt.Errorf("error updating OwnerReferences: %v", err)
 	}
 
+	err = h.initialiseHashBank(instance.GetName(), current)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("error initialising hashbank for %s: %v", instance.GetName(), err)
+	}
+	log.V(0).Info("Hashbank Initialised for podController", instance.GetName())
+
 	hash, err := calculateConfigHash(current)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("error calculating configuration hash: %v", err)
@@ -107,7 +131,37 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 	if !reflect.DeepEqual(instance, copy) {
 		log.V(0).Info("Updating instance hash", "namespace", instance.GetNamespace(), "name", instance.GetName(), "hash", hash)
 		h.recorder.Eventf(copy.GetObject(), corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
-		err := h.Update(context.TODO(), copy.GetObject())
+
+		// retrieve the hashes of the children
+		oldHashes, err := h.retrieveFromHashBank(current)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("Error retrieving from hashbank: %v", err)
+		}
+
+		// calculate the new hashes of the children, update hashbank
+		err = h.calculateNewHashBankEntries(instance.GetName(), current)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("Error calculating new hash bank entires for %s: %v", instance.GetName(), err)
+		}
+		newHashes, err := h.retrieveFromHashBank(current)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("Error retrieving from hashbank: %v", err)
+		}
+
+		// diff the two and return the differeing 'name:hash pair(s?)'
+		// this only tests hashes for objects that exist in 'oldHashes'
+		// I think this is OK?
+		for objectName, hash1 := range oldHashes {
+			if hash2, ok := newHashes[objectName]; ok {
+				if hash2 != hash1 {
+					fmt.Printf("Hashes for key %s differ: %s:%s", objectName, hash1, hash2)
+					log.V(0).Info("Hashes differ for object", "object", objectName, "hash1", hash1, "hash2", hash2)
+					h.recorder.Eventf(copy.GetObject(), corev1.EventTypeNormal, "RolloutTriggered", "A rollout was triggered by %s changing", objectName)
+				}
+			}
+		}
+
+		err = h.Update(context.TODO(), copy.GetObject())
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("error updating instance %s/%s: %v", instance.GetNamespace(), instance.GetName(), err)
 		}
