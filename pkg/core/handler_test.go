@@ -43,7 +43,7 @@ var _ = Describe("Wave controller Suite", func() {
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
-	const timeout = time.Second * 5
+	const timeout = time.Second * 10
 	const consistentlyTimeout = time.Second
 
 	var ownerRef metav1.OwnerReference
@@ -379,7 +379,7 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, 2*timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
+						m.Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
 					})
 				})
 
