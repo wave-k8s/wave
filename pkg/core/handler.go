@@ -37,24 +37,18 @@ type Handler struct {
 	store    inMemoryHashBank
 }
 
-// inMemoryHashbank stores the hashes of the children of each podController.
-// This is *only* used for debugging: determining what changed, causing wave to
-// trigger a rollout.
+// inMemoryHashbank stores the namespaced hashes of the children of each
+// podController.  This is *only* used for debugging: determining what changed,
+// causing wave to trigger a rollout.
 type inMemoryHashBank struct {
-	Bank        map[string]hashEntry //podController[childrenHashes]
-	initialised map[string]bool
+	Bank        map[string]map[string]string //namespace[name]hash
+	initialised map[string]map[string]bool   // namespace[podController]initialised
 	sync.RWMutex
-}
-
-// hashEntry is what goes in the hashBank. It's a struct as it may make sense to
-// change the underlying type later on.
-type hashEntry struct {
-	entry string
 }
 
 // NewHandler constructs a new instance of Handler
 func NewHandler(c client.Client, r record.EventRecorder) *Handler {
-	hashBank := make(map[string]hashEntry)
+	hashBank := make(map[string]map[string]string)
 	return &Handler{Client: c, recorder: r, store: inMemoryHashBank{Bank: hashBank}}
 }
 
@@ -111,7 +105,7 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 		return reconcile.Result{}, fmt.Errorf("error updating OwnerReferences: %v", err)
 	}
 
-	err = h.initialiseHashBank(instance.GetName(), current)
+	err = h.initialiseHashBank(instance, current)
 	if err != nil {
 		fmt.Printf("error initialising hashbank: %v", err)
 		return reconcile.Result{}, fmt.Errorf("error initialising hashbank for %s: %v", instance.GetName(), err)
@@ -134,7 +128,7 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 		h.recorder.Eventf(copy.GetObject(), corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
 
 		// retrieve the hashes of the children
-		oldHashes, err := h.retrieveFromHashBank(current)
+		oldHashes, err := h.retrieveFromHashBank(instance.GetNamespace(), current)
 		if err != nil {
 			fmt.Printf("error retrieving old hashes: %v", err)
 			return reconcile.Result{}, fmt.Errorf("Error retrieving from hashbank: %v", err)
@@ -146,21 +140,19 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 			fmt.Printf("error calculating new hashes: %v", err)
 			return reconcile.Result{}, fmt.Errorf("Error calculating new hash bank entires for %s: %v", instance.GetName(), err)
 		}
-		newHashes, err := h.retrieveFromHashBank(current)
+		newHashes, err := h.retrieveFromHashBank(instance.GetNamespace(), current)
 		if err != nil {
 			fmt.Printf("error retrieving new hashes: %v", err)
 			return reconcile.Result{}, fmt.Errorf("Error retrieving from hashbank: %v", err)
 		}
 
-		// diff the two and return the differeing 'name:hash pair(s?)'
+		// diff the two and return the differeing 'name:hash pair(s)'
 		// this only tests hashes for objects that exist in 'oldHashes'
-		// I think this is OK?
 		for objectName, hash1 := range oldHashes {
 			if hash2, ok := newHashes[objectName]; ok {
 				if hash2 != hash1 {
-					fmt.Printf("Hashes for key %s differ: %s:%s\n", objectName, hash1, hash2)
+					fmt.Printf("Hashes for key '%s' differ: %s -> %s\n", objectName, hash1, hash2)
 					log.V(0).Info("Hashes differ for object", "object", objectName, "hash1", hash1, "hash2", hash2)
-					// h.recorder.Eventf(copy.GetObject(), corev1.EventTypeNormal, "RolloutTriggered", "A rollout was triggered by %s changing", objectName)
 				}
 			}
 		}

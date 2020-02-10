@@ -75,16 +75,17 @@ func (h *Handler) updateHashBank(children []configObject) error {
 			case *corev1.ConfigMap:
 				hash, err := hashData(getConfigMapData(child))
 				if err != nil {
-					// log event and continue?
 					// return the error?
+					// this isn't critical logic, so should it cause the reconcile to fail?
 				}
-				h.store.Bank[child.object.GetName()] = hashEntry{hash}
+				h.store.Bank[child.object.GetNamespace()] = map[string]string{child.object.GetName(): hash}
 			case *corev1.Secret:
 				hash, err := hashData(getSecretData(child))
 				if err != nil {
-					// log event and continue?
+					// this isn't critical logic, so should it cause the reconcile to fail?
+
 				}
-				h.store.Bank[child.object.GetName()] = hashEntry{hash}
+				h.store.Bank[child.object.GetNamespace()] = map[string]string{child.object.GetName(): hash}
 			default:
 				return fmt.Errorf("passed unknown type: %v", reflect.TypeOf(child))
 			}
@@ -95,28 +96,28 @@ func (h *Handler) updateHashBank(children []configObject) error {
 
 // initialiseHashBank checks if the instanceName exists in the hashBank, if not
 // it calls updateHashBank on the children.
-func (h *Handler) initialiseHashBank(instanceName string, children []configObject) error {
+func (h *Handler) initialiseHashBank(instance podController, children []configObject) error {
 	h.store.Lock()
 	defer h.store.Unlock()
 	if h.store.Bank == nil {
-		h.store.Bank = make(map[string]hashEntry)
+		h.store.Bank = make(map[string]map[string]string)
 	}
 	if h.store.initialised == nil {
-		h.store.initialised = make(map[string]bool)
+		h.store.initialised = make(map[string]map[string]bool)
 	}
 
-	if _, ok := h.store.initialised[instanceName]; !ok {
+	if _, ok := h.store.initialised[instance.GetNamespace()][instance.GetName()]; !ok {
 		err := h.updateHashBank(children)
 		if err != nil {
 			return err
 		}
-		h.store.initialised[instanceName] = true
+		h.store.initialised[instance.GetNamespace()] = map[string]bool{instance.GetName(): true}
 	}
 	return nil
 }
 
 // retrieveFromHashBank returns a map of objectName:hash for all children provided
-func (h *Handler) retrieveFromHashBank(children []configObject) (map[string]string, error) {
+func (h *Handler) retrieveFromHashBank(namespace string, children []configObject) (map[string]string, error) {
 	h.store.RLock()
 	defer h.store.RUnlock()
 	output := make(map[string]string)
@@ -126,11 +127,11 @@ func (h *Handler) retrieveFromHashBank(children []configObject) (map[string]stri
 		if child.object != nil {
 			switch child.object.(type) {
 			case *corev1.ConfigMap:
-				shaEntry := h.store.Bank[child.object.GetName()]
-				output[child.object.GetName()] = shaEntry.entry
+				hash := h.store.Bank[namespace][child.object.GetName()]
+				output[child.object.GetName()] = hash
 			case *corev1.Secret:
-				shaEntry := h.store.Bank[child.object.GetName()]
-				output[child.object.GetName()] = shaEntry.entry
+				hash := h.store.Bank[namespace][child.object.GetName()]
+				output[child.object.GetName()] = hash
 			default:
 				return output, fmt.Errorf("passed unknown type: %v", reflect.TypeOf(child))
 			}
