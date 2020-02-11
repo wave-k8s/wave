@@ -75,6 +75,7 @@ func (h *Handler) updateHashBank(children []configObject) error {
 			case *corev1.ConfigMap:
 				hash, err := hashData(getConfigMapData(child))
 				if err != nil {
+					fmt.Printf("Error hashing data: %s", err.Error())
 					// return the error?
 					// this isn't critical logic, so should it cause the reconcile to fail?
 				}
@@ -82,6 +83,7 @@ func (h *Handler) updateHashBank(children []configObject) error {
 			case *corev1.Secret:
 				hash, err := hashData(getSecretData(child))
 				if err != nil {
+					fmt.Printf("Error hashing data: %s", err.Error())
 					// this isn't critical logic, so should it cause the reconcile to fail?
 
 				}
@@ -94,9 +96,11 @@ func (h *Handler) updateHashBank(children []configObject) error {
 	return nil
 }
 
-// initialiseHashBank checks if the instanceName exists in the hashBank, if not
-// it calls updateHashBank on the children.
-func (h *Handler) initialiseHashBank(instance podController, children []configObject) error {
+// initialiseHashBank checks if the instanceName's children exist in the
+// hashBank, if not it calls updateHashBank on the children and returns true. If
+// they do exist, return false
+func (h *Handler) initialiseHashBank(instance podController, children []configObject) (bool, error) {
+	var initialised bool
 	h.store.Lock()
 	defer h.store.Unlock()
 	if h.store.Bank == nil {
@@ -106,14 +110,20 @@ func (h *Handler) initialiseHashBank(instance podController, children []configOb
 		h.store.initialised = make(map[string]map[string]bool)
 	}
 
-	if _, ok := h.store.initialised[instance.GetNamespace()][instance.GetName()]; !ok {
+	name := instance.GetName()
+	kind := instance.GetObjectKind().GroupVersionKind().String()
+
+	nameKind := name + kind
+
+	if _, ok := h.store.initialised[instance.GetNamespace()][nameKind]; !ok {
 		err := h.updateHashBank(children)
 		if err != nil {
-			return err
+			return false, err
 		}
-		h.store.initialised[instance.GetNamespace()] = map[string]bool{instance.GetName(): true}
+		h.store.initialised[instance.GetNamespace()] = map[string]bool{nameKind: true}
+		initialised = true
 	}
-	return nil
+	return initialised, nil
 }
 
 // retrieveFromHashBank returns a map of objectName:hash for all children provided
@@ -142,10 +152,10 @@ func (h *Handler) retrieveFromHashBank(namespace string, children []configObject
 }
 
 // calculateNewHashBankEntries updates the hashbank given a new set of children
-func (h *Handler) calculateNewHashBankEntries(instanceName string, children []configObject) error {
+func (h *Handler) calculateNewHashBankEntries(instance podController, children []configObject) error {
 	h.store.Lock()
 	defer h.store.Unlock()
-	if _, ok := h.store.initialised[instanceName]; ok {
+	if val, _ := h.store.initialised[instance.GetNamespace()][instance.GetName()]; val {
 		err := h.updateHashBank(children)
 		if err != nil {
 			return err

@@ -99,18 +99,19 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 		return reconcile.Result{}, fmt.Errorf("error fetching current children: %v", err)
 	}
 
+	initialised, err := h.initialiseHashBank(instance, current)
+	if err != nil {
+		fmt.Printf("error initialising hashbank: %v", err)
+		return reconcile.Result{}, fmt.Errorf("error initialising hashbank for %s: %v", instance.GetName(), err)
+	}
+
+	log.V(0).Info("Hashbank Initialised for podController", instance.GetName())
+
 	// Reconcile the OwnerReferences on the existing and current children
 	err = h.updateOwnerReferences(instance, existing, current)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("error updating OwnerReferences: %v", err)
 	}
-
-	err = h.initialiseHashBank(instance, current)
-	if err != nil {
-		fmt.Printf("error initialising hashbank: %v", err)
-		return reconcile.Result{}, fmt.Errorf("error initialising hashbank for %s: %v", instance.GetName(), err)
-	}
-	log.V(0).Info("Hashbank Initialised for podController", instance.GetName())
 
 	hash, err := calculateConfigHash(current)
 	if err != nil {
@@ -127,34 +128,41 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 		log.V(0).Info("Updating instance hash", "namespace", instance.GetNamespace(), "name", instance.GetName(), "hash", hash)
 		h.recorder.Eventf(copy.GetObject(), corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
 
-		// retrieve the hashes of the children
-		oldHashes, err := h.retrieveFromHashBank(instance.GetNamespace(), current)
-		if err != nil {
-			fmt.Printf("error retrieving old hashes: %v", err)
-			return reconcile.Result{}, fmt.Errorf("Error retrieving from hashbank: %v", err)
-		}
+		// If we have only just initialised the hash store there is no point in doing this.
+		if !initialised {
 
-		// calculate the new hashes of the children, update hashbank
-		err = h.calculateNewHashBankEntries(instance.GetName(), current)
-		if err != nil {
-			fmt.Printf("error calculating new hashes: %v", err)
-			return reconcile.Result{}, fmt.Errorf("Error calculating new hash bank entires for %s: %v", instance.GetName(), err)
-		}
-		newHashes, err := h.retrieveFromHashBank(instance.GetNamespace(), current)
-		if err != nil {
-			fmt.Printf("error retrieving new hashes: %v", err)
-			return reconcile.Result{}, fmt.Errorf("Error retrieving from hashbank: %v", err)
-		}
+			// retrieve the hashes of the children
+			oldHashes, err := h.retrieveFromHashBank(instance.GetNamespace(), current)
+			if err != nil {
+				fmt.Printf("error retrieving old hashes: %v", err)
+				return reconcile.Result{}, fmt.Errorf("Error retrieving from hashbank: %v", err)
+			}
 
-		// diff the two and return the differeing 'name:hash pair(s)'
-		// this only tests hashes for objects that exist in 'oldHashes'
-		for objectName, hash1 := range oldHashes {
-			if hash2, ok := newHashes[objectName]; ok {
-				if hash2 != hash1 {
-					fmt.Printf("Hashes for key '%s' differ: %s -> %s\n", objectName, hash1, hash2)
-					log.V(0).Info("Hashes differ for object", "object", objectName, "hash1", hash1, "hash2", hash2)
+			// calculate the new hashes of the children, update hashbank
+			err = h.calculateNewHashBankEntries(instance, current)
+			if err != nil {
+				fmt.Printf("error calculating new hashes: %v", err)
+				return reconcile.Result{}, fmt.Errorf("Error calculating new hash bank entires for %s: %v", instance.GetName(), err)
+			}
+
+			newHashes, err := h.retrieveFromHashBank(instance.GetNamespace(), current)
+			if err != nil {
+				fmt.Printf("error retrieving new hashes: %v", err)
+				return reconcile.Result{}, fmt.Errorf("Error retrieving from hashbank: %v", err)
+			}
+
+			// diff the two and return the differeing 'name:hash pair(s)'
+			// this only tests hashes for objects that exist in 'oldHashes'
+			for objectName, hash1 := range oldHashes {
+				if hash2, ok := newHashes[objectName]; ok {
+					fmt.Printf("objectName: %v, hash1: %s hash2: %s\n", objectName, hash1, hash2)
+					if hash2 != hash1 {
+						fmt.Printf("Hashes for key '%s' differ: %s -> %s\n", objectName, hash1, hash2)
+						log.V(0).Info("Hashes differ for object", "object", objectName, "hash1", hash1, "hash2", hash2)
+					}
 				}
 			}
+
 		}
 
 		err = h.Update(context.TODO(), copy.GetObject())
