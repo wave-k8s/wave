@@ -14,7 +14,7 @@ required = [
     "sigs.k8s.io/controller-runtime/pkg/runtime/signals",
     "sigs.k8s.io/controller-runtime/pkg/source",
     "sigs.k8s.io/testing_frameworks/integration", # for integration testing
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
+    "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     ]
 
 [prune]
@@ -35,39 +35,35 @@ version="v1.3.0"
 # Overridefor kubernetes dependencies to pin them to a particular version
 [[override]]
 name="k8s.io/api"
-version="kubernetes-1.14.4"
+version="kubernetes-1.17.3"
 
 [[override]]
 name="k8s.io/apiextensions-apiserver"
-version="kubernetes-1.14.4"
+version="kubernetes-1.17.3"
 
 [[override]]
 name="k8s.io/apimachinery"
-version="kubernetes-1.14.4"
+version="kubernetes-1.17.3"
 
 [[override]]
 name="k8s.io/client-go"
-version="kubernetes-1.14.4"
+version="kubernetes-1.17.3"
 
 [[override]]
 name="k8s.io/kube-aggregator"
-version="kubernetes-1.14.4"
+version="kubernetes-1.17.3"
 
 [[override]]
 name="k8s.io/code-generator"
-version="kubernetes-1.14.4"
-
-[[override]]
-name="k8s.io/gengo"
-revision="0689ccc1d7d65d9dd1bedcc3b0b1ed7df91ba266"
+version="v0.17.3"
 
 [[override]]
 name="sigs.k8s.io/controller-runtime"
-version="v0.2.0-beta.4"
+version="v0.5.0"
 
 [[override]]
 name="sigs.k8s.io/controller-tools"
-version="v0.1.10"
+version="v0.2.5"
 
 [[override]]
 name="sigs.k8s.io/testing_frameworks"
