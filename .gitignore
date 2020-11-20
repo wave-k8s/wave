@@ -3,3 +3,4 @@ release/
 .env
 cover.out
 wave
+**/.DS_Store

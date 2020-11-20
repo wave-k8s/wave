@@ -17,7 +17,7 @@ limitations under the License.
 package controller
 
 import (
-	"github.com/pusher/wave/pkg/controller/daemonset"
+	"github.com/wave-k8s/wave/pkg/controller/daemonset"
 )
 
 func init() {

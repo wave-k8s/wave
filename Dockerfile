@@ -7,7 +7,7 @@ ARG VERSION=undefined
 RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 
 # Copy in the go src
-WORKDIR /go/src/github.com/pusher/wave
+WORKDIR /go/src/github.com/wave-k8s/wave
 COPY Gopkg.lock Gopkg.lock
 COPY Gopkg.toml Gopkg.toml
 
@@ -18,11 +18,11 @@ COPY pkg/    pkg/
 COPY cmd/    cmd/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o wave -ldflags="-X main.VERSION=${VERSION}" github.com/pusher/wave/cmd/manager
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o wave -ldflags="-X main.VERSION=${VERSION}" github.com/wave-k8s/wave/cmd/manager
 
 # Copy the controller-manager into a thin image
 FROM alpine:3.9
 RUN apk --no-cache add ca-certificates
 WORKDIR /bin
-COPY --from=builder /go/src/github.com/pusher/wave/wave .
+COPY --from=builder /go/src/github.com/wave-k8s/wave/wave .
 ENTRYPOINT ["/bin/wave"]

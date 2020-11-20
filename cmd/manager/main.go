@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/go-logr/glogr"
-	"github.com/pusher/wave/pkg/apis"
-	"github.com/pusher/wave/pkg/controller"
-	"github.com/pusher/wave/pkg/webhook"
 	flag "github.com/spf13/pflag"
+	"github.com/wave-k8s/wave/pkg/apis"
+	"github.com/wave-k8s/wave/pkg/controller"
+	"github.com/wave-k8s/wave/pkg/webhook"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"

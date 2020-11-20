@@ -6,6 +6,6 @@ appVersion: v0.4.0
 keywords:
   - wave
   - kubernetes
-home: https://github.com/pusher/wave
+home: https://github.com/wave-k8s/wave
 sources:
-- https://github.com/pusher/wave
+- https://github.com/wave-k8s/wave

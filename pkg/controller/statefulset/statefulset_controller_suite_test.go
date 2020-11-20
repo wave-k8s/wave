@@ -22,12 +22,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/pusher/wave/test/reporters"
+	"github.com/wave-k8s/wave/test/reporters"
 
 	"github.com/go-logr/glogr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pusher/wave/pkg/apis"
+	"github.com/wave-k8s/wave/pkg/apis"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
