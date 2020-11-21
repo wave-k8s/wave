@@ -3,14 +3,21 @@
 # Note: Project Migration in Progress
 
 Wave is currently undergoing migration to a separate Github organisation and infrastructure.
-Since the previous maintainers are no longer able to look after this project and with their agreement,
+After the previous maintainers at Pusher are no longer able to look after this project - and with their agreement -
 Wave will be maintained as a stand-alone entity.
 
 Over the next few weeks, once CI and container builds are re-established and references updated, efforts
 will be made to resolve some of the outstanding Issues and Pull Requests.
-If this raises any questions or concerns, please feel free to reias them in Issues.
+If this raises any questions or concerns, please feel free to raise them in Issues.
 
-If you would like to be involved in the long-term future of Wave, please feel free to reach out.
+If you would like to be involved in the long-term future of Wave, please feel free to reach out to k8swave@lightweaver.info.
+
+**Migration Checklist:**
+
+- [x] Update imports
+- [ ] Set up CI
+- [ ] Set up Container Builds
+- [ ] Prune existing Issues, PRs and branches
 
 ---
 
@@ -80,7 +87,7 @@ project, as such we have auto-generated [Kustomize](https://github.com/kubernete
 configuration as an example of how to install the controller in the
 [config](config) folder.
 
-A public docker image is available on [Quay](https://quay.io/repository/pusher/wave).
+A public docker image is available on [Quay](https://quay.io/repository/wave-k8s/wave).
 
 ```
 quay.io/wave-k8s/wave
