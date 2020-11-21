@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ limitations under the License.
 package controller
 
 import (
-	"github.com/pusher/wave/pkg/controller/daemonset"
+	"github.com/wave-k8s/wave/pkg/controller/daemonset"
 )
 
 func init() {

@@ -10,7 +10,7 @@ global:
 # Annotations for the wave pods
 annotations: {}
 image:
-  name: quay.io/pusher/wave
+  name: quay.io/wave-k8s/wave
   tag: v0.4.0
   pullPolicy: IfNotPresent
 

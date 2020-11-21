@@ -7,7 +7,7 @@ Download the dependencies using [`dep`](https://github.com/golang/dep).
 
 ```bash
 cd $GOPATH/src/github.com # Create this directory if it doesn't exist
-git clone git@github.com:<YOUR_FORK>/wave pusher/wave
+git clone git@github.com:<YOUR_FORK>/wave wave-k8s/wave
 dep ensure # Installs dependencies to vendor folder.
 ```
 
