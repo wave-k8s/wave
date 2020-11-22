@@ -37,7 +37,7 @@ var _ = Describe("Wave hash Suite", func() {
 		var mgrStopped *sync.WaitGroup
 		var stopMgr chan struct{}
 
-		const timeout = time.Second * 20
+		const timeout = time.Second * 120
 
 		var cm1 *corev1.ConfigMap
 		var cm2 *corev1.ConfigMap
