@@ -1,15 +1,14 @@
 name: Run tests
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+    - README.md
+    - LICENSE.md
   push:
     branches:
-      - '**'
-    paths-ignore:
-      - README.md
-      - LICENSE.md
-  pull_request:
-    branches:
-      - '**'
+    - master
 
 jobs:
   tests:
