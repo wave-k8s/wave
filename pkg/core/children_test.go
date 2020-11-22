@@ -41,7 +41,7 @@ var _ = Describe("Wave children Suite", func() {
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
-	const timeout = time.Second * 5
+	const timeout = time.Second * 10
 
 	var cm1 *corev1.ConfigMap
 	var cm2 *corev1.ConfigMap
