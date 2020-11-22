@@ -36,9 +36,14 @@ jobs:
             ${{ runner.os }}-build-depcache-
       - name: Setup test tooling
         run: |
+          echo "Go binaries are going to $(go env GOPATH)/bin"
+          ls -la $(go env GOPATH)/bin
+          echo "Kubebuilder is going to ${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64"
+          ls -la ${{ github.workspace	}}
+          ls -la ${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64
           go get github.com/onsi/ginkgo/ginkgo && go get github.com/onsi/gomega/...
           if ! [[ -x $(go env GOPATH)/bin/golangci-lint ]]; then curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.27.0; fi
-          if ! [[ -d ~/kubebuilder_2.3.1_linux_amd64 ]]; then curl -sSfL https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_linux_amd64.tar.gz | tar zxvf -; fi
+          if ! [[ -d ${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64 ]]; then curl -sSfL https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_linux_amd64.tar.gz | tar zxvf -; fi
           if ! [[ -x $(go env GOPATH)/bin/dep ]]; then curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh; fi
           GO111MODULE=on go get sigs.k8s.io/kustomize/kustomize/v3
       - name: Download dependencies
