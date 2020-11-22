@@ -43,7 +43,7 @@ var _ = Describe("Wave controller Suite", func() {
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
-	const timeout = time.Second * 10
+	const timeout = time.Second * 120
 	const consistentlyTimeout = time.Second
 
 	var ownerRef metav1.OwnerReference

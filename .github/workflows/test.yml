@@ -1,15 +1,14 @@
 name: Run tests
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+    - README.md
+    - LICENSE.md
   push:
     branches:
-      - '**'
-    paths-ignore:
-      - README.md
-      - LICENSE.md
-  pull_request:
-    branches:
-      - '**'
+    - master
 
 jobs:
   tests:
@@ -28,7 +27,7 @@ jobs:
       - name: Cache kubebuilder
         uses: actions/cache@v2
         with:
-          path: ~/kubebuilder_2.3.1_linux_amd64
+          path: ${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64
           key: ${{ runner.os }}-build-kubebuilder-2.3.1
       - name: Cache tooling
         uses: actions/cache@v2
@@ -37,7 +36,6 @@ jobs:
           key: ${{ runner.os }}-build-gobin
       - name: Setup test tooling
         run: |
-          echo "Running in $(pwd)"
           go get github.com/onsi/ginkgo/ginkgo && go get github.com/onsi/gomega/...
           if ! [[ -x $(go env GOPATH)/bin/golangci-lint ]]; then curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.27.0; fi
           if ! [[ -d ~/kubebuilder_2.3.1_linux_amd64 ]]; then curl -sSfL https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_linux_amd64.tar.gz | tar zxvf -; fi
@@ -46,7 +44,7 @@ jobs:
       - name: Cache dependencies
         uses: actions/cache@v2
         with:
-          path: ./vendor
+          path: ./src/github.com/${{ github.repository }}/vendor
           key: ${{ runner.os }}-build-depcache-${{ hashFiles('**/Gopkg.lock') }}
           restore-keys: |
             ${{ runner.os }}-build-depcache-
@@ -59,10 +57,6 @@ jobs:
         run: |
           export GOPATH=$(go env GOPATH)
           export PATH=$GOPATH/bin:$PATH
-          echo "Running in $(pwd)"
-          echo "This is in ${{ github.workspace	}}"
-          ls ${{ github.workspace	}}
-          ls ${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64
           ./configure --with-kubebuilder=${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64/bin --with-kubectl=${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64/bin/kubectl
         working-directory: ./src/github.com/${{ github.repository }}
       - name: Run Tests
