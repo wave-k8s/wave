@@ -61,7 +61,10 @@ var _ = Describe("Wave children Suite", func() {
 		var cerr error
 		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 		Expect(cerr).NotTo(HaveOccurred())
-		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
+		c = mgr.GetClient()
+		//		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
+		h = NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave"))
+
 		m = utils.Matcher{Client: c}
 
 		// Create some configmaps and secrets

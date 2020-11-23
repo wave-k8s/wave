@@ -159,11 +159,20 @@ func (m *Matcher) eventuallyObject(obj Object, intervals ...interface{}) gomega.
 // eventuallyList gets a list type  from the API server
 func (m *Matcher) eventuallyList(obj runtime.Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
 	list := func() runtime.Object {
-		err := m.Client.List(context.TODO(), obj)
+		var u runtime.Object
+		switch obj.(type) {
+		case *corev1.EventList:
+			u = &corev1.EventList{}
+		case *corev1.SecretList:
+			u = &corev1.SecretList{}
+		case *corev1.ConfigMapList:
+			u = &corev1.ConfigMapList{}
+		}
+		err := m.Client.List(context.TODO(), u)
 		if err != nil {
 			panic(err)
 		}
-		return obj
+		return u
 	}
 	return gomega.Eventually(list, intervals...)
 }
