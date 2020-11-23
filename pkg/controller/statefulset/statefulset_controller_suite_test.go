@@ -57,6 +57,7 @@ var _ = BeforeSuite(func() {
 	if cfg, err = t.Start(); err != nil {
 		log.Fatal(err)
 	}
+
 })
 
 var _ = AfterSuite(func() {

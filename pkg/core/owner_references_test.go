@@ -26,6 +26,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -39,7 +40,7 @@ var _ = Describe("Wave owner references Suite", func() {
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
-	const timeout = time.Second * 120
+	const timeout = time.Second * 5
 	const consistentlyTimeout = time.Second
 
 	var cm1 *corev1.ConfigMap
@@ -55,7 +56,9 @@ var _ = Describe("Wave owner references Suite", func() {
 			MetricsBindAddress: "0",
 		})
 		Expect(err).NotTo(HaveOccurred())
-		c = mgr.GetClient()
+		var cerr error
+		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+		Expect(cerr).NotTo(HaveOccurred())
 		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
 		m = utils.Matcher{Client: c}
 

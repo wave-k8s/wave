@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -43,7 +44,7 @@ var _ = Describe("Wave owner references Suite", func() {
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
-	const timeout = time.Second * 120
+	const timeout = time.Second * 5
 
 	var ownerRef metav1.OwnerReference
 
@@ -52,7 +53,9 @@ var _ = Describe("Wave owner references Suite", func() {
 			MetricsBindAddress: "0",
 		})
 		Expect(err).NotTo(HaveOccurred())
-		c = mgr.GetClient()
+		var cerr error
+		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+		Expect(cerr).NotTo(HaveOccurred())
 		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
 		m = utils.Matcher{Client: c}
 
