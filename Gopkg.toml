@@ -63,7 +63,8 @@ revision="0689ccc1d7d65d9dd1bedcc3b0b1ed7df91ba266"
 
 [[override]]
 name="sigs.k8s.io/controller-runtime"
-version="v0.2.0-beta.4"
+# version="v0.2.0-beta.4"
+version="v0.2.2"
 
 [[override]]
 name="sigs.k8s.io/controller-tools"

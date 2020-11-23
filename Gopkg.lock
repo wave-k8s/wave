@@ -1147,7 +1147,7 @@
   revision = "3dccf664f023863740c508fb4284e49742bedfa4"
 
 [[projects]]
-  digest = "1:e04d03de743245cb462e5378fee8c7ffd4e7f08aa7871d6fe78d33f19351cebc"
+  digest = "1:6207ac3eaebcea768da2fffc662c49082bea25f4631806ecee7a39b622afd2e0"
   name = "sigs.k8s.io/controller-runtime"
   packages = [
     "pkg/cache",
@@ -1185,8 +1185,8 @@
     "pkg/webhook/internal/metrics",
   ]
   pruneopts = "T"
-  revision = "aaddbd9d9a89d8ff329a084aece23be0406e6467"
-  version = "v0.2.0-beta.4"
+  revision = "fc5542c693e3340f8abbe91c6345bd64c494a60c"
+  version = "v0.2.2"
 
 [[projects]]
   digest = "1:2aec1bbf1553a2d433b3a85f9359930655de83e2dceed4aca44577a720396da8"
@@ -1239,6 +1239,7 @@
     "github.com/onsi/ginkgo/reporters",
     "github.com/onsi/gomega",
     "github.com/onsi/gomega/types",
+    "github.com/prometheus/client_golang/prometheus",
     "github.com/spf13/pflag",
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
@@ -1260,6 +1261,7 @@
     "sigs.k8s.io/controller-runtime/pkg/envtest",
     "sigs.k8s.io/controller-runtime/pkg/handler",
     "sigs.k8s.io/controller-runtime/pkg/manager",
+    "sigs.k8s.io/controller-runtime/pkg/metrics",
     "sigs.k8s.io/controller-runtime/pkg/reconcile",
     "sigs.k8s.io/controller-runtime/pkg/runtime/log",
     "sigs.k8s.io/controller-runtime/pkg/runtime/signals",
