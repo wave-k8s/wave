@@ -33,7 +33,6 @@ import (
 
 // Matcher has Gomega Matchers that use the controller-runtime client
 type Matcher struct {
-	//	Cfg    *rest.Config
 	Client client.Client
 }
 
@@ -144,6 +143,8 @@ func (m *Matcher) eventuallyObject(obj Object, intervals ...interface{}) gomega.
 			u = &appsv1.Deployment{}
 		case *appsv1.DaemonSet:
 			u = &appsv1.DaemonSet{}
+		default:
+			panic("Unknown Object type.")
 		}
 
 		err := m.Client.Get(context.TODO(), key, u)
@@ -167,6 +168,8 @@ func (m *Matcher) eventuallyList(obj runtime.Object, intervals ...interface{}) g
 			u = &corev1.SecretList{}
 		case *corev1.ConfigMapList:
 			u = &corev1.ConfigMapList{}
+		default:
+			panic("Unknown List type.")
 		}
 		err := m.Client.List(context.TODO(), u)
 		if err != nil {

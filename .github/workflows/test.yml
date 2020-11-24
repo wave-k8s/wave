@@ -55,7 +55,6 @@ jobs:
         working-directory: ./src/github.com/${{ github.repository }}
       - name: Run Tests
         run: |
-          export KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT=true
           export GOPATH=$(go env GOPATH):$(pwd)
           cd ./src/github.com/${{ github.repository }}
           make check
