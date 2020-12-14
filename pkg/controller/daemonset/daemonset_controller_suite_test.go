@@ -79,9 +79,9 @@ func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan 
 func StartTestManager(mgr manager.Manager) (chan struct{}, *sync.WaitGroup) {
 	stop := make(chan struct{})
 	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
 		defer GinkgoRecover()
-		wg.Add(1)
 		Expect(mgr.Start(stop)).NotTo(HaveOccurred())
 		wg.Done()
 	}()

@@ -5,3 +5,4 @@ cover.out
 wave
 **/.DS_Store
 kubebuilder
+*.code-workspace

@@ -3,7 +3,7 @@ include .env
 
 BINARY := wave
 VERSION := $(shell git describe --always --dirty --tags 2>/dev/null || echo "undefined")
-ECHO := echo -e
+ECHO := echo
 
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/wave-k8s/wave
@@ -83,8 +83,7 @@ check: fmt lint vet test
 .PHONY: test
 test: vendor generate manifests
 	@ $(ECHO) "\033[36mRunning test suite in Ginkgo\033[0m"
-#	$(GINKGO) -v -race -randomizeAllSpecs ./pkg/... ./cmd/... -- -report-dir=$$ARTIFACTS
-	$(GINKGO) -v -race -p ./pkg/... ./cmd/... -- -report-dir=$$ARTIFACTS
+	$(GINKGO) -v -randomizeAllSpecs ./pkg/... ./cmd/... -- -report-dir=$$ARTIFACTS
 	@ $(ECHO)
 
 # Build manager binary
