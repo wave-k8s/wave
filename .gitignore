@@ -2,7 +2,7 @@ vendor/
 release/
 .env
 cover.out
-wave
+/wave
 **/.DS_Store
 kubebuilder
 *.code-workspace
