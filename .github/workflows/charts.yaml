@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - chart-pages
 
 jobs:
   release:
@@ -26,6 +27,5 @@ jobs:
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.2.0
-        with:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
