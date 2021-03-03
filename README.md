@@ -58,6 +58,10 @@ rather than when the Pods happen to be re-cycled.
 
 ## Installation
 
+Wave is released periodically. The latest version is `v0.5.0`
+
+A list of changes can be seen in the [CHANGELOG](CHANGELOG.md).
+
 ### Deploying to Kubernetes
 
 Public docker images for releases since v0.4.0 are available on [Quay](https://quay.io/repository/wave-k8s/wave).
