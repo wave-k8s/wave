@@ -31,7 +31,7 @@ jobs:
             ./src/github.com/${{ github.repository }}/vendor
             ~/go/bin
             ${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64
-          key: ${{ runner.os }}-build-depcache-${{ hashFiles('**/Gopkg.lock') }}
+          key: ${{ runner.os }}-build-depcache-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-build-depcache-
       - name: Setup test tooling
