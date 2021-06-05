@@ -1,3 +1,6 @@
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://raw.githubusercontent.com/wave-k8s/wave/master/LICENSE) [![Go Report Card](https://goreportcard.com/badge/github.com/wave-k8s/wave)](https://goreportcard.com/report/github.com/wave-k8s/wave) [![Build Status](https://github.com/wave-k8s/wave/actions/workflows/image.yaml/badge.svg)]()
+[![GoDoc](https://godoc.org/github.com/wave-k8s/wave?status.svg)](https://godoc.org/github.com/wave-k8s/wave)
+
 <img src="./wave-logo.svg" width=150 height=150 alt="Wave Logo"/>
 
 # Wave
@@ -23,7 +26,6 @@ a Rolling Update of the Deployment when the mounted configuration is changed.
   - [Finalizers](#finalizers)
 - [Communication](#communication)
 - [Contributing](#contributing)
-- [License](#license)
 
 ## Introduction
 
@@ -254,7 +256,3 @@ Read the docs for more about
 ## Contributing
 
 Please see our [Contributing](CONTRIBUTING.md) guidelines.
-
-## License
-
-This project is licensed under Apache 2.0 and a copy of the license is available [here](LICENSE).
