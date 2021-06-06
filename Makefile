@@ -1,12 +1,18 @@
 include Makefile.tools
 include .env
 
+GO ?= go
 BINARY := wave
 VERSION := $(shell git describe --always --dirty --tags 2>/dev/null || echo "undefined")
 ECHO := echo
+GINKGO ?= ginkgo
+
 
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/wave-k8s/wave
+IMG ?= quay.io/icelynjennings/wave
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= "crd:trivialVersions=true"
+
 
 .NOTPARALLEL:
 
@@ -74,7 +80,7 @@ export TEST_ASSET_ETCD := $(KUBEBUILDER)/etcd
 
 vendor:
 	@ $(ECHO) "\033[36mPuling dependencies\033[0m"
-	$(DEP) ensure --vendor-only
+	$(GO) mod vendor
 	@ $(ECHO)
 
 .PHONY: check
@@ -94,20 +100,8 @@ $(BINARY): generate fmt vet
 release: test docker-build docker-tag docker-push
 	mkdir -p release
 	GOOS=darwin GOARCH=amd64 go build -ldflags="-X main.VERSION=${VERSION}" -o release/$(BINARY)-darwin-amd64 github.com/wave-k8s/wave/cmd/manager
-	GOOS=linux GOARCH=amd64 go build -ldflags="-X main.VERSION=${VERSION}" -o release/$(BINARY)-linux-amd64 github.com/wave-k8s/wave/cmd/manager
-	GOOS=linux GOARCH=arm64 go build -ldflags="-X main.VERSION=${VERSION}" -o release/$(BINARY)-linux-arm64 github.com/wave-k8s/wave/cmd/manager
-	GOOS=linux GOARCH=arm GOARM=6 go build -ldflags="-X main.VERSION=${VERSION}" -o release/$(BINARY)-linux-armv6 github.com/wave-k8s/wave/cmd/manager
-	GOOS=windows GOARCH=amd64 go build -ldflags="-X main.VERSION=${VERSION}" -o release/$(BINARY)-windows-amd64 github.com/wave-k8s/wave/cmd/manager
 	$(SHASUM) -a 256 release/$(BINARY)-darwin-amd64 > release/$(BINARY)-darwin-amd64-sha256sum.txt
-	$(SHASUM) -a 256 release/$(BINARY)-linux-amd64 > release/$(BINARY)-linux-amd64-sha256sum.txt
-	$(SHASUM) -a 256 release/$(BINARY)-linux-arm64 > release/$(BINARY)-linux-arm64-sha256sum.txt
-	$(SHASUM) -a 256 release/$(BINARY)-linux-armv6 > release/$(BINARY)-linux-armv6-sha256sum.txt
-	$(SHASUM) -a 256 release/$(BINARY)-windows-amd64 > release/$(BINARY)-windows-amd64-sha256sum.txt
 	$(TAR) -czvf release/$(BINARY)-$(VERSION).darwin-amd64.$(GOVERSION).tar.gz release/$(BINARY)-darwin-amd64
-	$(TAR) -czvf release/$(BINARY)-$(VERSION).linux-amd64.$(GOVERSION).tar.gz release/$(BINARY)-linux-amd64
-	$(TAR) -czvf release/$(BINARY)-$(VERSION).linux-arm64.$(GOVERSION).tar.gz release/$(BINARY)-linux-arm64
-	$(TAR) -czvf release/$(BINARY)-$(VERSION).linux-armv6.$(GOVERSION).tar.gz release/$(BINARY)-linux-armv6
-	$(TAR) -czvf release/$(BINARY)-$(VERSION).windows-amd64.$(GOVERSION).tar.gz release/$(BINARY)-windows-amd64
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 .PHONY: run
@@ -127,9 +121,9 @@ deploy: manifests
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
-manifests: vendor
+manifests: vendor controller-gen
 	@ $(ECHO) "\033[36mGenerating manifests\033[0m"
-	$(GO) run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	@ $(ECHO)
 
 # Build the docker image
@@ -148,3 +142,12 @@ PUSH_TAGS ?= ${VERSION},latest
 .PHONY: docker-push
 docker-push:
 	@IFS=","; tags=${PUSH_TAGS}; for tag in $${tags}; do docker push ${IMG}:$${tag}; $(ECHO) "\033[36mPushed $(IMG):$${tag}\033[0m"; done
+
+# find, or download controller-gen if missing
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.4
+CONTROLLER_GEN=$(GOBIN)/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
+endif

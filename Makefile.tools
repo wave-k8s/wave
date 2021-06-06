@@ -12,12 +12,6 @@ gopath:
 		mkdir -p $$GOPATH/bin; \
 	fi
 
-.PHONY: dep
-dep:
-	@ if [ ! $$(which dep) ]; then \
-		curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh; \
-	fi
-
 .PHONY: ginkgo-cli
 ginkgo-cli:
 	@ if [ ! $$(which ginkgo) ]; then \
