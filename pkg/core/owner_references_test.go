@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,10 +22,11 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pusher/wave/test/utils"
+	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -34,7 +35,8 @@ var _ = Describe("Wave owner references Suite", func() {
 	var c client.Client
 	var h *Handler
 	var m utils.Matcher
-	var deployment *appsv1.Deployment
+	var deploymentObject *appsv1.Deployment
+	var podControllerDeployment podController
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
@@ -50,10 +52,14 @@ var _ = Describe("Wave owner references Suite", func() {
 	var ownerRef metav1.OwnerReference
 
 	BeforeEach(func() {
-		mgr, err := manager.New(cfg, manager.Options{})
+		mgr, err := manager.New(cfg, manager.Options{
+			MetricsBindAddress: "0",
+		})
 		Expect(err).NotTo(HaveOccurred())
-		c = mgr.GetClient()
-		h = NewHandler(c, mgr.GetRecorder("wave"))
+		var cerr error
+		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+		Expect(cerr).NotTo(HaveOccurred())
+		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
 		m = utils.Matcher{Client: c}
 
 		// Create some configmaps and secrets
@@ -71,15 +77,17 @@ var _ = Describe("Wave owner references Suite", func() {
 		m.Create(s2).Should(Succeed())
 		m.Create(s3).Should(Succeed())
 
-		deployment = utils.ExampleDeployment.DeepCopy()
-		m.Create(deployment).Should(Succeed())
+		deploymentObject = utils.ExampleDeployment.DeepCopy()
+		podControllerDeployment = &deployment{deploymentObject}
 
-		ownerRef = utils.GetOwnerRef(deployment)
+		m.Create(deploymentObject).Should(Succeed())
+
+		ownerRef = utils.GetOwnerRefDeployment(deploymentObject)
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
 
 		// Make sure caches have synced
-		m.Get(deployment, timeout).Should(Succeed())
+		m.Get(deploymentObject, timeout).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -99,14 +107,16 @@ var _ = Describe("Wave owner references Suite", func() {
 			for _, obj := range []Object{cm1, cm2, s1, s2} {
 				otherRef := ownerRef.DeepCopy()
 				otherRef.UID = obj.GetUID()
-				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef, *otherRef})
-				m.Update(obj).Should(Succeed())
+				m.Update(obj, func(obj utils.Object) utils.Object {
+					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef, *otherRef})
+					return obj
+				}, timeout).Should(Succeed())
 
 				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ConsistOf(ownerRef, *otherRef)))
 			}
 
 			children := []Object{cm1, s1}
-			err := h.removeOwnerReferences(deployment, children)
+			err := h.removeOwnerReferences(podControllerDeployment, children)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -143,9 +153,10 @@ var _ = Describe("Wave owner references Suite", func() {
 	Context("updateOwnerReferences", func() {
 		BeforeEach(func() {
 			for _, obj := range []Object{cm2, s1, s2} {
-				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-				m.Update(obj).Should(Succeed())
-
+				m.Update(obj, func(obj utils.Object) utils.Object {
+					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+					return obj
+				}, timeout).Should(Succeed())
 				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 
@@ -159,7 +170,7 @@ var _ = Describe("Wave owner references Suite", func() {
 				},
 				},
 			}
-			err := h.updateOwnerReferences(deployment, existing, current)
+			err := h.updateOwnerReferences(podControllerDeployment, existing, current)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -179,8 +190,12 @@ var _ = Describe("Wave owner references Suite", func() {
 	Context("updateOwnerReference", func() {
 		BeforeEach(func() {
 			// Add an OwnerReference to cm2
-			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-			m.Update(cm2).Should(Succeed())
+			m.Update(cm2, func(obj utils.Object) utils.Object {
+				cm2 := obj.(*corev1.ConfigMap)
+				cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+
+				return cm2
+			}, timeout).Should(Succeed())
 			m.Eventually(cm2, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 
 			m.Get(cm1, timeout).Should(Succeed())
@@ -191,25 +206,33 @@ var _ = Describe("Wave owner references Suite", func() {
 			// Add an OwnerReference to cm1
 			otherRef := ownerRef
 			otherRef.UID = cm1.GetUID()
-			cm1.SetOwnerReferences([]metav1.OwnerReference{otherRef})
-			m.Update(cm1).Should(Succeed())
+			m.Update(cm1, func(obj utils.Object) utils.Object {
+				cm1 := obj.(*corev1.ConfigMap)
+				cm1.SetOwnerReferences([]metav1.OwnerReference{otherRef})
+
+				return cm1
+			}, timeout).Should(Succeed())
 			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(otherRef)))
 
 			m.Get(cm1, timeout).Should(Succeed())
-			Expect(h.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
+			Expect(h.updateOwnerReference(podControllerDeployment, cm1)).NotTo(HaveOccurred())
 			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 		})
 
 		It("doesn't update the child object if there is already and OwnerReference present", func() {
 			// Add an OwnerReference to cm2
-			cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-			m.Update(cm2).Should(Succeed())
+			m.Update(cm2, func(obj utils.Object) utils.Object {
+				cm2 := obj.(*corev1.ConfigMap)
+				cm2.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+
+				return cm2
+			}, timeout).Should(Succeed())
 			m.Eventually(cm2, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 
 			// Get the original version
 			m.Get(cm2, timeout).Should(Succeed())
 			originalVersion := cm2.GetResourceVersion()
-			Expect(h.updateOwnerReference(deployment, cm2)).NotTo(HaveOccurred())
+			Expect(h.updateOwnerReference(podControllerDeployment, cm2)).NotTo(HaveOccurred())
 
 			// Compare current version
 			m.Get(cm2, timeout).Should(Succeed())
@@ -218,7 +241,7 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		It("sends events for adding each owner reference", func() {
 			m.Get(cm1, timeout).Should(Succeed())
-			Expect(h.updateOwnerReference(deployment, cm1)).NotTo(HaveOccurred())
+			Expect(h.updateOwnerReference(podControllerDeployment, cm1)).NotTo(HaveOccurred())
 			m.Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 
 			events := &corev1.EventList{}
@@ -316,7 +339,7 @@ var _ = Describe("Wave owner references Suite", func() {
 	Context("getOwnerReference", func() {
 		var ref metav1.OwnerReference
 		BeforeEach(func() {
-			ref = getOwnerReference(deployment)
+			ref = getOwnerReference(podControllerDeployment)
 		})
 
 		It("sets the APIVersion", func() {
@@ -328,11 +351,11 @@ var _ = Describe("Wave owner references Suite", func() {
 		})
 
 		It("sets the UID", func() {
-			Expect(ref.UID).To(Equal(deployment.UID))
+			Expect(ref.UID).To(Equal(deploymentObject.UID))
 		})
 
 		It("sets the Name", func() {
-			Expect(ref.Name).To(Equal(deployment.Name))
+			Expect(ref.Name).To(Equal(deploymentObject.Name))
 		})
 
 		It("sets Controller to false", func() {

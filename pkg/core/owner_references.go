@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,19 +22,18 @@ import (
 	"reflect"
 	"strings"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // removeOwnerReferences iterates over a list of children and removes the owner
 // reference from the child before updating it
-func (h *Handler) removeOwnerReferences(obj *appsv1.Deployment, children []Object) error {
+func (h *Handler) removeOwnerReferences(obj podController, children []Object) error {
 	for _, child := range children {
 		// Filter the existing ownerReferences
 		ownerRefs := []metav1.OwnerReference{}
 		for _, ref := range child.GetOwnerReferences() {
-			if ref.UID != obj.UID {
+			if ref.UID != obj.GetUID() {
 				ownerRefs = append(ownerRefs, ref)
 			}
 		}
@@ -55,7 +54,7 @@ func (h *Handler) removeOwnerReferences(obj *appsv1.Deployment, children []Objec
 // updateOwnerReferences determines which children need to have their
 // OwnerReferences added/updated and which need to have their OwnerReferences
 // removed and then performs all updates
-func (h *Handler) updateOwnerReferences(owner *appsv1.Deployment, existing []Object, current []configObject) error {
+func (h *Handler) updateOwnerReferences(owner podController, existing []Object, current []configObject) error {
 	// Add an owner reference to each child object
 	errChan := make(chan error)
 	for _, obj := range current {
@@ -88,7 +87,7 @@ func (h *Handler) updateOwnerReferences(owner *appsv1.Deployment, existing []Obj
 
 // updateOwnerReference ensures that the child object has an OwnerReference
 // pointing to the owner
-func (h *Handler) updateOwnerReference(owner *appsv1.Deployment, child Object) error {
+func (h *Handler) updateOwnerReference(owner podController, child Object) error {
 	ownerRef := getOwnerReference(owner)
 	for _, ref := range child.GetOwnerReferences() {
 		// Owner Reference already exists, do nothing
@@ -121,12 +120,12 @@ func getOrphans(existing []Object, current []configObject) []Object {
 }
 
 // getOwnerReference constructs an OwnerReference pointing to the object given
-func getOwnerReference(obj *appsv1.Deployment) metav1.OwnerReference {
+func getOwnerReference(obj podController) metav1.OwnerReference {
 	t := true
 	f := false
 	return metav1.OwnerReference{
 		APIVersion:         "apps/v1",
-		Kind:               "Deployment",
+		Kind:               kindOf(obj),
 		Name:               obj.GetName(),
 		UID:                obj.GetUID(),
 		BlockOwnerDeletion: &t,
@@ -151,6 +150,12 @@ func kindOf(obj Object) string {
 		return "ConfigMap"
 	case *corev1.Secret:
 		return "Secret"
+	case *deployment:
+		return "Deployment"
+	case *statefulset:
+		return "StatefulSet"
+	case *daemonset:
+		return "DaemonSet"
 	default:
 		return "Unknown"
 	}

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -51,7 +50,7 @@ type getResult struct {
 // referenced in the Deployment's spec.  Any reference to a whole ConfigMap or Secret
 // (i.e. via an EnvFrom or a Volume) will result in one entry in the list, irrespective of
 // whether individual elements are also references (i.e. via an Env entry).
-func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]configObject, error) {
+func (h *Handler) getCurrentChildren(obj podController) ([]configObject, error) {
 	configMaps, secrets := getChildNamesByType(obj)
 
 	// get all of ConfigMaps and Secrets
@@ -97,37 +96,37 @@ func (h *Handler) getCurrentChildren(obj *appsv1.Deployment) ([]configObject, er
 // getChildNamesByType parses the Deployment object and returns two maps,
 // the first containing ConfigMap metadata for all referenced ConfigMaps, keyed on the name of the ConfigMap,
 // the second containing Secret metadata for all referenced Secrets, keyed on the name of the Secrets
-func getChildNamesByType(obj *appsv1.Deployment) (map[string]configMetadata, map[string]configMetadata) {
+func getChildNamesByType(obj podController) (map[string]configMetadata, map[string]configMetadata) {
 	// Create sets for storing the names fo the ConfigMaps/Secrets
 	configMaps := make(map[string]configMetadata)
 	secrets := make(map[string]configMetadata)
 
 	// Range through all Volumes and check the VolumeSources for ConfigMaps
 	// and Secrets
-	for _, vol := range obj.Spec.Template.Spec.Volumes {
+	for _, vol := range obj.GetPodTemplate().Spec.Volumes {
 		if cm := vol.VolumeSource.ConfigMap; cm != nil {
-			configMaps[cm.Name] = configMetadata{required: true, allKeys: true}
+			configMaps[cm.Name] = configMetadata{required: isRequired(cm.Optional), allKeys: true}
 		}
 		if s := vol.VolumeSource.Secret; s != nil {
-			secrets[s.SecretName] = configMetadata{required: true, allKeys: true}
+			secrets[s.SecretName] = configMetadata{required: isRequired(s.Optional), allKeys: true}
 		}
 	}
 
 	// Range through all Containers and their respective EnvFrom,
 	// then check the EnvFromSources for ConfigMaps and Secrets
-	for _, container := range obj.Spec.Template.Spec.Containers {
+	for _, container := range obj.GetPodTemplate().Spec.Containers {
 		for _, env := range container.EnvFrom {
 			if cm := env.ConfigMapRef; cm != nil {
-				configMaps[cm.Name] = configMetadata{required: true, allKeys: true}
+				configMaps[cm.Name] = configMetadata{required: isRequired(cm.Optional), allKeys: true}
 			}
 			if s := env.SecretRef; s != nil {
-				secrets[s.Name] = configMetadata{required: true, allKeys: true}
+				secrets[s.Name] = configMetadata{required: isRequired(s.Optional), allKeys: true}
 			}
 		}
 	}
 
 	// Range through all Containers and their respective Env
-	for _, container := range obj.Spec.Template.Spec.Containers {
+	for _, container := range obj.GetPodTemplate().Spec.Containers {
 		for _, env := range container.Env {
 			if valFrom := env.ValueFrom; valFrom != nil {
 				if cm := valFrom.ConfigMapKeyRef; cm != nil {
@@ -141,6 +140,10 @@ func getChildNamesByType(obj *appsv1.Deployment) (map[string]configMetadata, map
 	}
 
 	return configMaps, secrets
+}
+
+func isRequired(b *bool) bool {
+	return b == nil || !*b
 }
 
 // parseConfigMapKeyRef updates the metadata for a ConfigMap to include the keys specified in this ConfigMapKeySelector
@@ -199,19 +202,19 @@ func (h *Handler) getObject(namespace, name string, metadata configMetadata, obj
 
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are
 // owned by the Deployment instance
-func (h *Handler) getExistingChildren(obj *appsv1.Deployment) ([]Object, error) {
-	opts := client.InNamespace(obj.GetNamespace())
+func (h *Handler) getExistingChildren(obj podController) ([]Object, error) {
+	inNamespace := client.InNamespace(obj.GetNamespace())
 
 	// List all ConfigMaps in the Deployment's namespace
 	configMaps := &corev1.ConfigMapList{}
-	err := h.List(context.TODO(), opts, configMaps)
+	err := h.List(context.TODO(), configMaps, inNamespace)
 	if err != nil {
 		return []Object{}, fmt.Errorf("error listing ConfigMaps: %v", err)
 	}
 
 	// List all Secrets in the Deployment's namespcae
 	secrets := &corev1.SecretList{}
-	err = h.List(context.TODO(), opts, secrets)
+	err = h.List(context.TODO(), secrets, inNamespace)
 	if err != nil {
 		return []Object{}, fmt.Errorf("error listing Secrets: %v", err)
 	}

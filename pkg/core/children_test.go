@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,10 +22,11 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pusher/wave/test/utils"
+	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -34,7 +35,8 @@ var _ = Describe("Wave children Suite", func() {
 	var c client.Client
 	var h *Handler
 	var m utils.Matcher
-	var deployment *appsv1.Deployment
+	var deploymentObject *appsv1.Deployment
+	var podControllerDeployment podController
 	var existingChildren []Object
 	var currentChildren []configObject
 	var mgrStopped *sync.WaitGroup
@@ -52,10 +54,17 @@ var _ = Describe("Wave children Suite", func() {
 	var s4 *corev1.Secret
 
 	BeforeEach(func() {
-		mgr, err := manager.New(cfg, manager.Options{})
+		mgr, err := manager.New(cfg, manager.Options{
+			MetricsBindAddress: "0",
+		})
 		Expect(err).NotTo(HaveOccurred())
+		var cerr error
+		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+		Expect(cerr).NotTo(HaveOccurred())
 		c = mgr.GetClient()
-		h = NewHandler(c, mgr.GetRecorder("wave"))
+		//		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
+		h = NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave"))
+
 		m = utils.Matcher{Client: c}
 
 		// Create some configmaps and secrets
@@ -77,8 +86,10 @@ var _ = Describe("Wave children Suite", func() {
 		m.Create(s3).Should(Succeed())
 		m.Create(s4).Should(Succeed())
 
-		deployment = utils.ExampleDeployment.DeepCopy()
-		m.Create(deployment).Should(Succeed())
+		deploymentObject = utils.ExampleDeployment.DeepCopy()
+		podControllerDeployment = &deployment{deploymentObject}
+
+		m.Create(deploymentObject).Should(Succeed())
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
 
@@ -91,7 +102,7 @@ var _ = Describe("Wave children Suite", func() {
 		m.Get(s2, timeout).Should(Succeed())
 		m.Get(s3, timeout).Should(Succeed())
 		m.Get(s4, timeout).Should(Succeed())
-		m.Get(deployment, timeout).Should(Succeed())
+		m.Get(deploymentObject, timeout).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -108,7 +119,7 @@ var _ = Describe("Wave children Suite", func() {
 	Context("getCurrentChildren", func() {
 		BeforeEach(func() {
 			var err error
-			currentChildren, err = h.getCurrentChildren(deployment)
+			currentChildren, err = h.getCurrentChildren(podControllerDeployment)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -195,7 +206,7 @@ var _ = Describe("Wave children Suite", func() {
 			m.Delete(s2).Should(Succeed())
 			m.Get(s2, timeout).ShouldNot(Succeed())
 
-			current, err := h.getCurrentChildren(deployment)
+			current, err := h.getCurrentChildren(podControllerDeployment)
 			Expect(err).To(HaveOccurred())
 			Expect(current).To(BeEmpty())
 		})
@@ -206,15 +217,27 @@ var _ = Describe("Wave children Suite", func() {
 		var secrets map[string]configMetadata
 
 		BeforeEach(func() {
-			configMaps, secrets = getChildNamesByType(deployment)
+			configMaps, secrets = getChildNamesByType(podControllerDeployment)
 		})
 
 		It("returns ConfigMaps referenced in Volumes", func() {
 			Expect(configMaps).To(HaveKeyWithValue(cm1.GetName(), configMetadata{required: true, allKeys: true}))
 		})
 
+		It("optional ConfigMaps referenced in Volumes are returned as optional", func() {
+			Expect(configMaps).To(HaveKeyWithValue("volume-optional", configMetadata{required: false, allKeys: true}))
+		})
+
+		It("optional Secrets referenced in Volumes are returned as optional", func() {
+			Expect(secrets).To(HaveKeyWithValue("volume-optional", configMetadata{required: false, allKeys: true}))
+		})
+
 		It("returns ConfigMaps referenced in EnvFrom", func() {
 			Expect(configMaps).To(HaveKeyWithValue(cm2.GetName(), configMetadata{required: true, allKeys: true}))
+		})
+
+		It("optional ConfigMaps referenced in EnvFrom are returned as optional", func() {
+			Expect(configMaps).To(HaveKeyWithValue("envfrom-optional", configMetadata{required: false, allKeys: true}))
 		})
 
 		It("returns ConfigMaps referenced in Env", func() {
@@ -229,6 +252,16 @@ var _ = Describe("Wave children Suite", func() {
 			}))
 		})
 
+		It("returns ConfigMaps referenced in Env as optional correctly", func() {
+			Expect(configMaps).To(HaveKeyWithValue("env-optional", configMetadata{
+				required: false,
+				allKeys:  false,
+				keys: map[string]struct{}{
+					"key2": {},
+				},
+			}))
+		})
+
 		It("returns Secrets referenced in Volumes", func() {
 			Expect(secrets).To(HaveKeyWithValue(s1.GetName(), configMetadata{required: true, allKeys: true}))
 		})
@@ -237,8 +270,12 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(secrets).To(HaveKeyWithValue(s2.GetName(), configMetadata{required: true, allKeys: true}))
 		})
 
+		It("optional Secrets referenced in EnvFrom are returned as optional", func() {
+			Expect(secrets).To(HaveKeyWithValue("envfrom-optional", configMetadata{required: false, allKeys: true}))
+		})
+
 		It("returns Secrets referenced in Env", func() {
-			Expect(configMaps).To(HaveKeyWithValue(s3.GetName(), configMetadata{
+			Expect(secrets).To(HaveKeyWithValue(s3.GetName(), configMetadata{
 				required: true,
 				allKeys:  false,
 				keys: map[string]struct{}{
@@ -249,26 +286,37 @@ var _ = Describe("Wave children Suite", func() {
 			}))
 		})
 
+		It("returns secrets referenced in Env as optional correctly", func() {
+			Expect(secrets).To(HaveKeyWithValue("env-optional", configMetadata{
+				required: false,
+				allKeys:  false,
+				keys: map[string]struct{}{
+					"key2": {},
+				},
+			}))
+		})
+
 		It("does not return extra children", func() {
-			Expect(configMaps).To(HaveLen(4))
-			Expect(secrets).To(HaveLen(4))
+			Expect(configMaps).To(HaveLen(7))
+			Expect(secrets).To(HaveLen(7))
 		})
 	})
 
 	Context("getExistingChildren", func() {
 		BeforeEach(func() {
-			m.Get(deployment, timeout).Should(Succeed())
-			ownerRef := utils.GetOwnerRef(deployment)
+			m.Get(deploymentObject, timeout).Should(Succeed())
+			ownerRef := utils.GetOwnerRefDeployment(deploymentObject)
 
 			for _, obj := range []Object{cm1, s1} {
-				m.Get(obj, timeout).Should(Succeed())
-				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-				m.Update(obj).Should(Succeed())
+				m.Update(obj, func(obj utils.Object) utils.Object {
+					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+					return obj
+				}, timeout).Should(Succeed())
 				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 
 			var err error
-			existingChildren, err = h.getExistingChildren(deployment)
+			existingChildren, err = h.getExistingChildren(podControllerDeployment)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -300,26 +348,26 @@ var _ = Describe("Wave children Suite", func() {
 	Context("isOwnedBy", func() {
 		var ownerRef metav1.OwnerReference
 		BeforeEach(func() {
-			m.Get(deployment, timeout).Should(Succeed())
-			ownerRef = utils.GetOwnerRef(deployment)
+			m.Get(deploymentObject, timeout).Should(Succeed())
+			ownerRef = utils.GetOwnerRefDeployment(deploymentObject)
 		})
 
 		It("returns true when the child has a single owner reference pointing to the owner", func() {
 			cm1.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-			Expect(isOwnedBy(cm1, deployment)).To(BeTrue())
+			Expect(isOwnedBy(cm1, deploymentObject)).To(BeTrue())
 		})
 
 		It("returns true when the child has multiple owner references, with one pointing to the owner", func() {
 			otherRef := ownerRef
 			otherRef.UID = cm1.GetUID()
 			cm1.SetOwnerReferences([]metav1.OwnerReference{ownerRef, otherRef})
-			Expect(isOwnedBy(cm1, deployment)).To(BeTrue())
+			Expect(isOwnedBy(cm1, deploymentObject)).To(BeTrue())
 		})
 
 		It("returns false when the child has no owner reference pointing to the owner", func() {
 			ownerRef.UID = cm1.GetUID()
 			cm1.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-			Expect(isOwnedBy(cm1, deployment)).To(BeFalse())
+			Expect(isOwnedBy(cm1, deploymentObject)).To(BeFalse())
 		})
 	})
 

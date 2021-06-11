@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,16 +16,12 @@ limitations under the License.
 
 package core
 
-import (
-	appsv1 "k8s.io/api/apps/v1"
-)
-
-// hasRequiredAnnotation returns true if the given Deployment has the wave
+// hasRequiredAnnotation returns true if the given PodController has the wave
 // annotation present
-func hasRequiredAnnotation(obj *appsv1.Deployment) bool {
+func hasRequiredAnnotation(obj podController) bool {
 	annotations := obj.GetAnnotations()
 	if value, ok := annotations[RequiredAnnotation]; ok {
-		if value == "true" {
+		if value == requiredAnnotationValue {
 			return true
 		}
 	}

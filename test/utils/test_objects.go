@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -36,6 +36,490 @@ var ExampleDeployment = &appsv1.Deployment{
 		Labels:    labels,
 	},
 	Spec: appsv1.DeploymentSpec{
+		Selector: &metav1.LabelSelector{
+			MatchLabels: labels,
+		},
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: labels,
+			},
+			Spec: corev1.PodSpec{
+				Volumes: []corev1.Volume{
+					{
+						Name: "secret1",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: "example1",
+							},
+						},
+					},
+					{
+						Name: "secret-optional",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: "volume-optional",
+								Optional:   &trueValue,
+							},
+						},
+					},
+					{
+						Name: "configmap1",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "example1",
+								},
+							},
+						},
+					},
+					{
+						Name: "configmap-optional",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "volume-optional",
+								},
+								Optional: &trueValue,
+							},
+						},
+					},
+				},
+				Containers: []corev1.Container{
+					{
+						Name:  "container1",
+						Image: "container1",
+						Env: []corev1.EnvVar{
+							{
+								Name: "example1_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example1",
+										},
+										Key: "key1",
+									},
+								},
+							},
+							{
+								Name: "example1_key1_new_name",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example1",
+										},
+										Key: "key1",
+									},
+								},
+							},
+							{
+								Name: "example3_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key: "key1",
+									},
+								},
+							},
+							{
+								Name: "example3_key4",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key:      "key4",
+										Optional: &trueValue,
+									},
+								},
+							},
+							{
+								Name: "example4_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example4",
+										},
+										Key:      "key1",
+										Optional: &trueValue,
+									},
+								},
+							},
+							{
+								Name: "example1_secret_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example1",
+										},
+										Key: "key1",
+									},
+								},
+							},
+							{
+								Name: "example3_secret_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key: "key1",
+									},
+								},
+							},
+							{
+								Name: "example3_secret_key4",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key:      "key4",
+										Optional: &trueValue,
+									},
+								},
+							},
+							{
+								Name: "example4_secret_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example4",
+										},
+										Key:      "key1",
+										Optional: &trueValue,
+									},
+								},
+							},
+						},
+						EnvFrom: []corev1.EnvFromSource{
+							{
+								ConfigMapRef: &corev1.ConfigMapEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "example1",
+									},
+								},
+							},
+							{
+								ConfigMapRef: &corev1.ConfigMapEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "envfrom-optional",
+									},
+									Optional: &trueValue,
+								},
+							},
+							{
+								SecretRef: &corev1.SecretEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "example1",
+									},
+								},
+							},
+							{
+								SecretRef: &corev1.SecretEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "envfrom-optional",
+									},
+									Optional: &trueValue,
+								},
+							},
+						},
+					},
+					{
+						Name:  "container2",
+						Image: "container2",
+						Env: []corev1.EnvVar{
+							{
+								Name: "env_optional_key2",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "env-optional",
+										},
+										Key:      "key2",
+										Optional: &trueValue,
+									},
+								},
+							},
+							{
+								Name: "example3_key2",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key: "key2",
+									},
+								},
+							},
+							{
+								Name: "example3_secret_key2",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key: "key2",
+									},
+								},
+							},
+							{
+								Name: "env_optional_secret_key2",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "env-optional",
+										},
+										Key:      "key2",
+										Optional: &trueValue,
+									},
+								},
+							},
+						},
+						EnvFrom: []corev1.EnvFromSource{
+							{
+								ConfigMapRef: &corev1.ConfigMapEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "example2",
+									},
+								},
+							},
+							{
+								SecretRef: &corev1.SecretEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "example2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+// ExampleStatefulSet is an example StatefulSet object for use within test suites
+var ExampleStatefulSet = &appsv1.StatefulSet{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "example",
+		Namespace: "default",
+		Labels:    labels,
+	},
+	Spec: appsv1.StatefulSetSpec{
+		Selector: &metav1.LabelSelector{
+			MatchLabels: labels,
+		},
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: labels,
+			},
+			Spec: corev1.PodSpec{
+				Volumes: []corev1.Volume{
+					{
+						Name: "secret1",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: "example1",
+							},
+						},
+					},
+					{
+						Name: "configmap1",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "example1",
+								},
+							},
+						},
+					},
+				},
+				Containers: []corev1.Container{
+					{
+						Name:  "container1",
+						Image: "container1",
+						Env: []corev1.EnvVar{
+							{
+								Name: "example1_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example1",
+										},
+										Key: "key1",
+									},
+								},
+							},
+							{
+								Name: "example1_key1_new_name",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example1",
+										},
+										Key: "key1",
+									},
+								},
+							},
+							{
+								Name: "example3_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key: "key1",
+									},
+								},
+							},
+							{
+								Name: "example3_key4",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key:      "key4",
+										Optional: &trueValue,
+									},
+								},
+							},
+							{
+								Name: "example4_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example4",
+										},
+										Key:      "key1",
+										Optional: &trueValue,
+									},
+								},
+							},
+							{
+								Name: "example1_secret_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example1",
+										},
+										Key: "key1",
+									},
+								},
+							},
+							{
+								Name: "example3_secret_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key: "key1",
+									},
+								},
+							},
+							{
+								Name: "example3_secret_key4",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key:      "key4",
+										Optional: &trueValue,
+									},
+								},
+							},
+							{
+								Name: "example4_secret_key1",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example4",
+										},
+										Key:      "key1",
+										Optional: &trueValue,
+									},
+								},
+							},
+						},
+						EnvFrom: []corev1.EnvFromSource{
+							{
+								ConfigMapRef: &corev1.ConfigMapEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "example1",
+									},
+								},
+							},
+							{
+								SecretRef: &corev1.SecretEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "example1",
+									},
+								},
+							},
+						},
+					},
+					{
+						Name:  "container2",
+						Image: "container2",
+						Env: []corev1.EnvVar{
+							{
+								Name: "example3_key2",
+								ValueFrom: &corev1.EnvVarSource{
+									ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key: "key2",
+									},
+								},
+							},
+							{
+								Name: "example3_secret_key2",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example3",
+										},
+										Key: "key2",
+									},
+								},
+							},
+						},
+						EnvFrom: []corev1.EnvFromSource{
+							{
+								ConfigMapRef: &corev1.ConfigMapEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "example2",
+									},
+								},
+							},
+							{
+								SecretRef: &corev1.SecretEnvSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "example2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+// ExampleDaemonSet is an example DaemonSet object for use within test suites
+var ExampleDaemonSet = &appsv1.DaemonSet{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "example",
+		Namespace: "default",
+		Labels:    labels,
+	},
+	Spec: appsv1.DaemonSetSpec{
 		Selector: &metav1.LabelSelector{
 			MatchLabels: labels,
 		},

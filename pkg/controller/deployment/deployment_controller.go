@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package deployment
 import (
 	"context"
 
-	"github.com/pusher/wave/pkg/core"
+	"github.com/wave-k8s/wave/pkg/core"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,7 +41,7 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileDeployment{
 		scheme:  mgr.GetScheme(),
-		handler: core.NewHandler(mgr.GetClient(), mgr.GetRecorder("wave")),
+		handler: core.NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
 	}
 }
 

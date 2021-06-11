@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"reflect"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -98,14 +97,16 @@ func getSecretData(child configObject) map[string][]byte {
 
 // setConfigHash upates the configuration hash of the given Deployment to the
 // given string
-func setConfigHash(obj *appsv1.Deployment, hash string) {
+func setConfigHash(obj podController, hash string) {
 	// Get the existing annotations
-	annotations := obj.Spec.Template.GetAnnotations()
+	podTemplate := obj.GetPodTemplate()
+	annotations := podTemplate.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
 
 	// Update the annotations
 	annotations[ConfigHashAnnotation] = hash
-	obj.Spec.Template.SetAnnotations(annotations)
+	podTemplate.SetAnnotations(annotations)
+	obj.SetPodTemplate(podTemplate)
 }

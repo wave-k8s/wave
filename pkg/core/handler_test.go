@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,12 +24,13 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pusher/wave/test/utils"
+	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -54,11 +55,18 @@ var _ = Describe("Wave controller Suite", func() {
 	var s2 *corev1.Secret
 	var s3 *corev1.Secret
 
+	var modified = "modified"
+
 	BeforeEach(func() {
-		mgr, err := manager.New(cfg, manager.Options{})
+		mgr, err := manager.New(cfg, manager.Options{
+			MetricsBindAddress: "0",
+		})
 		Expect(err).NotTo(HaveOccurred())
-		c = mgr.GetClient()
-		h = NewHandler(c, mgr.GetRecorder("wave"))
+		var cerr error
+		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+		Expect(cerr).NotTo(HaveOccurred())
+
+		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
 		m = utils.Matcher{Client: c}
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
@@ -92,7 +100,7 @@ var _ = Describe("Wave controller Suite", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		m.Get(deployment).Should(Succeed())
-		ownerRef = utils.GetOwnerRef(deployment)
+		ownerRef = utils.GetOwnerRefDeployment(deployment)
 	})
 
 	AfterEach(func() {
@@ -143,10 +151,12 @@ var _ = Describe("Wave controller Suite", func() {
 				if annotations == nil {
 					annotations = make(map[string]string)
 				}
-				annotations[RequiredAnnotation] = "true"
-				deployment.SetAnnotations(annotations)
+				annotations[RequiredAnnotation] = requiredAnnotationValue
 
-				m.Update(deployment).Should(Succeed())
+				m.Update(deployment, func(obj utils.Object) utils.Object {
+					obj.SetAnnotations(annotations)
+					return obj
+				}, timeout).Should(Succeed())
 				_, err := h.HandleDeployment(deployment)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -190,8 +200,11 @@ var _ = Describe("Wave controller Suite", func() {
 					// example2
 					containers := deployment.Spec.Template.Spec.Containers
 					Expect(containers[0].Name).To(Equal("container1"))
-					deployment.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
-					m.Update(deployment).Should(Succeed())
+					m.Update(deployment, func(obj utils.Object) utils.Object {
+						dpl := obj.(*appsv1.Deployment)
+						dpl.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
+						return dpl
+					}).Should(Succeed())
 					_, err := h.HandleDeployment(deployment)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -222,9 +235,11 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
-						m.Get(cm1, timeout).Should(Succeed())
-						cm1.Data["key1"] = "modified"
-						m.Update(cm1).Should(Succeed())
+						m.Update(cm1, func(obj utils.Object) utils.Object {
+							cm := obj.(*corev1.ConfigMap)
+							cm.Data["key1"] = modified
+							return cm
+						}).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
 						Expect(err).NotTo(HaveOccurred())
@@ -240,9 +255,11 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.Get(cm2, timeout).Should(Succeed())
-						cm2.Data["key1"] = "modified"
-						m.Update(cm2).Should(Succeed())
+						m.Update(cm2, func(obj utils.Object) utils.Object {
+							cm := obj.(*corev1.ConfigMap)
+							cm.Data["key1"] = modified
+							return cm
+						}, timeout).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
 						Expect(err).NotTo(HaveOccurred())
@@ -258,9 +275,12 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A ConfigMap Env for a key being used is updated", func() {
 					BeforeEach(func() {
-						m.Get(cm3, timeout).Should(Succeed())
-						cm3.Data["key1"] = "modified"
-						m.Update(cm3).Should(Succeed())
+						m.Update(cm3, func(obj utils.Object) utils.Object {
+							cm := obj.(*corev1.ConfigMap)
+							cm.Data["key1"] = modified
+
+							return cm
+						}, timeout).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
 						Expect(err).NotTo(HaveOccurred())
@@ -276,9 +296,12 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A ConfigMap Env for a key that is not being used is updated", func() {
 					BeforeEach(func() {
-						m.Get(cm3, timeout).Should(Succeed())
-						cm3.Data["key3"] = "modified"
-						m.Update(cm3).Should(Succeed())
+						m.Update(cm3, func(obj utils.Object) utils.Object {
+							cm := obj.(*corev1.ConfigMap)
+							cm.Data["key3"] = modified
+
+							return cm
+						}, timeout).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
 						Expect(err).NotTo(HaveOccurred())
@@ -294,12 +317,15 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
-						m.Get(s1, timeout).Should(Succeed())
-						if s1.StringData == nil {
-							s1.StringData = make(map[string]string)
-						}
-						s1.StringData["key1"] = "modified"
-						m.Update(s1).Should(Succeed())
+						m.Update(s1, func(obj utils.Object) utils.Object {
+							s := obj.(*corev1.Secret)
+							if s.StringData == nil {
+								s.StringData = make(map[string]string)
+							}
+							s.StringData["key1"] = modified
+
+							return s
+						}, timeout).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
 						Expect(err).NotTo(HaveOccurred())
@@ -315,12 +341,15 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.Get(s2, timeout).Should(Succeed())
-						if s2.StringData == nil {
-							s2.StringData = make(map[string]string)
-						}
-						s2.StringData["key1"] = "modified"
-						m.Update(s2).Should(Succeed())
+						m.Update(s2, func(obj utils.Object) utils.Object {
+							s := obj.(*corev1.Secret)
+							if s.StringData == nil {
+								s.StringData = make(map[string]string)
+							}
+							s.StringData["key1"] = modified
+
+							return s
+						}, timeout).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
 						Expect(err).NotTo(HaveOccurred())
@@ -336,12 +365,15 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A Secret Env for a key being used is updated", func() {
 					BeforeEach(func() {
-						m.Get(s3, timeout).Should(Succeed())
-						if s3.StringData == nil {
-							s3.StringData = make(map[string]string)
-						}
-						s3.StringData["key1"] = "modified"
-						m.Update(s3).Should(Succeed())
+						m.Update(s3, func(obj utils.Object) utils.Object {
+							s := obj.(*corev1.Secret)
+							if s.StringData == nil {
+								s.StringData = make(map[string]string)
+							}
+							s.StringData["key1"] = modified
+
+							return s
+						}, timeout).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
 						Expect(err).NotTo(HaveOccurred())
@@ -357,12 +389,15 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A Secret Env for a key that is not being used is updated", func() {
 					BeforeEach(func() {
-						m.Get(s3, timeout).Should(Succeed())
-						if s3.StringData == nil {
-							s3.StringData = make(map[string]string)
-						}
-						s3.StringData["key3"] = "modified"
-						m.Update(s3).Should(Succeed())
+						m.Update(s3, func(obj utils.Object) utils.Object {
+							s := obj.(*corev1.Secret)
+							if s.StringData == nil {
+								s.StringData = make(map[string]string)
+							}
+							s.StringData["key3"] = modified
+
+							return s
+						}, timeout).Should(Succeed())
 
 						_, err := h.HandleDeployment(deployment)
 						Expect(err).NotTo(HaveOccurred())
@@ -381,10 +416,11 @@ var _ = Describe("Wave controller Suite", func() {
 				BeforeEach(func() {
 					// Make sure the cache has synced before we run the test
 					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
+					m.Update(deployment, func(obj utils.Object) utils.Object {
+						obj.SetAnnotations(make(map[string]string))
 
-					m.Get(deployment, timeout).Should(Succeed())
-					deployment.SetAnnotations(make(map[string]string))
-					m.Update(deployment).Should(Succeed())
+						return obj
+					}, timeout).Should(Succeed())
 					_, err := h.HandleDeployment(deployment)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -409,6 +445,8 @@ var _ = Describe("Wave controller Suite", func() {
 
 					m.Delete(deployment).Should(Succeed())
 					m.Eventually(deployment, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
+					m.Get(deployment).Should(Succeed())
+
 					_, err := h.HandleDeployment(deployment)
 					Expect(err).NotTo(HaveOccurred())
 				})

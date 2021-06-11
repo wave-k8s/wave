@@ -41,9 +41,7 @@ spec:
         controller-tools.k8s.io: "1.0"
     spec:
       containers:
-      - command:
-        - /bin/manager
-        image: controller:latest
+      - image: controller:latest
         imagePullPolicy: Always
         name: manager
         env:
@@ -56,10 +54,10 @@ spec:
         resources:
           limits:
             cpu: 100m
-            memory: 30Mi
+            memory: 75Mi
           requests:
             cpu: 100m
-            memory: 20Mi
+            memory: 75Mi
         ports:
         - containerPort: 9876
           name: webhook-server

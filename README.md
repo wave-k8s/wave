@@ -58,17 +58,33 @@ rather than when the Pods happen to be re-cycled.
 
 ## Installation
 
+Wave is released periodically. The latest version is `v0.5.0`
+
+A list of changes can be seen in the [CHANGELOG](CHANGELOG.md).
+
 ### Deploying to Kubernetes
+
+Public docker images for releases since v0.4.0 are available on [Quay](https://quay.io/repository/wave-k8s/wave).
+
+#### Deploying with Helm
+
+Helm charts are available in this repository and hosted through Github Pages.
+To deploy, add the repository to helm and install:
+
+```
+$ helm repo add wave-k8s https://wave-k8s.github.io/wave/
+$ helm install wave-k8s/wave
+```
+
+#### Deploying with Kustomize
 
 Wave is a [Kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) based
 project, as such we have auto-generated [Kustomize](https://github.com/kubernetes-sigs/kustomize)
 configuration as an example of how to install the controller in the
 [config](config) folder.
 
-A public docker image is available on [Quay](https://quay.io/repository/pusher/wave).
-
 ```
-quay.io/pusher/wave
+quay.io/wave-k8s/wave
 ```
 
 #### RBAC
@@ -224,7 +240,7 @@ Deployment is deleted.
 When Wave encounters a Deployment marked for deletion that has the Wave
 Finalizer, it checks for all ConfigMaps and Secrets with an OwnerReference
 pointing to the Deployment and removes the OwnerReference. Thus preventing the
-ConfigMaps and Secrets from being delted by the Garbage Collector.
+ConfigMaps and Secrets from being deleted by the Garbage Collector.
 
 Read the docs for more about
 [Kubernetes Garbage Collection](https://kubernetes.io/docs/concepts/workloads/controllers/garbage-collection/).

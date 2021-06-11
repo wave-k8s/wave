@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GetOwnerRef constructs an owner reference for the Deployment given
-func GetOwnerRef(deployment *appsv1.Deployment) metav1.OwnerReference {
+// GetOwnerRefDeployment constructs an owner reference for the Deployment given
+func GetOwnerRefDeployment(deployment *appsv1.Deployment) metav1.OwnerReference {
 	f := false
 	t := true
 	return metav1.OwnerReference{
@@ -30,6 +30,34 @@ func GetOwnerRef(deployment *appsv1.Deployment) metav1.OwnerReference {
 		Kind:               "Deployment",
 		Name:               deployment.Name,
 		UID:                deployment.UID,
+		Controller:         &f,
+		BlockOwnerDeletion: &t,
+	}
+}
+
+// GetOwnerRefStatefulSet constructs an owner reference for the StatefulSet given
+func GetOwnerRefStatefulSet(sts *appsv1.StatefulSet) metav1.OwnerReference {
+	f := false
+	t := true
+	return metav1.OwnerReference{
+		APIVersion:         "apps/v1",
+		Kind:               "StatefulSet",
+		Name:               sts.Name,
+		UID:                sts.UID,
+		Controller:         &f,
+		BlockOwnerDeletion: &t,
+	}
+}
+
+// GetOwnerRefDaemonSet constructs an owner reference for the DaemonSet given
+func GetOwnerRefDaemonSet(sts *appsv1.DaemonSet) metav1.OwnerReference {
+	f := false
+	t := true
+	return metav1.OwnerReference{
+		APIVersion:         "apps/v1",
+		Kind:               "DaemonSet",
+		Name:               sts.Name,
+		UID:                sts.UID,
 		Controller:         &f,
 		BlockOwnerDeletion: &t,
 	}

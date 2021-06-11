@@ -1,0 +1,41 @@
+name: build-and-push
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+jobs:
+  build:
+    env:
+      image_name: wave
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Get image tags
+        id: image_tags
+        run: |
+          echo -n ::set-output name=IMAGE_TAGS::
+          TAGS=('latest')
+          GIT_HASH=$(git rev-parse --short "$GITHUB_SHA")
+          TAGS+=("$GIT_HASH")
+          if [[ "${GITHUB_REF}" =~ refs/tags/(.*) ]]; then
+            TAGS+=("${BASH_REMATCH[1]}")
+          fi
+          ( IFS=$','; echo "${TAGS[*]}" )
+      - name: Get binary version
+        id: version
+        run: |
+          echo -n ::set-output name=VERSION::
+          VERSION=$(git describe --always --dirty --tags 2>/dev/null || echo "undefined")
+          ( echo "$VERSION" )
+      - name: Build and publish image to Quay
+        uses: docker/build-push-action@v1
+        with:
+          build_args: |
+            VERSION=${{ steps.version.outputs.VERSION }}
+          registry: ${{ secrets.REGISTRY_URI }}
+          repository: ${{ secrets.REGISTRY_REPOSITORY}}/${{ env.image_name }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+          tags: "${{ steps.image_tags.outputs.IMAGE_TAGS }}"

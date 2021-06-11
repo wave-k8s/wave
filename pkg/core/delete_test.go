@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,12 +24,13 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pusher/wave/test/utils"
+	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -38,7 +39,8 @@ var _ = Describe("Wave owner references Suite", func() {
 	var c client.Client
 	var h *Handler
 	var m utils.Matcher
-	var deployment *appsv1.Deployment
+	var deploymentObject *appsv1.Deployment
+	var podControllerDeployment podController
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
@@ -47,10 +49,14 @@ var _ = Describe("Wave owner references Suite", func() {
 	var ownerRef metav1.OwnerReference
 
 	BeforeEach(func() {
-		mgr, err := manager.New(cfg, manager.Options{})
+		mgr, err := manager.New(cfg, manager.Options{
+			MetricsBindAddress: "0",
+		})
 		Expect(err).NotTo(HaveOccurred())
-		c = mgr.GetClient()
-		h = NewHandler(c, mgr.GetRecorder("wave"))
+		var cerr error
+		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+		Expect(cerr).NotTo(HaveOccurred())
+		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
 		m = utils.Matcher{Client: c}
 
 		// Create some configmaps and secrets
@@ -59,13 +65,15 @@ var _ = Describe("Wave owner references Suite", func() {
 		m.Create(utils.ExampleSecret1.DeepCopy()).Should(Succeed())
 		m.Create(utils.ExampleSecret2.DeepCopy()).Should(Succeed())
 
-		deployment = utils.ExampleDeployment.DeepCopy()
-		m.Create(deployment).Should(Succeed())
+		deploymentObject = utils.ExampleDeployment.DeepCopy()
+		podControllerDeployment = &deployment{deploymentObject}
 
-		ownerRef = utils.GetOwnerRef(deployment)
+		m.Create(deploymentObject).Should(Succeed())
+
+		ownerRef = utils.GetOwnerRefDeployment(deploymentObject)
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
-		m.Get(deployment, timeout).Should(Succeed())
+		m.Get(deploymentObject, timeout).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -92,45 +100,49 @@ var _ = Describe("Wave owner references Suite", func() {
 			s2 = utils.ExampleSecret2.DeepCopy()
 
 			for _, obj := range []Object{cm1, cm2, s1, s2} {
-				obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
-				m.Update(obj).Should(Succeed())
+				m.Update(obj, func(obj utils.Object) utils.Object {
+					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
+					return obj
+				}, timeout).Should(Succeed())
 			}
 
-			f := deployment.GetFinalizers()
+			f := deploymentObject.GetFinalizers()
 			f = append(f, FinalizerString)
 			f = append(f, "keep.me.around/finalizer")
-			deployment.SetFinalizers(f)
-			m.Update(deployment).Should(Succeed())
+			m.Update(deploymentObject, func(obj utils.Object) utils.Object {
+				obj.SetFinalizers(f)
+				return obj
+			}, timeout).Should(Succeed())
 
-			_, err := h.handleDelete(deployment)
+			_, err := h.handleDelete(podControllerDeployment)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
 			// Make sure to delete any finalizers (if the deployment exists)
 			Eventually(func() error {
-				key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-				err := c.Get(context.TODO(), key, deployment)
+				key := types.NamespacedName{Namespace: deploymentObject.GetNamespace(), Name: deploymentObject.GetName()}
+				err := c.Get(context.TODO(), key, deploymentObject)
 				if err != nil && errors.IsNotFound(err) {
 					return nil
 				}
 				if err != nil {
 					return err
 				}
-				deployment.SetFinalizers([]string{})
-				return c.Update(context.TODO(), deployment)
+				deploymentObject.SetFinalizers([]string{})
+				return c.Update(context.TODO(), deploymentObject)
 			}, timeout).Should(Succeed())
 
 			Eventually(func() error {
-				key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-				err := c.Get(context.TODO(), key, deployment)
+				key := types.NamespacedName{Namespace: deploymentObject.GetNamespace(), Name: deploymentObject.GetName()}
+				err := c.Get(context.TODO(), key, deploymentObject)
 				if err != nil && errors.IsNotFound(err) {
 					return nil
 				}
 				if err != nil {
 					return err
 				}
-				if len(deployment.GetFinalizers()) > 0 {
+				if len(deploymentObject.GetFinalizers()) > 0 {
 					return fmt.Errorf("Finalizers not upated")
 				}
 				return nil
@@ -144,7 +156,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		})
 
 		It("removes the finalizer from the deployment", func() {
-			m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
+			m.Eventually(deploymentObject, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
 		})
 	})
 
@@ -152,12 +164,12 @@ var _ = Describe("Wave owner references Suite", func() {
 	Context("toBeDeleted", func() {
 		It("returns true if deletion timestamp is non-nil", func() {
 			t := metav1.NewTime(time.Now())
-			deployment.SetDeletionTimestamp(&t)
-			Expect(toBeDeleted(deployment)).To(BeTrue())
+			deploymentObject.SetDeletionTimestamp(&t)
+			Expect(toBeDeleted(deploymentObject)).To(BeTrue())
 		})
 
 		It("returns false if the deleteion timestamp is nil", func() {
-			Expect(toBeDeleted(deployment)).To(BeFalse())
+			Expect(toBeDeleted(deploymentObject)).To(BeFalse())
 		})
 
 	})

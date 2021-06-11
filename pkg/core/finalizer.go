@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,27 +16,23 @@ limitations under the License.
 
 package core
 
-import (
-	appsv1 "k8s.io/api/apps/v1"
-)
-
-// addFinalizer adds the wave finalizer to the given Deployment
-func addFinalizer(obj *appsv1.Deployment) {
+// addFinalizer adds the wave finalizer to the given PodController
+func addFinalizer(obj podController) {
 	finalizers := obj.GetFinalizers()
 	for _, finalizer := range finalizers {
 		if finalizer == FinalizerString {
-			// Deployment already contains the finalizer
+			// podController already contains the finalizer
 			return
 		}
 	}
 
-	//Deployment doens't contain the finalizer, so add it
+	//podController doesn't contain the finalizer, so add it
 	finalizers = append(finalizers, FinalizerString)
 	obj.SetFinalizers(finalizers)
 }
 
-// removeFinalizer removes the wave finalizer from the given Deployment
-func removeFinalizer(obj *appsv1.Deployment) {
+// removeFinalizer removes the wave finalizer from the given podController
+func removeFinalizer(obj podController) {
 	finalizers := obj.GetFinalizers()
 
 	// Filter existing finalizers removing any that match the finalizerString
@@ -52,11 +48,11 @@ func removeFinalizer(obj *appsv1.Deployment) {
 }
 
 // hasFinalizer checks for the presence of the Wave finalizer
-func hasFinalizer(obj *appsv1.Deployment) bool {
+func hasFinalizer(obj podController) bool {
 	finalizers := obj.GetFinalizers()
 	for _, finalizer := range finalizers {
 		if finalizer == FinalizerString {
-			// Deployment already contains the finalizer
+			// podController already contains the finalizer
 			return true
 		}
 	}

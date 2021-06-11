@@ -1,3 +1,8 @@
-bin
-vendor
+vendor/
+release/
+.env
 cover.out
+/wave
+**/.DS_Store
+kubebuilder
+*.code-workspace

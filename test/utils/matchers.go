@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import (
 	"github.com/onsi/gomega"
 	gtypes "github.com/onsi/gomega/types"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,6 +43,10 @@ type Object interface {
 	metav1.Object
 }
 
+// UpdateFunc modifies the object fetched from the API server before sending
+// the update
+type UpdateFunc func(Object) Object
+
 // Create creates the object on the API server
 func (m *Matcher) Create(obj Object, extras ...interface{}) gomega.GomegaAssertion {
 	err := m.Client.Create(context.TODO(), obj)
@@ -53,10 +59,19 @@ func (m *Matcher) Delete(obj Object, extras ...interface{}) gomega.GomegaAsserti
 	return gomega.Expect(err, extras)
 }
 
-// Update udpates the object on the API server
-func (m *Matcher) Update(obj Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
+// Update udpates the object on the API server by fetching the object
+// and applying a mutating UpdateFunc before sending the update
+func (m *Matcher) Update(obj Object, fn UpdateFunc, intervals ...interface{}) gomega.GomegaAsyncAssertion {
+	key := types.NamespacedName{
+		Name:      obj.GetName(),
+		Namespace: obj.GetNamespace(),
+	}
 	update := func() error {
-		return m.Client.Update(context.TODO(), obj)
+		err := m.Client.Get(context.TODO(), key, obj)
+		if err != nil {
+			return err
+		}
+		return m.Client.Update(context.TODO(), fn(obj))
 	}
 	return gomega.Eventually(update, intervals...)
 }
@@ -109,16 +124,35 @@ func (m *Matcher) Eventually(obj runtime.Object, intervals ...interface{}) gomeg
 
 // eventuallyObject gets an individual object from the API server
 func (m *Matcher) eventuallyObject(obj Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
+
 	key := types.NamespacedName{
 		Name:      obj.GetName(),
 		Namespace: obj.GetNamespace(),
 	}
+
 	get := func() Object {
-		err := m.Client.Get(context.TODO(), key, obj)
+		var u Object
+		switch obj.(type) {
+		case *appsv1.StatefulSet:
+			u = &appsv1.StatefulSet{}
+		case *corev1.ConfigMap:
+			u = &corev1.ConfigMap{}
+		case *corev1.Secret:
+			u = &corev1.Secret{}
+		case *appsv1.Deployment:
+			u = &appsv1.Deployment{}
+		case *appsv1.DaemonSet:
+			u = &appsv1.DaemonSet{}
+		default:
+			panic("Unknown Object type.")
+		}
+
+		err := m.Client.Get(context.TODO(), key, u)
 		if err != nil {
 			panic(err)
 		}
-		return obj
+
+		return u
 	}
 	return gomega.Eventually(get, intervals...)
 }
@@ -126,11 +160,22 @@ func (m *Matcher) eventuallyObject(obj Object, intervals ...interface{}) gomega.
 // eventuallyList gets a list type  from the API server
 func (m *Matcher) eventuallyList(obj runtime.Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
 	list := func() runtime.Object {
-		err := m.Client.List(context.TODO(), &client.ListOptions{}, obj)
+		var u runtime.Object
+		switch obj.(type) {
+		case *corev1.EventList:
+			u = &corev1.EventList{}
+		case *corev1.SecretList:
+			u = &corev1.SecretList{}
+		case *corev1.ConfigMapList:
+			u = &corev1.ConfigMapList{}
+		default:
+			panic("Unknown List type.")
+		}
+		err := m.Client.List(context.TODO(), u)
 		if err != nil {
 			panic(err)
 		}
-		return obj
+		return u
 	}
 	return gomega.Eventually(list, intervals...)
 }
@@ -167,14 +212,19 @@ func WithOwnerReferences(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
 	}, matcher)
 }
 
-// WithPodTemplateAnnotations returns the deployments PodTemplate's annotations
+// WithPodTemplateAnnotations returns the PodTemplate's annotations
 func WithPodTemplateAnnotations(matcher gtypes.GomegaMatcher) gtypes.GomegaMatcher {
 	return gomega.WithTransform(func(obj Object) map[string]string {
-		dep, ok := obj.(*appsv1.Deployment)
-		if !ok {
-			panic("Unknown Object.")
+		switch obj.(type) {
+		case *appsv1.Deployment:
+			return obj.(*appsv1.Deployment).Spec.Template.GetAnnotations()
+		case *appsv1.StatefulSet:
+			return obj.(*appsv1.StatefulSet).Spec.Template.GetAnnotations()
+		case *appsv1.DaemonSet:
+			return obj.(*appsv1.DaemonSet).Spec.Template.GetAnnotations()
+		default:
+			panic("Unknown pod template type.")
 		}
-		return dep.Spec.Template.GetAnnotations()
 	}, matcher)
 }
 

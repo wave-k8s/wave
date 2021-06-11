@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,9 +22,10 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pusher/wave/test/utils"
+	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -46,10 +47,16 @@ var _ = Describe("Wave hash Suite", func() {
 		var s2 *corev1.Secret
 		var s3 *corev1.Secret
 
+		var modified = "modified"
+
 		BeforeEach(func() {
-			mgr, err := manager.New(cfg, manager.Options{})
+			mgr, err := manager.New(cfg, manager.Options{
+				MetricsBindAddress: "0",
+			})
 			Expect(err).NotTo(HaveOccurred())
-			c = mgr.GetClient()
+			var cerr error
+			c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+			Expect(cerr).NotTo(HaveOccurred())
 			m = utils.Matcher{Client: c}
 
 			stopMgr, mgrStopped = StartTestManager(mgr)
@@ -98,8 +105,12 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key1"] = "modified"
-			m.Update(cm1).Should(Succeed())
+			m.Update(cm1, func(obj utils.Object) utils.Object {
+				cm := obj.(*corev1.ConfigMap)
+				cm.Data["key1"] = modified
+
+				return cm
+			}, timeout).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -117,8 +128,12 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key1"] = "modified"
-			m.Update(cm1).Should(Succeed())
+			m.Update(cm1, func(obj utils.Object) utils.Object {
+				cm := obj.(*corev1.ConfigMap)
+				cm.Data["key1"] = modified
+
+				return cm
+			}, timeout).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -142,10 +157,19 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key1"] = "modified"
-			m.Update(cm1).Should(Succeed())
-			s1.Data["key1"] = []byte("modified")
-			m.Update(s1).Should(Succeed())
+			m.Update(cm1, func(obj utils.Object) utils.Object {
+				cm := obj.(*corev1.ConfigMap)
+				cm.Data["key1"] = modified
+
+				return cm
+			}, timeout).Should(Succeed())
+
+			m.Update(s1, func(obj utils.Object) utils.Object {
+				s := obj.(*corev1.Secret)
+				s.Data["key1"] = []byte("modified")
+
+				return s
+			}, timeout).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -169,10 +193,19 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			cm1.Data["key3"] = "modified"
-			m.Update(cm1).Should(Succeed())
-			s1.Data["key3"] = []byte("modified")
-			m.Update(s1).Should(Succeed())
+			m.Update(cm1, func(obj utils.Object) utils.Object {
+				cm := obj.(*corev1.ConfigMap)
+				cm.Data["key3"] = modified
+
+				return cm
+			}, timeout).Should(Succeed())
+
+			m.Update(s1, func(obj utils.Object) utils.Object {
+				s1 := obj.(*corev1.Secret)
+				s1.Data["key3"] = []byte("modified")
+
+				return s1
+			}, timeout).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -190,8 +223,12 @@ var _ = Describe("Wave hash Suite", func() {
 			h1, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
-			s1.Annotations = map[string]string{"new": "annotations"}
-			m.Update(s1).Should(Succeed())
+			m.Update(s1, func(obj utils.Object) utils.Object {
+				s := obj.(*corev1.Secret)
+				s.Annotations = map[string]string{"new": "annotations"}
+
+				return s
+			}, timeout).Should(Succeed())
 			h2, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -242,16 +279,18 @@ var _ = Describe("Wave hash Suite", func() {
 	})
 
 	Context("setConfigHash", func() {
-		var deployment *appsv1.Deployment
+		var deploymentObject *appsv1.Deployment
+		var podControllerDeployment podController
 
 		BeforeEach(func() {
-			deployment = utils.ExampleDeployment.DeepCopy()
+			deploymentObject = utils.ExampleDeployment.DeepCopy()
+			podControllerDeployment = &deployment{deploymentObject}
 		})
 
 		It("sets the hash annotation to the provided value", func() {
-			setConfigHash(deployment, "1234")
+			setConfigHash(podControllerDeployment, "1234")
 
-			podAnnotations := deployment.Spec.Template.GetAnnotations()
+			podAnnotations := deploymentObject.Spec.Template.GetAnnotations()
 			Expect(podAnnotations).NotTo(BeNil())
 
 			hash, ok := podAnnotations[ConfigHashAnnotation]
@@ -261,18 +300,18 @@ var _ = Describe("Wave hash Suite", func() {
 
 		It("leaves existing annotations in place", func() {
 			// Add an annotation to the pod spec
-			podAnnotations := deployment.Spec.Template.GetAnnotations()
+			podAnnotations := deploymentObject.Spec.Template.GetAnnotations()
 			if podAnnotations == nil {
 				podAnnotations = make(map[string]string)
 			}
 			podAnnotations["existing"] = "annotation"
-			deployment.Spec.Template.SetAnnotations(podAnnotations)
+			deploymentObject.Spec.Template.SetAnnotations(podAnnotations)
 
 			// Set the config hash
-			setConfigHash(deployment, "1234")
+			setConfigHash(podControllerDeployment, "1234")
 
 			// Check the existing annotation is still in place
-			podAnnotations = deployment.Spec.Template.GetAnnotations()
+			podAnnotations = deploymentObject.Spec.Template.GetAnnotations()
 			Expect(podAnnotations).NotTo(BeNil())
 
 			hash, ok := podAnnotations["existing"]

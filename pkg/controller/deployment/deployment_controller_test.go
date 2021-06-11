@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Pusher Ltd.
+Copyright 2018 Pusher Ltd. and Wave Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,15 +24,18 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pusher/wave/pkg/core"
-	"github.com/pusher/wave/test/utils"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/wave-k8s/wave/pkg/core"
+	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -56,6 +59,8 @@ var _ = Describe("Deployment controller Suite", func() {
 	var s2 *corev1.Secret
 	var s3 *corev1.Secret
 
+	const modified = "modified"
+
 	var waitForDeploymentReconciled = func(obj core.Object) {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -68,9 +73,16 @@ var _ = Describe("Deployment controller Suite", func() {
 	}
 
 	BeforeEach(func() {
-		mgr, err := manager.New(cfg, manager.Options{})
+		// Reset the Prometheus Registry before each test to avoid errors
+		metrics.Registry = prometheus.NewRegistry()
+
+		mgr, err := manager.New(cfg, manager.Options{
+			MetricsBindAddress: "0",
+		})
 		Expect(err).NotTo(HaveOccurred())
-		c = mgr.GetClient()
+		var cerr error
+		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+		Expect(cerr).NotTo(HaveOccurred())
 		m = utils.Matcher{Client: c}
 
 		var recFn reconcile.Reconciler
@@ -106,7 +118,7 @@ var _ = Describe("Deployment controller Suite", func() {
 		m.Create(deployment).Should(Succeed())
 		waitForDeploymentReconciled(deployment)
 
-		ownerRef = utils.GetOwnerRef(deployment)
+		ownerRef = utils.GetOwnerRefDeployment(deployment)
 	})
 
 	AfterEach(func() {
@@ -153,14 +165,17 @@ var _ = Describe("Deployment controller Suite", func() {
 	Context("When a Deployment is reconciled", func() {
 		Context("And it has the required annotation", func() {
 			BeforeEach(func() {
-				annotations := deployment.GetAnnotations()
-				if annotations == nil {
-					annotations = make(map[string]string)
+				addAnnotation := func(obj utils.Object) utils.Object {
+					annotations := obj.GetAnnotations()
+					if annotations == nil {
+						annotations = make(map[string]string)
+					}
+					annotations[core.RequiredAnnotation] = "true"
+					obj.SetAnnotations(annotations)
+					return obj
 				}
-				annotations[core.RequiredAnnotation] = "true"
-				deployment.SetAnnotations(annotations)
 
-				m.Update(deployment).Should(Succeed())
+				m.Update(deployment, addAnnotation).Should(Succeed())
 				waitForDeploymentReconciled(deployment)
 
 				// Get the updated Deployment
@@ -201,10 +216,16 @@ var _ = Describe("Deployment controller Suite", func() {
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
-					containers := deployment.Spec.Template.Spec.Containers
-					Expect(containers[0].Name).To(Equal("container1"))
-					deployment.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
-					m.Update(deployment).Should(Succeed())
+					removeContainer2 := func(obj utils.Object) utils.Object {
+						dep, _ := obj.(*appsv1.Deployment)
+						containers := dep.Spec.Template.Spec.Containers
+						Expect(containers[0].Name).To(Equal("container1"))
+						dep.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
+						return dep
+					}
+
+					m.Update(deployment, removeContainer2).Should(Succeed())
+					waitForDeploymentReconciled(deployment)
 					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment
@@ -234,9 +255,12 @@ var _ = Describe("Deployment controller Suite", func() {
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
-						m.Get(cm1, timeout).Should(Succeed())
-						cm1.Data["key1"] = "modified"
-						m.Update(cm1).Should(Succeed())
+						modifyCM := func(obj utils.Object) utils.Object {
+							cm, _ := obj.(*corev1.ConfigMap)
+							cm.Data["key1"] = modified
+							return cm
+						}
+						m.Update(cm1, modifyCM).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -251,9 +275,12 @@ var _ = Describe("Deployment controller Suite", func() {
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.Get(cm2, timeout).Should(Succeed())
-						cm2.Data["key1"] = "modified"
-						m.Update(cm2).Should(Succeed())
+						modifyCM := func(obj utils.Object) utils.Object {
+							cm, _ := obj.(*corev1.ConfigMap)
+							cm.Data["key1"] = modified
+							return cm
+						}
+						m.Update(cm2, modifyCM).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -268,12 +295,15 @@ var _ = Describe("Deployment controller Suite", func() {
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
-						m.Get(s1, timeout).Should(Succeed())
-						if s1.StringData == nil {
-							s1.StringData = make(map[string]string)
+						modifyS := func(obj utils.Object) utils.Object {
+							s, _ := obj.(*corev1.Secret)
+							if s.StringData == nil {
+								s.StringData = make(map[string]string)
+							}
+							s.StringData["key1"] = modified
+							return s
 						}
-						s1.StringData["key1"] = "modified"
-						m.Update(s1).Should(Succeed())
+						m.Update(s1, modifyS).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -288,12 +318,15 @@ var _ = Describe("Deployment controller Suite", func() {
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.Get(s2, timeout).Should(Succeed())
-						if s2.StringData == nil {
-							s2.StringData = make(map[string]string)
+						modifyS := func(obj utils.Object) utils.Object {
+							s, _ := obj.(*corev1.Secret)
+							if s.StringData == nil {
+								s.StringData = make(map[string]string)
+							}
+							s.StringData["key1"] = modified
+							return s
 						}
-						s2.StringData["key1"] = "modified"
-						m.Update(s2).Should(Succeed())
+						m.Update(s2, modifyS).Should(Succeed())
 
 						waitForDeploymentReconciled(deployment)
 
@@ -309,9 +342,11 @@ var _ = Describe("Deployment controller Suite", func() {
 
 			Context("And the annotation is removed", func() {
 				BeforeEach(func() {
-					m.Get(deployment, timeout).Should(Succeed())
-					deployment.SetAnnotations(make(map[string]string))
-					m.Update(deployment).Should(Succeed())
+					removeAnnotations := func(obj utils.Object) utils.Object {
+						obj.SetAnnotations(make(map[string]string))
+						return obj
+					}
+					m.Update(deployment, removeAnnotations).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 
 					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
