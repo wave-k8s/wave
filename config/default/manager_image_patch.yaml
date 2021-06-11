@@ -8,5 +8,5 @@ spec:
     spec:
       containers:
       # Change the value of image field below to your controller image URL
-      - image: quay.io/pusher/wave
+      - image: quay.io/wave-k8s/wave
         name: manager
