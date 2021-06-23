@@ -257,6 +257,6 @@ Read the docs for more about
 
 Please see our [Contributing](CONTRIBUTING.md) guidelines.
 
-## License	
+## License
 
-This project is licensed under Apache 2.0 and a copy of the license is available [here](LICENSE).	
+This project is licensed under Apache 2.0 and a copy of the license is available [here](LICENSE).
