@@ -25,6 +25,7 @@ a Rolling Update of the Deployment when the mounted configuration is changed.
   - [Finalizers](#finalizers)
 - [Communication](#communication)
 - [Contributing](#contributing)
+- [License](#license)
 
 ## Introduction
 
@@ -255,3 +256,7 @@ Read the docs for more about
 ## Contributing
 
 Please see our [Contributing](CONTRIBUTING.md) guidelines.
+
+## License	
+
+This project is licensed under Apache 2.0 and a copy of the license is available [here](LICENSE).	
