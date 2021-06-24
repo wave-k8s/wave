@@ -34,6 +34,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0
 	github.com/joho/godotenv v1.3.0
 	github.com/json-iterator/go v1.1.5
+	github.com/kubernetes-sigs/kubebuilder v1.0.4 // indirect
 	github.com/markbates/inflect v1.0.1
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
