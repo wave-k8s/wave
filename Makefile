@@ -1,9 +1,13 @@
 include Makefile.tools
 include .env
 
+SHELL := /usr/bin/env bash
+
+GO := go
+LINTER := golangci-lint
 BINARY := wave
 VERSION := $(shell git describe --always --dirty --tags 2>/dev/null || echo "undefined")
-ECHO := echo
+ECHO := echo -e
 
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/wave-k8s/wave
@@ -74,7 +78,7 @@ export TEST_ASSET_ETCD := $(KUBEBUILDER)/etcd
 
 vendor:
 	@ $(ECHO) "\033[36mPuling dependencies\033[0m"
-	$(DEP) ensure --vendor-only
+	go get -v github.com/wave-k8s/wave/cmd/manager
 	@ $(ECHO)
 
 .PHONY: check
