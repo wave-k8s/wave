@@ -1,10 +1,6 @@
 include Makefile.tools
 include .env
 
-SHELL := /usr/bin/env bash
-
-GO := go
-LINTER := golangci-lint
 BINARY := wave
 VERSION := $(shell git describe --always --dirty --tags 2>/dev/null || echo "undefined")
 ECHO := echo -e
