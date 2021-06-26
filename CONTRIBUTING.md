@@ -8,7 +8,7 @@ Download the dependencies using [`dep`](https://github.com/golang/dep).
 ```bash
 cd $GOPATH/src/github.com # Create this directory if it doesn't exist
 git clone git@github.com:<YOUR_FORK>/wave wave-k8s/wave
-go get -v ./cmd/manager/ # Download dependencies
+go mod download -x # Download dependencies
 ```
 
 ## Testing
