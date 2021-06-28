@@ -64,7 +64,7 @@ kubernetes_version ?= 1.14
 os := $(shell uname | awk '{print tolower($$0)}')
 # Version string should be approx v1.x.x_linux_amd64
 kubebuilder_version_string=$(kubebuilder_version)_$(os)_amd64
-kubebuilder_file="kubebuilder_$(kubebuilder_version_string).tar.gz"
+kubebuilder_file=kubebuilder_$(kubebuilder_version_string).tar.gz
 
 .PHONY: install-kubebuilder-tools
 install-kubebuilder-tools:
