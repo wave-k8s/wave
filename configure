@@ -148,7 +148,7 @@ cd ${0%/*}
 check_for make
 check_for awk
 check_for sed
-check_for shasum
+check_for sha256sum
 check_for tar
 check_for go
 check_for dep
@@ -165,7 +165,7 @@ check_for kubectl
 cat <<- EOF > .env
 MAKE := ${tools[make]}
 SED := ${tools[sed]}
-SHASUM := ${tools[shasum]}
+SHASUM := ${tools[sha256sum]}
 TAR := ${tools[tar]}
 GO := ${tools[go]}
 GOVERSION := $GO_VERSION
