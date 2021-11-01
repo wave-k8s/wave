@@ -20,6 +20,16 @@ nodeSelector: {}
 # Replicas > 1 will enable leader election
 replicas: 1
 
+# Additional volumes to use in the pod.
+extraVolumes: []
+# - name: tmp
+#   emptyDir: {}
+
+# Additional volumes to mount into the container.
+extraVolumeMounts: []
+# - name: tmp
+#   mountPath: /tmp
+
 # https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 securityContext:
   runAsNonRoot: true
