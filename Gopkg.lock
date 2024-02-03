@@ -292,7 +292,7 @@
   version = "v1.1.5"
 
 [[projects]]
-  branch = "controller-platform"
+  branch = "v1.0.4"
   digest = "1:b3d1d9f131d1e368af28b268782da9885bd963b2f13d15496ca4b7531b0259bd"
   name = "github.com/kubernetes-sigs/kubebuilder"
   packages = [
@@ -314,7 +314,7 @@
     "pkg/test",
   ]
   pruneopts = "T"
-  revision = "29bccabffb065deea1c4cb3273313b615996588a"
+  revision = "f954dc7cff7e6c94d54139f936bb9d42314ad63e"
 
 [[projects]]
   digest = "1:50656f57259a3c6087d0e8c572d5845e3dee42c77209dd5409b6ab8595f0295e"
