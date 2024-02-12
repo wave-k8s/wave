@@ -10,23 +10,6 @@ Deployment's Pods always have up to date configuration.
 By monitoring ConfigMaps and Secrets mounted by a Deployment, Wave can trigger
 a Rolling Update of the Deployment when the mounted configuration is changed.
 
-## Table of Contents
-
-- [Introduction](#introduction)
-- [Installation](#installation)
-  - [Deploying to Kubernetes](#deploying-to-kubernetes)
-  - [Configuration](#configuration)
-    - [Leader Election](#leader-election)
-    - [Sync period](#sync-period)
-- [Quick Start](#quick-start)
-- [Project Concepts](#project-concepts)
-  - [Enabling Wave for a Deployment](#enabling-wave-for-a-deployment)
-  - [Triggering Updates](#triggering-updates)
-  - [Finalizers](#finalizers)
-- [Communication](#communication)
-- [Contributing](#contributing)
-- [License](#license)
-
 ## Introduction
 
 Not all software is built equal. Some applications can automatically reload their
