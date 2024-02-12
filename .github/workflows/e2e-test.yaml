@@ -1,0 +1,22 @@
+---
+name: end2end Test
+on:
+  - pull_request
+jobs:
+  e2etest:
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - v1.21
+          - v1.29
+    runs-on: ubuntu-latest
+    name: test on minikube
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start minikube
+        uses: medyagh/setup-minikube@master
+        with:
+          kubernetes-version: ${{ matrix.version }}
+      - name: Build and run wave
+        run: hack/run-test-in-minikube.sh
