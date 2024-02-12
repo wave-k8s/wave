@@ -25,7 +25,7 @@ import (
 
 const (
 	// ConfigHashAnnotation is the key of the annotation on the PodTemplate that
-	// holds the configuratio hash
+	// holds the configuration hash
 	ConfigHashAnnotation = "wave.pusher.com/config-hash"
 
 	// FinalizerString is the finalizer added to deployments to allow Wave to
