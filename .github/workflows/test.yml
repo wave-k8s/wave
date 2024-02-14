@@ -3,9 +3,6 @@ name: Run tests
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths-ignore:
-    - README.md
-    - LICENSE.md
   push:
     branches:
     - master
