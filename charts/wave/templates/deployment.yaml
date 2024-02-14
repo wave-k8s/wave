@@ -20,7 +20,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           name: {{ template "wave-fullname" . }}
           args:
-          {{- if gt .Values.replicas 1.0 }}
+          {{- if gt (.Values.replicas | int64) 1 }}
             - --leader-election=true
             - --leader-election-id={{ template "wave-fullname" . }}
             - --leader-election-namespace={{ .Release.Namespace }}
