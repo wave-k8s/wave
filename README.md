@@ -58,7 +58,7 @@ To deploy, add the repository to helm and install:
 
 ```
 $ helm repo add wave-k8s https://wave-k8s.github.io/wave/
-$ helm install wave-k8s/wave
+$ helm install wave wave-k8s/wave
 ```
 
 #### Deploying with Kustomize
