@@ -28,6 +28,8 @@ spec:
           {{- if .Values.syncPeriod }}
             - --sync-period={{ .Values.syncPeriod }}
           {{- end }}
+          volumeMounts: {{ toYaml .Values.extraVolumeMounts | nindent 12 }}
       securityContext: {{ toYaml .Values.securityContext | nindent 8 }}
       serviceAccountName: {{ .Values.serviceAccount.name | default (include "wave-fullname" .) }}
       nodeSelector: {{ toYaml .Values.nodeSelector | nindent 8 }}
+      volumes: {{ toYaml .Values.extraVolumes | nindent 8 }}
