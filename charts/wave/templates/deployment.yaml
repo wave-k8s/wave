@@ -12,6 +12,10 @@ spec:
 {{ include "wave-labels.chart" . | indent 6 }}
   template:
     metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
 {{ include "wave-labels.chart" . | indent 8 }}
     spec:
@@ -29,7 +33,10 @@ spec:
             - --sync-period={{ .Values.syncPeriod }}
           {{- end }}
           volumeMounts: {{ toYaml .Values.extraVolumeMounts | nindent 12 }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
       securityContext: {{ toYaml .Values.securityContext | nindent 8 }}
       serviceAccountName: {{ .Values.serviceAccount.name | default (include "wave-fullname" .) }}
       nodeSelector: {{ toYaml .Values.nodeSelector | nindent 8 }}
+      affinity: {{ toYaml .Values.affinity | nindent 8 }}
+      tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
       volumes: {{ toYaml .Values.extraVolumes | nindent 8 }}
