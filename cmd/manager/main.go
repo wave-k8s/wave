@@ -41,6 +41,7 @@ var (
 	leaderElectionNamespace = flag.String("leader-election-namespace", "", "Namespace for the configmap used by the leader election system")
 	syncPeriod              = flag.Duration("sync-period", 5*time.Minute, "Reconcile sync period")
 	showVersion             = flag.Bool("version", false, "Show version and exit")
+	namespace               = flag.String("namespace", "", "namespace to watch (default: all)")
 )
 
 func main() {
@@ -72,6 +73,7 @@ func main() {
 		LeaderElectionID:        *leaderElectionID,
 		LeaderElectionNamespace: *leaderElectionNamespace,
 		SyncPeriod:              syncPeriod,
+		Namespace:               *namespace,
 	})
 	if err != nil {
 		log.Error(err, "unable to set up overall controller manager")
