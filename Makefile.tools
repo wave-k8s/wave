@@ -1,5 +1,5 @@
 .PHONY: prepare-env-%
-prepare-env-%: gopath dep ginkgo-cli golangci-lint kustomize
+prepare-env-%: gopath ginkgo-cli golangci-lint kustomize
 	PATH=$$GOPATH/bin:/usr/local/kubebuilder-$*/bin:/usr/local/opt/kubebuilder-$*/bin:$$PATH make kubebuilder-tools-$*
 	PATH=$$GOPATH/bin:/usr/local/kubebuilder-$*/bin:/usr/local/opt/kubebuilder-$*/bin:$$PATH ./configure
 
@@ -10,12 +10,6 @@ gopath:
 	fi
 	@ if [ ! -d $$GOPATH/bin ]; then \
 		mkdir -p $$GOPATH/bin; \
-	fi
-
-.PHONY: dep
-dep:
-	@ if [ ! $$(which dep) ]; then \
-		curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh; \
 	fi
 
 .PHONY: ginkgo-cli
@@ -33,7 +27,7 @@ golangci-lint:
 .PHONY: kustomize
 kustomize:
 	@ if [ ! $$(which kustomize) ]; then \
-	 	go get -u sigs.k8s.io/kustomize; \
+		go get -u sigs.k8s.io/kustomize/kustomize/v3; \
 	fi
 
 .PHONY: kubebuilder-tools-1.14
@@ -70,14 +64,16 @@ kubernetes_version ?= 1.14
 os := $(shell uname | awk '{print tolower($$0)}')
 # Version string should be approx v1.x.x_linux_amd64
 kubebuilder_version_string=$(kubebuilder_version)_$(os)_amd64
+kubebuilder_file=kubebuilder_$(kubebuilder_version_string).tar.gz
 
 .PHONY: install-kubebuilder-tools
 install-kubebuilder-tools:
 	# download the release
-	curl -L -O "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v$(kubebuilder_version)/kubebuilder_$(kubebuilder_version_string).tar.gz"
-	tar -zxvf kubebuilder_$(kubebuilder_version_string).tar.gz
-	rm kubebuilder_$(kubebuilder_version_string).tar.gz
-
+	curl -L \
+		-o $(kubebuilder_file) \
+		"https://github.com/kubernetes-sigs/kubebuilder/releases/download/v$(kubebuilder_version)/$(kubebuilder_file)" 
+	tar -zxvf $(kubebuilder_file)
+	rm $(kubebuilder_file)
 	export TEST_ASSET_DIR=/usr/local/opt/kubebuilder-${kubernetes_version}/bin; \
 	export TEST_ASSET_KUBECTL=$$TEST_ASSET_DIR/kubectl \
 	TEST_ASSET_KUBE_APISERVER=$$TEST_ASSET_DIR/kube-apiserver \
