@@ -1,12 +1,22 @@
 include Makefile.tools
 include .env
 
+GO ?= go
+GOBIN ?= $(shell $(GO) env GOPATH)/bin
 BINARY := wave
 VERSION := $(shell git describe --always --dirty --tags 2>/dev/null || echo "undefined")
 ECHO := echo
+CONTROLLER_GEN ?= controller-gen
+GINKGO ?= ginkgo
+
+OS = $(shell go env GOOS)
+ARCH = $(shell go env GOARCH)
 
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/wave-k8s/wave
+
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 .NOTPARALLEL:
 
@@ -22,12 +32,11 @@ clean:
 
 .PHONY: distclean
 distclean: clean
-	rm -rf vendor
 	rm -rf release
 
 # Generate code
 .PHONY: generate
-generate: vendor
+generate: tidy deepcopy-gen
 	@ $(ECHO) "\033[36mGenerating code\033[0m"
 	$(GO) generate ./pkg/... ./cmd/...
 	@ $(ECHO)
@@ -51,7 +60,7 @@ vet:
 	$(GO) vet ./pkg/... ./cmd/...
 
 .PHONY: lint
-lint: vendor
+lint: tidy
 	@ $(ECHO) "\033[36mLinting code\033[0m"
 	$(LINTER) run --disable-all \
                 --exclude-use-default=false \
@@ -68,20 +77,20 @@ lint: vendor
 	@ $(ECHO)
 
 # Run tests
-export TEST_ASSET_KUBECTL := $(KUBEBUILDER)/kubectl
-export TEST_ASSET_KUBE_APISERVER := $(KUBEBUILDER)/kube-apiserver
-export TEST_ASSET_ETCD := $(KUBEBUILDER)/etcd
+export TEST_ASSET_KUBECTL := $(TEST_ASSET_DIR)/kubectl
+export TEST_ASSET_KUBE_APISERVER := $(TEST_ASSET_DIR)/kube-apiserver
+export TEST_ASSET_ETCD := $(TEST_ASSET_DIR)/etcd
 
-vendor:
+tidy:
 	@ $(ECHO) "\033[36mPuling dependencies\033[0m"
-	$(DEP) ensure --vendor-only
+	$(GO) mod tidy
 	@ $(ECHO)
 
 .PHONY: check
 check: fmt lint vet test
 
 .PHONY: test
-test: vendor generate manifests
+test: tidy generate manifests ginkgo
 	@ $(ECHO) "\033[36mRunning test suite in Ginkgo\033[0m"
 	$(GINKGO) -v -randomizeAllSpecs ./pkg/... ./cmd/... -- -report-dir=$$ARTIFACTS
 	@ $(ECHO)
@@ -127,9 +136,9 @@ deploy: manifests
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
-manifests: vendor
+manifests: tidy controller-gen
 	@ $(ECHO) "\033[36mGenerating manifests\033[0m"
-	$(GO) run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	@ $(ECHO)
 
 # Build the docker image
@@ -148,3 +157,26 @@ PUSH_TAGS ?= ${VERSION},latest
 .PHONY: docker-push
 docker-push:
 	@IFS=","; tags=${PUSH_TAGS}; for tag in $${tags}; do docker push ${IMG}:$${tag}; $(ECHO) "\033[36mPushed $(IMG):$${tag}\033[0m"; done
+
+# find, or download controller-gen if missing
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@$(ECHO) "controller-gen not found, downloading..."
+	$(GO) install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.4
+	CONTROLLER_GEN=$(GOBIN)/controller-gen
+else
+	CONTROLLER_GEN=$(shell which controller-gen)
+endif
+
+ginkgo:
+ifeq (, $(shell which ginkgo))
+	@$(ECHO) "ginkgo not found, downloading..."
+	$(GO) install github.com/onsi/ginkgo/ginkgo@v1.16.4
+	GINKGO=$(GOBIN)/ginkgo
+else
+	GINKGO=$(shell which ginkgo)
+endif
+
+.PHONY: deepcopy-gen
+deepcopy-gen:
+	@$(GO) install k8s.io/code-generator/cmd/deepcopy-gen@latest

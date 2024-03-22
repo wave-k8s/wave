@@ -54,25 +54,21 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to StatefulSet
-	err = c.Watch(&source.Kind{Type: &appsv1.StatefulSet{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1.StatefulSet{}), &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
+	handler := handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &appsv1.StatefulSet{})
+
 	// Watch ConfigMaps owned by a StatefulSet
-	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
-		IsController: false,
-		OwnerType:    &appsv1.StatefulSet{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), handler)
 	if err != nil {
 		return err
 	}
 
 	// Watch Secrets owned by a StatefulSet
-	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
-		IsController: false,
-		OwnerType:    &appsv1.StatefulSet{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}), handler)
 	if err != nil {
 		return err
 	}
@@ -94,10 +90,10 @@ type ReconcileStatefulSet struct {
 // +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=,resources=events,verbs=create;update;patch
-func (r *ReconcileStatefulSet) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileStatefulSet) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the StatefulSet instance
 	instance := &appsv1.StatefulSet{}
-	err := r.handler.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.handler.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.

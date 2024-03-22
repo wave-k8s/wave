@@ -53,26 +53,21 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to DaemonSet
-	err = c.Watch(&source.Kind{Type: &appsv1.DaemonSet{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1.DaemonSet{}), &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
+	handler := handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &appsv1.DaemonSet{})
+
 	// Watch ConfigMaps owned by a DaemonSet
-	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
-		IsController: false,
-		OwnerType:    &appsv1.DaemonSet{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), handler)
 	if err != nil {
 		return err
 	}
 
 	// Watch Secrets owned by a DaemonSet
-	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
-		IsController: false,
-		OwnerType:    &appsv1.DaemonSet{},
-	})
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}), handler)
 	if err != nil {
 		return err
 	}
@@ -94,10 +89,10 @@ type ReconcileDaemonSet struct {
 // +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=,resources=events,verbs=create;update;patch
-func (r *ReconcileDaemonSet) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileDaemonSet) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the DaemonSet instance
 	instance := &appsv1.DaemonSet{}
-	err := r.handler.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.handler.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.

@@ -17,6 +17,7 @@ limitations under the License.
 package core
 
 import (
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sync"
 	"time"
 
@@ -55,7 +56,9 @@ var _ = Describe("Wave children Suite", func() {
 
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{
-			MetricsBindAddress: "0",
+			Metrics: metricsserver.Options{
+				BindAddress: "0",
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		var cerr error
@@ -308,11 +311,11 @@ var _ = Describe("Wave children Suite", func() {
 			ownerRef := utils.GetOwnerRefDeployment(deploymentObject)
 
 			for _, obj := range []Object{cm1, s1} {
-				m.Update(obj, func(obj utils.Object) utils.Object {
+				m.Update(obj, func(obj client.Object) client.Object {
 					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 					return obj
 				}, timeout).Should(Succeed())
-				m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
+				Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 
 			var err error

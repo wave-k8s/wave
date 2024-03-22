@@ -25,8 +25,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 // Handler performs the main business logic of the Wave controller
@@ -99,15 +99,15 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 	}
 
 	// Update the desired state of the Deployment in a DeepCopy
-	copy := instance.DeepCopy()
+	copy := instance.DeepCopyPodController()
 	setConfigHash(copy, hash)
 	addFinalizer(copy)
 
 	// If the desired state doesn't match the existing state, update it
 	if !reflect.DeepEqual(instance, copy) {
 		log.V(0).Info("Updating instance hash", "namespace", instance.GetNamespace(), "name", instance.GetName(), "hash", hash)
-		h.recorder.Eventf(copy.GetObject(), corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
-		err := h.Update(context.TODO(), copy.GetObject())
+		h.recorder.Eventf(copy, corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
+		err := h.Update(context.TODO(), copy)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("error updating instance %s/%s: %v", instance.GetNamespace(), instance.GetName(), err)
 		}

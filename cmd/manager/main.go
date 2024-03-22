@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"time"
 
 	"github.com/go-logr/glogr"
@@ -30,9 +31,9 @@ import (
 	"github.com/wave-k8s/wave/pkg/webhook"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 var (
@@ -71,7 +72,9 @@ func main() {
 		LeaderElection:          *leaderElection,
 		LeaderElectionID:        *leaderElectionID,
 		LeaderElectionNamespace: *leaderElectionNamespace,
-		SyncPeriod:              syncPeriod,
+		Cache: cache.Options{
+			SyncPeriod: syncPeriod,
+		},
 	})
 	if err != nil {
 		log.Error(err, "unable to set up overall controller manager")

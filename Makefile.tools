@@ -1,5 +1,5 @@
 .PHONY: prepare-env-%
-prepare-env-%: gopath dep ginkgo-cli golangci-lint kustomize
+prepare-env-%: gopath ginkgo-cli golangci-lint kustomize
 	PATH=$$GOPATH/bin:/usr/local/kubebuilder-$*/bin:/usr/local/opt/kubebuilder-$*/bin:$$PATH make kubebuilder-tools-$*
 	PATH=$$GOPATH/bin:/usr/local/kubebuilder-$*/bin:/usr/local/opt/kubebuilder-$*/bin:$$PATH ./configure
 
@@ -10,12 +10,6 @@ gopath:
 	fi
 	@ if [ ! -d $$GOPATH/bin ]; then \
 		mkdir -p $$GOPATH/bin; \
-	fi
-
-.PHONY: dep
-dep:
-	@ if [ ! $$(which dep) ]; then \
-		curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh; \
 	fi
 
 .PHONY: ginkgo-cli
@@ -33,62 +27,21 @@ golangci-lint:
 .PHONY: kustomize
 kustomize:
 	@ if [ ! $$(which kustomize) ]; then \
-	 	go get -u sigs.k8s.io/kustomize; \
+	 	go get -u sigs.k8s.io/kustomize/kustomize/v3; \
 	fi
 
-.PHONY: kubebuilder-tools-1.14
-kubebuilder-tools-1.14:
-	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9+])?"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
-	if [ "$$ver" != "2.0.0-beta.0" ]; then \
-	  kubebuilder_version=2.0.0-beta.0 kubernetes_version=1.14 make install-kubebuilder-tools; \
-	fi
+kubernetes_version ?= 1.29.0
+kubebuilder_folder=kubebuilder
+kubernetes_version_folder=$(kubebuilder_folder)/$(kubernetes_version)
+kubebuilder_file=$(kubebuilder_folder)_$(kubernetes_version).tar.gz
 
-.PHONY: kubebuilder-tools-1.13
-kubebuilder-tools-1.13:
-	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9+])?"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
-	if [ "$$ver" != "1.0.8" ]; then \
-	  kubebuilder_version=1.0.8 kubernetes_version=1.13 make install-kubebuilder-tools; \
-	fi
-
-.PHONY: kubebuilder-tools-1.12
-kubebuilder-tools-1.12:
-	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[[0-9]\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9+])?"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
-	if [ "$$ver" != "1.0.7" ]; then \
-	  kubebuilder_version=1.0.7 kubernetes_version=1.12 make install-kubebuilder-tools; \
-	fi
-
-.PHONY: kubebuilder-tools-1.11
-kubebuilder-tools-1.11:
-	@ ver=$$(kubebuilder version | awk '{where = match($$0, /KubeBuilderVersion:"[0-9]\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9+])?"/); if (where != 0) print substr($$0, RSTART+20, RLENGTH)}' | sed s/\",.\*// ); \
-	if [ "$$ver" != "1.0.5" ]; then \
-	  kubebuilder_version=1.0.5 kubernetes_version=1.11 make install-kubebuilder-tools; \
-	fi
-
-# latest stable version
-kubebuilder_version ?= 2.0.0-beta.0
-kubernetes_version ?= 1.14
-os := $(shell uname | awk '{print tolower($$0)}')
-# Version string should be approx v1.x.x_linux_amd64
-kubebuilder_version_string=$(kubebuilder_version)_$(os)_amd64
+export TEST_ASSET_DIR=$(CURDIR)/${kubernetes_version_folder}/bin
 
 .PHONY: install-kubebuilder-tools
 install-kubebuilder-tools:
-	# download the release
-	curl -L -O "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v$(kubebuilder_version)/kubebuilder_$(kubebuilder_version_string).tar.gz"
-	tar -zxvf kubebuilder_$(kubebuilder_version_string).tar.gz
-	rm kubebuilder_$(kubebuilder_version_string).tar.gz
-
-	export TEST_ASSET_DIR=/usr/local/opt/kubebuilder-${kubernetes_version}/bin; \
-	export TEST_ASSET_KUBECTL=$$TEST_ASSET_DIR/kubectl \
-	TEST_ASSET_KUBE_APISERVER=$$TEST_ASSET_DIR/kube-apiserver \
-	TEST_ASSET_ETCD=$$TEST_ASSET_DIR/etcd \
-	TEST_ASSET_KUBEBUILDER=$$TEST_ASSET_DIR/kubebuilder; \
-	\
-	mkdir -p $$TEST_ASSET_DIR; \
-	mv kubebuilder_$(kubebuilder_version_string)/bin/etcd $$TEST_ASSET_ETCD; \
-	mv kubebuilder_$(kubebuilder_version_string)/bin/kube-apiserver $$TEST_ASSET_KUBE_APISERVER; \
-	mv kubebuilder_$(kubebuilder_version_string)/bin/kubectl $$TEST_ASSET_KUBECTL; \
-	mv kubebuilder_$(kubebuilder_version_string)/bin/kubebuilder $$TEST_ASSET_KUBEBUILDER; \
-	rm -rf kubebuilder_$(kubebuilder_version_string); \
-	\
-	chmod +x $$TEST_ASSET_ETCD $$TEST_ASSET_KUBE_APISERVER $$TEST_ASSET_KUBECTL $$TEST_ASSET_KUBEBUILDER
+	@echo "Downloading kubebuilder tools for Kubernetes $(kubernetes_version)..."
+	@curl -sSLo $(kubebuilder_file) "https://storage.googleapis.com/kubebuilder-tools/kubebuilder-tools-${kubernetes_version}-${OS}-${ARCH}.tar.gz"
+	@mkdir -p $(kubernetes_version_folder)
+	@tar -zxvf $(kubebuilder_file) --strip-components=1 -C $(kubernetes_version_folder)
+	@rm $(kubebuilder_file)
+	@chmod +x $(TEST_ASSET_DIR)/etcd $(TEST_ASSET_DIR)/kube-apiserver $(TEST_ASSET_DIR)/kubectl
