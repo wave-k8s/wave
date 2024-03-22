@@ -21,9 +21,6 @@ for arg in "$@"; do
     "--with-go")
       desired[go]="${arg##*=}"
       ;;
-    "--with-dep")
-      desired[dep]="${arg##*=}"
-      ;;
    "--with-kubectl")
       desired[kubectl]="${arg##*=}"
       ;;
@@ -36,7 +33,6 @@ for arg in "$@"; do
     "--help")
       printf "${GREEN}$0${NC}\n"
       printf "  available options:\n"
-      printf "  --with-dep=${BLUE}<path_to_dep_binary>${NC}\n"
       printf "  --with-go=${BLUE}<path_to_go_binary>${NC}\n"
       printf "  --with-kubectl=${BLUE}<path_to_kubectl>${NC}\n"
       printf "  --with-kustomize=${BLUE}<path_to_kustomize>${NC}\n"
@@ -151,7 +147,6 @@ check_for sed
 check_for shasum
 check_for tar
 check_for go
-check_for dep
 check_for ginkgo
 check_for golangci-lint
 check_kubebuilder
@@ -170,7 +165,6 @@ TAR := ${tools[tar]}
 GO := ${tools[go]}
 GOVERSION := $GO_VERSION
 GINKGO := ${tools[ginkgo]}
-DEP := ${tools[dep]}
 LINTER := ${tools[golangci-lint]}
 KUBECTL := ${tools[kubectl]}
 KUSTOMIZE := ${tools[kustomize]}

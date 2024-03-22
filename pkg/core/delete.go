@@ -41,10 +41,10 @@ func (h *Handler) handleDelete(obj podController) (reconcile.Result, error) {
 	}
 
 	// Remove the object's Finalizer and update if necessary
-	copy := obj.DeepCopy()
+	copy := obj.DeepCopyPodController()
 	removeFinalizer(copy)
 	if !reflect.DeepEqual(obj, copy) {
-		err := h.Update(context.TODO(), copy.GetObject())
+		err := h.Update(context.TODO(), copy)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("error updating Deployment: %v", err)
 		}

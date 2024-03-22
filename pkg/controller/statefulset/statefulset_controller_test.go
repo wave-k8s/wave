@@ -19,6 +19,7 @@ package statefulset
 import (
 	"context"
 	"fmt"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sync"
 	"time"
 
@@ -77,7 +78,9 @@ var _ = Describe("StatefulSet controller Suite", func() {
 		metrics.Registry = prometheus.NewRegistry()
 
 		mgr, err := manager.New(cfg, manager.Options{
-			MetricsBindAddress: "0",
+			Metrics: metricsserver.Options{
+				BindAddress: "0",
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -167,7 +170,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 	Context("When a StatefulSet is reconciled", func() {
 		Context("And it has the required annotation", func() {
 			BeforeEach(func() {
-				addAnnotation := func(obj utils.Object) utils.Object {
+				addAnnotation := func(obj client.Object) client.Object {
 					annotations := obj.GetAnnotations()
 					if annotations == nil {
 						annotations = make(map[string]string)
@@ -186,20 +189,20 @@ var _ = Describe("StatefulSet controller Suite", func() {
 
 			It("Adds OwnerReferences to all children", func() {
 				for _, obj := range []core.Object{cm1, cm2, cm3, s1, s2, s3} {
-					m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
+					Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
 
 			It("Adds a finalizer to the StatefulSet", func() {
-				m.Eventually(statefulset, timeout).Should(utils.WithFinalizers(ContainElement(core.FinalizerString)))
+				Eventually(statefulset, timeout).Should(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
-				m.Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+				Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 			})
 
 			It("Sends an event when updating the hash", func() {
-				m.Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+				Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 
 				events := &corev1.EventList{}
 				eventMessage := func(event *corev1.Event) string {
@@ -207,18 +210,18 @@ var _ = Describe("StatefulSet controller Suite", func() {
 				}
 
 				hashMessage := "Configuration hash updated to ebabf80ef45218b27078a41ca16b35a4f91cb5672f389e520ae9da6ee3df3b1c"
-				m.Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
+				Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
 
 			Context("And a child is removed", func() {
 				var originalHash string
 				BeforeEach(func() {
-					m.Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 					originalHash = statefulset.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
-					removeContainer2 := func(obj utils.Object) utils.Object {
+					removeContainer2 := func(obj client.Object) client.Object {
 						ss, _ := obj.(*appsv1.StatefulSet)
 						containers := ss.Spec.Template.Spec.Containers
 						Expect(containers[0].Name).To(Equal("container1"))
@@ -234,15 +237,15 @@ var _ = Describe("StatefulSet controller Suite", func() {
 				})
 
 				It("Removes the OwnerReference from the orphaned ConfigMap", func() {
-					m.Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+					Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
 				It("Removes the OwnerReference from the orphaned Secret", func() {
-					m.Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+					Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
 				It("Updates the config hash in the Pod Template", func() {
-					m.Eventually(statefulset, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+					Eventually(statefulset, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 				})
 			})
 
@@ -250,13 +253,13 @@ var _ = Describe("StatefulSet controller Suite", func() {
 				var originalHash string
 
 				BeforeEach(func() {
-					m.Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 					originalHash = statefulset.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
 				})
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
-						modifyCM := func(obj utils.Object) utils.Object {
+						modifyCM := func(obj client.Object) client.Object {
 							cm, _ := obj.(*corev1.ConfigMap)
 							cm.Data["key1"] = modified
 							return cm
@@ -270,13 +273,13 @@ var _ = Describe("StatefulSet controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
-						modifyCM := func(obj utils.Object) utils.Object {
+						modifyCM := func(obj client.Object) client.Object {
 							cm, _ := obj.(*corev1.ConfigMap)
 							cm.Data["key1"] = modified
 							return cm
@@ -290,13 +293,13 @@ var _ = Describe("StatefulSet controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
-						modifyS := func(obj utils.Object) utils.Object {
+						modifyS := func(obj client.Object) client.Object {
 							s, _ := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -313,13 +316,13 @@ var _ = Describe("StatefulSet controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
-						modifyS := func(obj utils.Object) utils.Object {
+						modifyS := func(obj client.Object) client.Object {
 							s, _ := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -336,40 +339,40 @@ var _ = Describe("StatefulSet controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 			})
 
 			Context("And the annotation is removed", func() {
 				BeforeEach(func() {
-					removeAnnotations := func(obj utils.Object) utils.Object {
+					removeAnnotations := func(obj client.Object) client.Object {
 						obj.SetAnnotations(make(map[string]string))
 						return obj
 					}
 					m.Update(statefulset, removeAnnotations).Should(Succeed())
 					waitForStatefulSetReconciled(statefulset)
 
-					m.Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
+					Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
 				})
 
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []core.Object{cm1, cm2, s1, s2} {
-						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+						Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
 				It("Removes the StatefulSet's finalizer", func() {
-					m.Eventually(statefulset, timeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
+					Eventually(statefulset, timeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 				})
 			})
 
 			Context("And is deleted", func() {
 				BeforeEach(func() {
 					// Make sure the cache has synced before we run the test
-					m.Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 					m.Delete(statefulset).Should(Succeed())
-					m.Eventually(statefulset, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
+					Eventually(statefulset, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 					waitForStatefulSetReconciled(statefulset)
 
 					// Get the updated StatefulSet
@@ -377,7 +380,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []core.Object{cm1, cm2, s1, s2} {
-						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+						Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
