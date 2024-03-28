@@ -3,7 +3,8 @@ include .env
 
 BINARY := wave
 VERSION := $(shell git describe --always --dirty --tags 2>/dev/null || echo "undefined")
-ECHO := echo
+ECHO := printf
+DONE := printf "\n"
 
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/wave-k8s/wave
@@ -28,17 +29,17 @@ distclean: clean
 # Generate code
 .PHONY: generate
 generate: vendor
-	@ $(ECHO) "\033[36mGenerating code\033[0m"
+	@ $(ECHO) "\033[36mGenerating code\033[0m\n"
 	$(GO) generate ./pkg/... ./cmd/...
-	@ $(ECHO)
+	@ $(DONE)
 
 # Verify generated code has been checked in
 .PHONY: verify-%
 verify-%:
 	@ make $*
-	@ $(ECHO) "\033[36mVerifying Git Status\033[0m"
-	@ if [ "$$(git status -s)" != "" ]; then git --no-pager diff --color; $(ECHO) "\033[31;1mERROR: Git Diff found. Please run \`make $*\` and commit the result.\033[0m"; exit 1; else $(ECHO) "\033[32mVerified $*\033[0m";fi
-	@ $(ECHO)
+	@ $(ECHO) "\033[36mVerifying Git Status\033[0m\n"
+	@ if [ "$$(git status -s)" != "" ]; then git --no-pager diff --color; $(ECHO) "\033[31;1mERROR: Git Diff found. Please run \`make $*\` and commit the result.\033[0m\n"; exit 1; else $(ECHO) "\033[32mVerified $*\033[0m\n";fi
+	@ $(DONE)
 
 # Run go fmt against code
 .PHONY: fmt
@@ -52,7 +53,7 @@ vet:
 
 .PHONY: lint
 lint: vendor
-	@ $(ECHO) "\033[36mLinting code\033[0m"
+	@ $(ECHO) "\033[36mLinting code\033[0m\n"
 	$(LINTER) run --disable-all \
                 --exclude-use-default=false \
                 --enable=govet \
@@ -65,7 +66,7 @@ lint: vendor
                 --skip-dirs=pkg/client/ \
                 --deadline=120s \
                 --tests ./...
-	@ $(ECHO)
+	@ $(DONE)
 
 # Run tests
 export TEST_ASSET_KUBECTL := $(KUBEBUILDER)/kubectl
@@ -73,18 +74,18 @@ export TEST_ASSET_KUBE_APISERVER := $(KUBEBUILDER)/kube-apiserver
 export TEST_ASSET_ETCD := $(KUBEBUILDER)/etcd
 
 vendor:
-	@ $(ECHO) "\033[36mPuling dependencies\033[0m"
-	$(DEP) ensure --vendor-only
-	@ $(ECHO)
+	@ $(ECHO) "\033[36mPuling dependencies\033[0m\n"
+	go mod download -x
+	@ $(DONE)
 
 .PHONY: check
 check: fmt lint vet test
 
 .PHONY: test
 test: vendor generate manifests
-	@ $(ECHO) "\033[36mRunning test suite in Ginkgo\033[0m"
+	@ $(ECHO) "\033[36mRunning test suite in Ginkgo\033[0m\n"
 	$(GINKGO) -v -randomizeAllSpecs ./pkg/... ./cmd/... -- -report-dir=$$ARTIFACTS
-	@ $(ECHO)
+	@ $(ECHO) "\n"
 
 # Build manager binary
 $(BINARY): generate fmt vet
@@ -128,23 +129,25 @@ deploy: manifests
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
 manifests: vendor
-	@ $(ECHO) "\033[36mGenerating manifests\033[0m"
+	@ $(ECHO) "\033[36mGenerating manifests\033[0m\n"
 	$(GO) run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
-	@ $(ECHO)
+	@ $(DONE)
 
 # Build the docker image
 .PHONY: docker-build
 docker-build:
 	docker build --build-arg VERSION=${VERSION} -t ${IMG}:${VERSION} .
-	@$(ECHO) "\033[36mBuilt $(IMG):$(VERSION)\033[0m"
+	@$(ECHO) "\033[36mBuilt $(IMG):$(VERSION)\033[0m\n"
+	@ $(DONE)
 
 TAGS ?= latest
 .PHONY: docker-tag
 docker-tag:
-	@IFS=","; tags=${TAGS}; for tag in $${tags}; do docker tag ${IMG}:${VERSION} ${IMG}:$${tag}; $(ECHO) "\033[36mTagged $(IMG):$(VERSION) as $${tag}\033[0m"; done
+	@IFS=","; tags=${TAGS}; for tag in $${tags}; do docker tag ${IMG}:${VERSION} ${IMG}:$${tag}; $(ECHO) "\033[36mTagged $(IMG):$(VERSION) as $${tag}\033[0m\n"; done
 
 # Push the docker image
 PUSH_TAGS ?= ${VERSION},latest
 .PHONY: docker-push
 docker-push:
-	@IFS=","; tags=${PUSH_TAGS}; for tag in $${tags}; do docker push ${IMG}:$${tag}; $(ECHO) "\033[36mPushed $(IMG):$${tag}\033[0m"; done
+	@IFS=","; tags=${PUSH_TAGS}; for tag in $${tags}; do docker push ${IMG}:$${tag}; $(ECHO) "\033[36mPushed $(IMG):$${tag}\033[0m\n"; done
+	@ $(DONE)
