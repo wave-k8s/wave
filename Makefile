@@ -62,17 +62,16 @@ vet:
 .PHONY: lint
 lint: tidy
 	@ $(ECHO) "\033[36mLinting code\033[0m"
+	# disabled for now: --enable=unused --enable=revive \
 	$(LINTER) run --disable-all \
                 --exclude-use-default=false \
                 --enable=govet \
                 --enable=ineffassign \
-                --enable=deadcode \
-                --enable=golint \
                 --enable=goconst \
                 --enable=gofmt \
                 --enable=goimports \
-                --skip-dirs=pkg/client/ \
-                --deadline=120s \
+                --timeout=120s \
+                --exclude-dirs=pkg/client/ \
                 --tests ./...
 	@ $(ECHO)
 

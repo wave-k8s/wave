@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/go-logr/glogr"
 	flag "github.com/spf13/pflag"
