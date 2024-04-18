@@ -36,7 +36,7 @@ jobs:
           GO111MODULE=on go install github.com/onsi/ginkgo/ginkgo@v1.14.2
           if ! [[ -x $(go env GOPATH)/bin/golangci-lint ]]; then echo "golangci-lint not found; fetching"; curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.27.0; fi
           if ! [[ -d ${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64 ]]; then echo "kubebuilder not found; fetching"; curl -sSfL https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_linux_amd64.tar.gz | tar zxvf -; fi
-          if ! [[ -x $(go env GOPATH)/bin/kustomize ]]; then echo "kustomize not found; fetching"; GO111MODULE=on go install sigs.k8s.io/kustomize/kustomize/v3@latest; fi
+          if ! [[ -x $(go env GOPATH)/bin/kustomize ]]; then echo "kustomize not found; fetching"; GO111MODULE=on go install sigs.k8s.io/kustomize/kustomize/v5@latest; fi
       - name: Download dependencies
         run: |
           export GOPATH=$(go env GOPATH):$(pwd)
