@@ -20,7 +20,6 @@ import (
 	"context"
 	"log"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/wave-k8s/wave/test/reporters"
@@ -28,12 +27,13 @@ import (
 	"github.com/go-logr/glogr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/wave-k8s/wave/pkg/apis"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -45,6 +45,8 @@ func TestMain(t *testing.T) {
 }
 
 var t *envtest.Environment
+
+var testCtx, testCancel = context.WithCancel(context.Background())
 
 var _ = BeforeSuite(func() {
 	t = &envtest.Environment{
@@ -77,21 +79,10 @@ func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan 
 	return fn, requests
 }
 
-// StartTestManager adds recFn
-func StartTestManager(mgr manager.Manager) (chan struct{}, *sync.WaitGroup) {
-	stop := make(chan struct{})
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		defer GinkgoRecover()
-		defer wg.Done()
-		Expect(mgr.Start(ctx)).NotTo(HaveOccurred())
-		cancel()
-	}()
-	go func() {
-		<-stop
-		cancel()
-	}()
-	return stop, wg
+// Run runs the webhook server.
+func Run(ctx context.Context, k8sManager ctrl.Manager) error {
+	if err := k8sManager.Start(ctx); err != nil {
+		return err
+	}
+	return nil
 }
