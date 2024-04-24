@@ -1,5 +1,3 @@
-include Makefile.tools
-
 GO ?= go
 GOBIN ?= $(shell $(GO) env GOPATH)/bin
 BINARY := wave
