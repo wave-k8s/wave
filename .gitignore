@@ -28,6 +28,7 @@ cover.out
 
 # Specific directories
 /wave
+bin/
 
 # OS generated files
 **/.DS_Store
@@ -38,3 +39,4 @@ kubebuilder
 .idea
 .vscode
 default.etcd/
+
