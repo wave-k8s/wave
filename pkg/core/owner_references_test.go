@@ -143,15 +143,22 @@ var _ = Describe("Wave owner references Suite", func() {
 		})
 
 		It("sends events for removing each owner reference", func() {
-			events := &corev1.EventList{}
 			cmMessage := "Removing watch for ConfigMap example1"
 			sMessage := "Removing watch for Secret example1"
 			eventMessage := func(event *corev1.Event) string {
 				return event.Message
 			}
-			m.Client.List(context.TODO(), events)
-			Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(cmMessage)))))
-			Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(sMessage)))))
+
+			Eventually(func() *corev1.EventList {
+				events := &corev1.EventList{}
+				m.Client.List(context.TODO(), events)
+				return events
+			}, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(cmMessage)))))
+			Eventually(func() *corev1.EventList {
+				events := &corev1.EventList{}
+				m.Client.List(context.TODO(), events)
+				return events
+			}, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(sMessage)))))
 		})
 	})
 
