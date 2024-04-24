@@ -19,7 +19,6 @@ package daemonset
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -46,8 +45,6 @@ var _ = Describe("DaemonSet controller Suite", func() {
 
 	var daemonset *appsv1.DaemonSet
 	var requests <-chan reconcile.Request
-	var mgrStopped *sync.WaitGroup
-	var stopMgr chan struct{}
 
 	const timeout = time.Second * 5
 	const consistentlyTimeout = time.Second
@@ -92,7 +89,8 @@ var _ = Describe("DaemonSet controller Suite", func() {
 		recFn, requests = SetupTestReconcile(newReconciler(mgr))
 		Expect(add(mgr, recFn)).NotTo(HaveOccurred())
 
-		stopMgr, mgrStopped = StartTestManager(mgr)
+		testCtx, testCancel = context.WithCancel(context.Background())
+		go Run(testCtx, mgr)
 
 		// Create some configmaps and secrets
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
@@ -154,15 +152,14 @@ var _ = Describe("DaemonSet controller Suite", func() {
 			return nil
 		}, timeout).Should(Succeed())
 
-		close(stopMgr)
-		mgrStopped.Wait()
-
 		utils.DeleteAll(cfg, timeout,
 			&appsv1.DaemonSetList{},
 			&corev1.ConfigMapList{},
 			&corev1.SecretList{},
 			&corev1.EventList{},
 		)
+
+		testCancel()
 	})
 
 	Context("When a DaemonSet is reconciled", func() {
@@ -187,6 +184,7 @@ var _ = Describe("DaemonSet controller Suite", func() {
 
 			It("Adds OwnerReferences to all children", func() {
 				for _, obj := range []core.Object{cm1, cm2, cm3, s1, s2, s3} {
+					m.Get(obj, timeout).Should(Succeed())
 					Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
@@ -200,13 +198,11 @@ var _ = Describe("DaemonSet controller Suite", func() {
 			})
 
 			It("Sends an event when updating the hash", func() {
-				Eventually(daemonset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
-
 				events := &corev1.EventList{}
 				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
-
+				m.Client.List(context.TODO(), events)
 				hashMessage := "Configuration hash updated to ebabf80ef45218b27078a41ca16b35a4f91cb5672f389e520ae9da6ee3df3b1c"
 				Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
@@ -228,6 +224,7 @@ var _ = Describe("DaemonSet controller Suite", func() {
 					}
 
 					m.Update(daemonset, removeContainer2).Should(Succeed())
+					waitForDaemonSetReconciled(daemonset)
 					waitForDaemonSetReconciled(daemonset)
 
 					// Get the updated DaemonSet
@@ -350,18 +347,20 @@ var _ = Describe("DaemonSet controller Suite", func() {
 					}
 					m.Update(daemonset, removeAnnotations).Should(Succeed())
 					waitForDaemonSetReconciled(daemonset)
-
-					Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
+					waitForDaemonSetReconciled(daemonset)
 					m.Get(daemonset).Should(Succeed())
+					Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
 				})
 
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []core.Object{cm1, cm2, s1, s2} {
+						m.Get(obj, timeout).Should(Succeed())
 						Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
 				It("Removes the DaemonSet's finalizer", func() {
+					m.Get(daemonset).Should(Succeed())
 					Eventually(daemonset, timeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 				})
 			})
@@ -371,11 +370,11 @@ var _ = Describe("DaemonSet controller Suite", func() {
 					// Make sure the cache has synced before we run the test
 					Eventually(daemonset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 					m.Delete(daemonset).Should(Succeed())
-					Eventually(daemonset, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 					waitForDaemonSetReconciled(daemonset)
 
 					// Get the updated DaemonSet
 					m.Get(daemonset, timeout).Should(Succeed())
+					Eventually(daemonset, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []core.Object{cm1, cm2, s1, s2} {
