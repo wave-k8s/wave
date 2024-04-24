@@ -48,6 +48,7 @@ type podController interface {
 	GetPodTemplate() *corev1.PodTemplateSpec
 	SetPodTemplate(*corev1.PodTemplateSpec)
 	DeepCopyPodController() podController
+	GetApiObject() client.Object
 }
 
 // Deployment struct implementing the podController interface
@@ -67,6 +68,10 @@ func (d *deployment) DeepCopyPodController() podController {
 	return &deployment{d.Deployment.DeepCopy()}
 }
 
+func (d *deployment) GetApiObject() client.Object {
+	return nil
+}
+
 // StatefulSet struct implementing the podController interface
 type statefulset struct {
 	*appsv1.StatefulSet
@@ -84,6 +89,10 @@ func (s *statefulset) DeepCopyPodController() podController {
 	return &statefulset{s.StatefulSet.DeepCopy()}
 }
 
+func (d *statefulset) GetApiObject() client.Object {
+	return nil
+}
+
 // DaemonSet struct implementing the podController interface
 type daemonset struct {
 	*appsv1.DaemonSet
@@ -99,4 +108,12 @@ func (d *daemonset) SetPodTemplate(template *corev1.PodTemplateSpec) {
 
 func (d *daemonset) DeepCopyPodController() podController {
 	return &daemonset{d.DaemonSet.DeepCopy()}
+}
+
+func (d *daemonset) GetApiObject() client.Object {
+	return &appsv1.DaemonSet{
+		Status:     d.Status,
+		Spec:       d.Spec,
+		ObjectMeta: d.ObjectMeta,
+	}
 }
