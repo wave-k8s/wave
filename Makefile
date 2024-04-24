@@ -1,5 +1,4 @@
 include Makefile.tools
-include .env
 
 GO ?= go
 GOBIN ?= $(shell $(GO) env GOPATH)/bin
