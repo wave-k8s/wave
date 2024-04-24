@@ -6,17 +6,22 @@ GOBIN ?= $(shell $(GO) env GOPATH)/bin
 BINARY := wave
 VERSION := $(shell git describe --always --dirty --tags 2>/dev/null || echo "undefined")
 ECHO := echo
-CONTROLLER_GEN ?= controller-gen
-GINKGO ?= ginkgo
+CONTROLLER_TOOLS_VERSION ?= v0.14.0
+ENVTEST_K8S_VERSION = 1.29.0
+
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
 
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/wave-k8s/wave
-
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 .NOTPARALLEL:
 
@@ -77,9 +82,9 @@ lint: tidy
 	@ $(ECHO)
 
 # Run tests
-export TEST_ASSET_KUBECTL := $(TEST_ASSET_DIR)/kubectl
-export TEST_ASSET_KUBE_APISERVER := $(TEST_ASSET_DIR)/kube-apiserver
-export TEST_ASSET_ETCD := $(TEST_ASSET_DIR)/etcd
+#export TEST_ASSET_KUBECTL := $(TEST_ASSET_DIR)/kubectl
+#export TEST_ASSET_KUBE_APISERVER := $(TEST_ASSET_DIR)/kube-apiserver
+#export TEST_ASSET_ETCD := $(TEST_ASSET_DIR)/etcd
 
 tidy:
 	@ $(ECHO) "\033[36mPuling dependencies\033[0m"
@@ -90,10 +95,8 @@ tidy:
 check: fmt lint vet test
 
 .PHONY: test
-test: tidy generate manifests ginkgo
-	@ $(ECHO) "\033[36mRunning test suite in Ginkgo\033[0m"
-	$(GINKGO) -v -randomizeAllSpecs ./pkg/... ./cmd/... -- -report-dir=$$ARTIFACTS
-	@ $(ECHO)
+test: manifests generate fmt vet envtest ## Run tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./... -coverprofile cover.out
 
 # Build manager binary
 $(BINARY): generate fmt vet
@@ -138,7 +141,7 @@ deploy: manifests
 .PHONY: manifests
 manifests: tidy controller-gen
 	@ $(ECHO) "\033[36mGenerating manifests\033[0m"
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	@ $(ECHO)
 
 # Build the docker image
@@ -158,24 +161,16 @@ PUSH_TAGS ?= ${VERSION},latest
 docker-push:
 	@IFS=","; tags=${PUSH_TAGS}; for tag in $${tags}; do docker push ${IMG}:$${tag}; $(ECHO) "\033[36mPushed $(IMG):$${tag}\033[0m"; done
 
-# find, or download controller-gen if missing
-controller-gen:
-ifeq (, $(shell which controller-gen))
-	@$(ECHO) "controller-gen not found, downloading..."
-	$(GO) install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.4
-	CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-	CONTROLLER_GEN=$(shell which controller-gen)
-endif
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
+$(CONTROLLER_GEN): $(LOCALBIN)
+	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 
-ginkgo:
-ifeq (, $(shell which ginkgo))
-	@$(ECHO) "ginkgo not found, downloading..."
-	$(GO) install github.com/onsi/ginkgo/ginkgo@v1.16.4
-	GINKGO=$(GOBIN)/ginkgo
-else
-	GINKGO=$(shell which ginkgo)
-endif
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 .PHONY: deepcopy-gen
 deepcopy-gen:
