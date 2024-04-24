@@ -69,7 +69,11 @@ func (d *deployment) DeepCopyPodController() podController {
 }
 
 func (d *deployment) GetApiObject() client.Object {
-	return nil
+	return &appsv1.Deployment{
+		Status:     d.Status,
+		Spec:       d.Spec,
+		ObjectMeta: d.ObjectMeta,
+	}
 }
 
 // StatefulSet struct implementing the podController interface
@@ -90,7 +94,11 @@ func (s *statefulset) DeepCopyPodController() podController {
 }
 
 func (d *statefulset) GetApiObject() client.Object {
-	return nil
+	return &appsv1.StatefulSet{
+		Status:     d.Status,
+		Spec:       d.Spec,
+		ObjectMeta: d.ObjectMeta,
+	}
 }
 
 // DaemonSet struct implementing the podController interface
