@@ -22,7 +22,6 @@ import (
 	"github.com/onsi/gomega"
 	gtypes "github.com/onsi/gomega/types"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -99,45 +98,6 @@ func (m *Matcher) consistentlyObject(obj client.Object, intervals ...interface{}
 		return obj
 	}
 	return gomega.Consistently(get, intervals...)
-}
-
-// eventuallyObject gets an individual object from the API server
-func (m *Matcher) eventuallyObject(obj client.Object, intervals ...interface{}) gomega.GomegaAsyncAssertion {
-	key := types.NamespacedName{
-		Name:      obj.GetName(),
-		Namespace: obj.GetNamespace(),
-	}
-
-	get := func() client.Object {
-		switch obj := obj.(type) {
-		case *appsv1.StatefulSet, *corev1.ConfigMap, *corev1.Secret, *appsv1.Deployment, *appsv1.DaemonSet:
-			err := m.Client.Get(context.TODO(), key, obj)
-			if err != nil {
-				panic(err)
-			}
-			return obj
-		default:
-			panic("Unknown Object type.")
-		}
-	}
-	return gomega.Eventually(get, intervals...)
-}
-
-// eventuallyList gets a list type from the API server
-func (m *Matcher) eventuallyList(obj client.ObjectList, intervals ...interface{}) gomega.GomegaAsyncAssertion {
-	list := func() client.ObjectList {
-		switch obj := obj.(type) {
-		case *corev1.EventList, *corev1.SecretList, *corev1.ConfigMapList:
-			err := m.Client.List(context.TODO(), obj)
-			if err != nil {
-				panic(err)
-			}
-			return obj
-		default:
-			panic("Unknown List type.")
-		}
-	}
-	return gomega.Eventually(list, intervals...)
 }
 
 // WithAnnotations returns the object's Annotations

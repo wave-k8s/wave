@@ -47,7 +47,11 @@ var (
 
 func main() {
 	// Setup flags
-	goflag.Lookup("logtostderr").Value.Set("true")
+	err := goflag.Lookup("logtostderr").Value.Set("true")
+	if err != nil {
+		fmt.Printf("unable to set logtostderr %v", err)
+		os.Exit(1)
+	}
 	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 	flag.Parse()
 
