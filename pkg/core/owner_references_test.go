@@ -17,9 +17,11 @@ limitations under the License.
 package core
 
 import (
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"context"
 	"sync"
 	"time"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -147,7 +149,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			eventMessage := func(event *corev1.Event) string {
 				return event.Message
 			}
-
+			m.Client.List(context.TODO(), events)
 			Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(cmMessage)))))
 			Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(sMessage)))))
 		})
@@ -252,6 +254,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			eventMessage := func(event *corev1.Event) string {
 				return event.Message
 			}
+			m.Client.List(context.TODO(), events)
 
 			Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(cmMessage)))))
 		})
