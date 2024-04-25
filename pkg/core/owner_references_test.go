@@ -256,14 +256,16 @@ var _ = Describe("Wave owner references Suite", func() {
 			Expect(h.updateOwnerReference(podControllerDeployment, cm1)).NotTo(HaveOccurred())
 			Eventually(cm1, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 
-			events := &corev1.EventList{}
 			cmMessage := "Adding watch for ConfigMap example1"
 			eventMessage := func(event *corev1.Event) string {
 				return event.Message
 			}
-			m.Client.List(context.TODO(), events)
 
-			Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(cmMessage)))))
+			Eventually(func() *corev1.EventList {
+				events := &corev1.EventList{}
+				m.Client.List(context.TODO(), events)
+				return events
+			}, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(cmMessage)))))
 		})
 	})
 
