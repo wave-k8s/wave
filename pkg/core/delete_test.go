@@ -19,9 +19,10 @@ package core
 import (
 	"context"
 	"fmt"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sync"
 	"time"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -154,11 +155,13 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		It("removes owner references from all children", func() {
 			for _, obj := range []Object{cm1, cm2, s1, s2} {
+				m.Get(obj, timeout).Should(Succeed())
 				Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 		})
 
 		It("removes the finalizer from the deployment", func() {
+			m.Get(deploymentObject, timeout).Should(Succeed())
 			Eventually(deploymentObject, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
 		})
 	})

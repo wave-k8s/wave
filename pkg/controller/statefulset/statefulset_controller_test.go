@@ -19,9 +19,9 @@ package statefulset
 import (
 	"context"
 	"fmt"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sync"
 	"time"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -46,8 +46,6 @@ var _ = Describe("StatefulSet controller Suite", func() {
 
 	var statefulset *appsv1.StatefulSet
 	var requests <-chan reconcile.Request
-	var mgrStopped *sync.WaitGroup
-	var stopMgr chan struct{}
 
 	const timeout = time.Second * 5
 	const consistentlyTimeout = time.Second
@@ -94,7 +92,8 @@ var _ = Describe("StatefulSet controller Suite", func() {
 		recFn, requests = SetupTestReconcile(newReconciler(mgr))
 		Expect(add(mgr, recFn)).NotTo(HaveOccurred())
 
-		stopMgr, mgrStopped = StartTestManager(mgr)
+		testCtx, testCancel = context.WithCancel(context.Background())
+		go Run(testCtx, mgr)
 
 		// Create some configmaps and secrets
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
@@ -156,8 +155,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 			return nil
 		}, timeout).Should(Succeed())
 
-		close(stopMgr)
-		mgrStopped.Wait()
+		testCancel()
 
 		utils.DeleteAll(cfg, timeout,
 			&appsv1.StatefulSetList{},
@@ -189,6 +187,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 
 			It("Adds OwnerReferences to all children", func() {
 				for _, obj := range []core.Object{cm1, cm2, cm3, s1, s2, s3} {
+					m.Get(obj, timeout).Should(Succeed())
 					Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
@@ -208,7 +207,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
-
+				m.Client.List(context.TODO(), events)
 				hashMessage := "Configuration hash updated to ebabf80ef45218b27078a41ca16b35a4f91cb5672f389e520ae9da6ee3df3b1c"
 				Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
@@ -231,16 +230,19 @@ var _ = Describe("StatefulSet controller Suite", func() {
 
 					m.Update(statefulset, removeContainer2).Should(Succeed())
 					waitForStatefulSetReconciled(statefulset)
+					waitForStatefulSetReconciled(statefulset)
 
 					// Get the updated StatefulSet
 					m.Get(statefulset, timeout).Should(Succeed())
 				})
 
 				It("Removes the OwnerReference from the orphaned ConfigMap", func() {
+					m.Get(cm2, timeout).Should(Succeed())
 					Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
 				It("Removes the OwnerReference from the orphaned Secret", func() {
+					m.Get(s2, timeout).Should(Succeed())
 					Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
@@ -265,7 +267,6 @@ var _ = Describe("StatefulSet controller Suite", func() {
 							return cm
 						}
 						m.Update(cm1, modifyCM).Should(Succeed())
-
 						waitForStatefulSetReconciled(statefulset)
 
 						// Get the updated StatefulSet
@@ -285,7 +286,6 @@ var _ = Describe("StatefulSet controller Suite", func() {
 							return cm
 						}
 						m.Update(cm2, modifyCM).Should(Succeed())
-
 						waitForStatefulSetReconciled(statefulset)
 
 						// Get the updated StatefulSet
@@ -308,7 +308,6 @@ var _ = Describe("StatefulSet controller Suite", func() {
 							return s
 						}
 						m.Update(s1, modifyS).Should(Succeed())
-
 						waitForStatefulSetReconciled(statefulset)
 
 						// Get the updated StatefulSet
@@ -331,7 +330,6 @@ var _ = Describe("StatefulSet controller Suite", func() {
 							return s
 						}
 						m.Update(s2, modifyS).Should(Succeed())
-
 						waitForStatefulSetReconciled(statefulset)
 
 						// Get the updated StatefulSet
@@ -352,7 +350,9 @@ var _ = Describe("StatefulSet controller Suite", func() {
 					}
 					m.Update(statefulset, removeAnnotations).Should(Succeed())
 					waitForStatefulSetReconciled(statefulset)
+					waitForStatefulSetReconciled(statefulset)
 
+					m.Get(statefulset, timeout).Should(Succeed())
 					Eventually(statefulset, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
 				})
 
@@ -363,6 +363,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 				})
 
 				It("Removes the StatefulSet's finalizer", func() {
+					m.Get(statefulset, timeout).Should(Succeed())
 					Eventually(statefulset, timeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 				})
 			})
@@ -372,11 +373,11 @@ var _ = Describe("StatefulSet controller Suite", func() {
 					// Make sure the cache has synced before we run the test
 					Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 					m.Delete(statefulset).Should(Succeed())
-					Eventually(statefulset, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 					waitForStatefulSetReconciled(statefulset)
 
 					// Get the updated StatefulSet
 					m.Get(statefulset, timeout).Should(Succeed())
+					Eventually(statefulset, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []core.Object{cm1, cm2, s1, s2} {

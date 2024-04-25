@@ -19,9 +19,9 @@ package deployment
 import (
 	"context"
 	"fmt"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sync"
 	"time"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -46,8 +46,6 @@ var _ = Describe("Deployment controller Suite", func() {
 
 	var deployment *appsv1.Deployment
 	var requests <-chan reconcile.Request
-	var mgrStopped *sync.WaitGroup
-	var stopMgr chan struct{}
 
 	const timeout = time.Second * 5
 	const consistentlyTimeout = time.Second
@@ -92,7 +90,8 @@ var _ = Describe("Deployment controller Suite", func() {
 		recFn, requests = SetupTestReconcile(newReconciler(mgr))
 		Expect(add(mgr, recFn)).NotTo(HaveOccurred())
 
-		stopMgr, mgrStopped = StartTestManager(mgr)
+		testCtx, testCancel = context.WithCancel(context.Background())
+		go Run(testCtx, mgr)
 
 		// Create some configmaps and secrets
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
@@ -154,15 +153,14 @@ var _ = Describe("Deployment controller Suite", func() {
 			return nil
 		}, timeout).Should(Succeed())
 
-		close(stopMgr)
-		mgrStopped.Wait()
-
 		utils.DeleteAll(cfg, timeout,
 			&appsv1.DeploymentList{},
 			&corev1.ConfigMapList{},
 			&corev1.SecretList{},
 			&corev1.EventList{},
 		)
+
+		testCancel()
 	})
 
 	Context("When a Deployment is reconciled", func() {
@@ -187,6 +185,7 @@ var _ = Describe("Deployment controller Suite", func() {
 
 			It("Adds OwnerReferences to all children", func() {
 				for _, obj := range []core.Object{cm1, cm2, cm3, s1, s2, s3} {
+					m.Get(obj, timeout).Should(Succeed())
 					Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
@@ -206,7 +205,7 @@ var _ = Describe("Deployment controller Suite", func() {
 				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
-
+				m.Client.List(context.TODO(), events)
 				hashMessage := "Configuration hash updated to ebabf80ef45218b27078a41ca16b35a4f91cb5672f389e520ae9da6ee3df3b1c"
 				Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
@@ -351,7 +350,9 @@ var _ = Describe("Deployment controller Suite", func() {
 					}
 					m.Update(deployment, removeAnnotations).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
+					waitForDeploymentReconciled(deployment)
 
+					m.Get(deployment).Should(Succeed())
 					Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
 				})
 
@@ -362,6 +363,7 @@ var _ = Describe("Deployment controller Suite", func() {
 				})
 
 				It("Removes the Deployment's finalizer", func() {
+					m.Get(deployment).Should(Succeed())
 					Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 				})
 			})
@@ -371,11 +373,11 @@ var _ = Describe("Deployment controller Suite", func() {
 					// Make sure the cache has synced before we run the test
 					Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 					m.Delete(deployment).Should(Succeed())
-					Eventually(deployment, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment
 					m.Get(deployment, timeout).Should(Succeed())
+					Eventually(deployment, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []core.Object{cm1, cm2, s1, s2} {

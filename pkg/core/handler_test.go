@@ -19,9 +19,10 @@ package core
 import (
 	"context"
 	"fmt"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sync"
 	"time"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -165,10 +166,16 @@ var _ = Describe("Wave controller Suite", func() {
 
 				// Get the updated Deployment
 				m.Get(deployment, timeout).Should(Succeed())
+				_, err = h.HandleDeployment(deployment)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Get the updated Deployment
+				m.Get(deployment, timeout).Should(Succeed())
 			})
 
 			It("Adds OwnerReferences to all children", func() {
 				for _, obj := range []Object{cm1, cm2, cm3, s1, s2, s3} {
+					m.Get(obj, timeout).Should(Succeed())
 					Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
@@ -188,7 +195,7 @@ var _ = Describe("Wave controller Suite", func() {
 				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
-
+				m.Client.List(context.TODO(), events)
 				hashMessage := "Configuration hash updated to ebabf80ef45218b27078a41ca16b35a4f91cb5672f389e520ae9da6ee3df3b1c"
 				Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
@@ -432,11 +439,13 @@ var _ = Describe("Wave controller Suite", func() {
 
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []Object{cm1, cm2, s1, s2} {
+						m.Get(obj, timeout).Should(Succeed())
 						Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
 				It("Removes the Deployment's finalizer", func() {
+					m.Get(deployment, timeout).Should(Succeed())
 					Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
 				})
 			})
@@ -447,14 +456,15 @@ var _ = Describe("Wave controller Suite", func() {
 					Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
 
 					m.Delete(deployment).Should(Succeed())
-					Eventually(deployment, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 					m.Get(deployment).Should(Succeed())
+					Eventually(deployment, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 
 					_, err := h.HandleDeployment(deployment)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []Object{cm1, cm2, s1, s2} {
+						m.Get(obj, timeout).Should(Succeed())
 						Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})

@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/go-logr/glogr"
 	flag "github.com/spf13/pflag"
@@ -46,7 +47,11 @@ var (
 
 func main() {
 	// Setup flags
-	goflag.Lookup("logtostderr").Value.Set("true")
+	err := goflag.Lookup("logtostderr").Value.Set("true")
+	if err != nil {
+		fmt.Printf("unable to set logtostderr %v", err)
+		os.Exit(1)
+	}
 	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 	flag.Parse()
 
