@@ -203,13 +203,15 @@ var _ = Describe("StatefulSet controller Suite", func() {
 			It("Sends an event when updating the hash", func() {
 				Eventually(statefulset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 
-				events := &corev1.EventList{}
 				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
-				m.Client.List(context.TODO(), events)
 				hashMessage := "Configuration hash updated to ebabf80ef45218b27078a41ca16b35a4f91cb5672f389e520ae9da6ee3df3b1c"
-				Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
+				Eventually(func() *corev1.EventList {
+					events := &corev1.EventList{}
+					m.Client.List(context.TODO(), events)
+					return events
+				}, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
 
 			Context("And a child is removed", func() {
