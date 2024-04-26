@@ -39,4 +39,5 @@ spec:
       nodeSelector: {{ toYaml .Values.nodeSelector | nindent 8 }}
       affinity: {{ toYaml .Values.affinity | nindent 8 }}
       tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+      topologySpreadConstraints: {{ toYaml .Values.topologySpreadConstraints | nindent 8 }}
       volumes: {{ toYaml .Values.extraVolumes | nindent 8 }}
