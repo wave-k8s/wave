@@ -9,49 +9,18 @@ on:
 
 jobs:
   tests:
-
     runs-on: ubuntu-latest
-
     steps:
-      - name: Setup Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: '1.14.6'
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
-          path: ./src/github.com/${{ github.repository }}
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        with:
-          path: |
-            ./src/github.com/${{ github.repository }}/vendor
-            ~/go/bin
-            ${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64
-          key: ${{ runner.os }}-build-depcache-${{ hashFiles('**/Gopkg.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-depcache-
-      - name: Setup test tooling
-        run: |
-          GO111MODULE=on go get github.com/onsi/ginkgo/ginkgo@v1.14.2
-          if ! [[ -x $(go env GOPATH)/bin/golangci-lint ]]; then echo "golangci-lint not found; fetching"; curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.27.0; fi
-          if ! [[ -d ${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64 ]]; then echo "kubebuilder not found; fetching"; curl -sSfL https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_linux_amd64.tar.gz | tar zxvf -; fi
-          if ! [[ -x $(go env GOPATH)/bin/dep ]]; then echo "deplint not found; fetching"; curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh; fi
-          if ! [[ -x $(go env GOPATH)/bin/kustomize ]]; then echo "kustomize not found; fetching"; GO111MODULE=on go get sigs.k8s.io/kustomize/kustomize/v3; fi
-      - name: Download dependencies
-        run: |
-          export GOPATH=$(go env GOPATH):$(pwd)
-          echo "Running dep ensure into ./src/github.com/${{ github.repository }}/vendor"
-          cd ./src/github.com/${{ github.repository }}
-          dep ensure --vendor-only
-      - name: Configure
-        run: |
-          export GOPATH=$(go env GOPATH)
-          export PATH=$GOPATH/bin:$PATH
-          ./configure --with-kubebuilder=${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64/bin --with-kubectl=${{ github.workspace	}}/kubebuilder_2.3.1_linux_amd64/bin/kubectl
-        working-directory: ./src/github.com/${{ github.repository }}
+          go-version: '1.22'
+          cache-dependency-path: |
+            go.sum
+            go.sum
       - name: Run Tests
         run: |
           export GOPATH=$(go env GOPATH):$(pwd)
-          cd ./src/github.com/${{ github.repository }}
-          make check
+          make test

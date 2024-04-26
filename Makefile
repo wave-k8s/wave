@@ -1,9 +1,21 @@
-include Makefile.tools
-include .env
-
+GO ?= go
+GOBIN ?= $(shell $(GO) env GOPATH)/bin
 BINARY := wave
 VERSION := $(shell git describe --always --dirty --tags 2>/dev/null || echo "undefined")
 ECHO := echo
+CONTROLLER_TOOLS_VERSION ?= v0.14.0
+ENVTEST_K8S_VERSION = 1.29.0
+
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+ENVTEST ?= $(LOCALBIN)/setup-envtest
+
+OS = $(shell go env GOOS)
+ARCH = $(shell go env GOARCH)
 
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/wave-k8s/wave
@@ -22,12 +34,11 @@ clean:
 
 .PHONY: distclean
 distclean: clean
-	rm -rf vendor
 	rm -rf release
 
 # Generate code
 .PHONY: generate
-generate: vendor
+generate: tidy deepcopy-gen
 	@ $(ECHO) "\033[36mGenerating code\033[0m"
 	$(GO) generate ./pkg/... ./cmd/...
 	@ $(ECHO)
@@ -51,7 +62,7 @@ vet:
 	$(GO) vet ./pkg/... ./cmd/...
 
 .PHONY: lint
-lint: vendor
+lint: tidy
 	@ $(ECHO) "\033[36mLinting code\033[0m"
 	$(LINTER) run --disable-all \
                 --exclude-use-default=false \
@@ -68,23 +79,21 @@ lint: vendor
 	@ $(ECHO)
 
 # Run tests
-export TEST_ASSET_KUBECTL := $(KUBEBUILDER)/kubectl
-export TEST_ASSET_KUBE_APISERVER := $(KUBEBUILDER)/kube-apiserver
-export TEST_ASSET_ETCD := $(KUBEBUILDER)/etcd
+#export TEST_ASSET_KUBECTL := $(TEST_ASSET_DIR)/kubectl
+#export TEST_ASSET_KUBE_APISERVER := $(TEST_ASSET_DIR)/kube-apiserver
+#export TEST_ASSET_ETCD := $(TEST_ASSET_DIR)/etcd
 
-vendor:
+tidy:
 	@ $(ECHO) "\033[36mPuling dependencies\033[0m"
-	$(DEP) ensure --vendor-only
+	$(GO) mod tidy
 	@ $(ECHO)
 
 .PHONY: check
 check: fmt lint vet test
 
 .PHONY: test
-test: vendor generate manifests
-	@ $(ECHO) "\033[36mRunning test suite in Ginkgo\033[0m"
-	$(GINKGO) -v -randomizeAllSpecs ./pkg/... ./cmd/... -- -report-dir=$$ARTIFACTS
-	@ $(ECHO)
+test: manifests generate fmt vet envtest ## Run tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -v ./... -coverprofile cover.out
 
 # Build manager binary
 $(BINARY): generate fmt vet
@@ -127,9 +136,9 @@ deploy: manifests
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
-manifests: vendor
+manifests: tidy controller-gen
 	@ $(ECHO) "\033[36mGenerating manifests\033[0m"
-	$(GO) run vendor/sigs.k8s.io/controller-tools/cmd/controller-gen/main.go all
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	@ $(ECHO)
 
 # Build the docker image
@@ -148,3 +157,18 @@ PUSH_TAGS ?= ${VERSION},latest
 .PHONY: docker-push
 docker-push:
 	@IFS=","; tags=${PUSH_TAGS}; for tag in $${tags}; do docker push ${IMG}:$${tag}; $(ECHO) "\033[36mPushed $(IMG):$${tag}\033[0m"; done
+
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
+$(CONTROLLER_GEN): $(LOCALBIN)
+	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+.PHONY: deepcopy-gen
+deepcopy-gen:
+	@$(GO) install k8s.io/code-generator/cmd/deepcopy-gen@latest

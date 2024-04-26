@@ -23,6 +23,8 @@ import (
 	"runtime"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+
 	"github.com/go-logr/glogr"
 	flag "github.com/spf13/pflag"
 	"github.com/wave-k8s/wave/pkg/apis"
@@ -30,9 +32,9 @@ import (
 	"github.com/wave-k8s/wave/pkg/webhook"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 var (
@@ -45,7 +47,11 @@ var (
 
 func main() {
 	// Setup flags
-	goflag.Lookup("logtostderr").Value.Set("true")
+	err := goflag.Lookup("logtostderr").Value.Set("true")
+	if err != nil {
+		fmt.Printf("unable to set logtostderr %v", err)
+		os.Exit(1)
+	}
 	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 	flag.Parse()
 
@@ -71,7 +77,9 @@ func main() {
 		LeaderElection:          *leaderElection,
 		LeaderElectionID:        *leaderElectionID,
 		LeaderElectionNamespace: *leaderElectionNamespace,
-		SyncPeriod:              syncPeriod,
+		Cache: cache.Options{
+			SyncPeriod: syncPeriod,
+		},
 	})
 	if err != nil {
 		log.Error(err, "unable to set up overall controller manager")

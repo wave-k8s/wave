@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/wave-k8s/wave/test/utils"
@@ -50,7 +52,9 @@ var _ = Describe("Wave owner references Suite", func() {
 
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{
-			MetricsBindAddress: "0",
+			Metrics: metricsserver.Options{
+				BindAddress: "0",
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		var cerr error
@@ -100,7 +104,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			s2 = utils.ExampleSecret2.DeepCopy()
 
 			for _, obj := range []Object{cm1, cm2, s1, s2} {
-				m.Update(obj, func(obj utils.Object) utils.Object {
+				m.Update(obj, func(obj client.Object) client.Object {
 					obj.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 					return obj
 				}, timeout).Should(Succeed())
@@ -109,7 +113,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			f := deploymentObject.GetFinalizers()
 			f = append(f, FinalizerString)
 			f = append(f, "keep.me.around/finalizer")
-			m.Update(deploymentObject, func(obj utils.Object) utils.Object {
+			m.Update(deploymentObject, func(obj client.Object) client.Object {
 				obj.SetFinalizers(f)
 				return obj
 			}, timeout).Should(Succeed())
@@ -151,12 +155,14 @@ var _ = Describe("Wave owner references Suite", func() {
 
 		It("removes owner references from all children", func() {
 			for _, obj := range []Object{cm1, cm2, s1, s2} {
-				m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+				m.Get(obj, timeout).Should(Succeed())
+				Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 			}
 		})
 
 		It("removes the finalizer from the deployment", func() {
-			m.Eventually(deploymentObject, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
+			m.Get(deploymentObject, timeout).Should(Succeed())
+			Eventually(deploymentObject, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
 		})
 	})
 

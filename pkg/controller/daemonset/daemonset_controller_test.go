@@ -19,7 +19,6 @@ package daemonset
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -36,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -45,8 +45,6 @@ var _ = Describe("DaemonSet controller Suite", func() {
 
 	var daemonset *appsv1.DaemonSet
 	var requests <-chan reconcile.Request
-	var mgrStopped *sync.WaitGroup
-	var stopMgr chan struct{}
 
 	const timeout = time.Second * 5
 	const consistentlyTimeout = time.Second
@@ -77,7 +75,9 @@ var _ = Describe("DaemonSet controller Suite", func() {
 		metrics.Registry = prometheus.NewRegistry()
 
 		mgr, err := manager.New(cfg, manager.Options{
-			MetricsBindAddress: "0",
+			Metrics: metricsserver.Options{
+				BindAddress: "0",
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		var cerr error
@@ -89,7 +89,8 @@ var _ = Describe("DaemonSet controller Suite", func() {
 		recFn, requests = SetupTestReconcile(newReconciler(mgr))
 		Expect(add(mgr, recFn)).NotTo(HaveOccurred())
 
-		stopMgr, mgrStopped = StartTestManager(mgr)
+		testCtx, testCancel = context.WithCancel(context.Background())
+		go Run(testCtx, mgr)
 
 		// Create some configmaps and secrets
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
@@ -151,21 +152,20 @@ var _ = Describe("DaemonSet controller Suite", func() {
 			return nil
 		}, timeout).Should(Succeed())
 
-		close(stopMgr)
-		mgrStopped.Wait()
-
 		utils.DeleteAll(cfg, timeout,
 			&appsv1.DaemonSetList{},
 			&corev1.ConfigMapList{},
 			&corev1.SecretList{},
 			&corev1.EventList{},
 		)
+
+		testCancel()
 	})
 
 	Context("When a DaemonSet is reconciled", func() {
 		Context("And it has the required annotation", func() {
 			BeforeEach(func() {
-				addAnnotation := func(obj utils.Object) utils.Object {
+				addAnnotation := func(obj client.Object) client.Object {
 					annotations := obj.GetAnnotations()
 					if annotations == nil {
 						annotations = make(map[string]string)
@@ -184,39 +184,40 @@ var _ = Describe("DaemonSet controller Suite", func() {
 
 			It("Adds OwnerReferences to all children", func() {
 				for _, obj := range []core.Object{cm1, cm2, cm3, s1, s2, s3} {
-					m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
+					m.Get(obj, timeout).Should(Succeed())
+					Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
 
 			It("Adds a finalizer to the DaemonSet", func() {
-				m.Eventually(daemonset, timeout).Should(utils.WithFinalizers(ContainElement(core.FinalizerString)))
+				Eventually(daemonset, timeout).Should(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
-				m.Eventually(daemonset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+				Eventually(daemonset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 			})
 
 			It("Sends an event when updating the hash", func() {
-				m.Eventually(daemonset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
-
-				events := &corev1.EventList{}
 				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
-
 				hashMessage := "Configuration hash updated to ebabf80ef45218b27078a41ca16b35a4f91cb5672f389e520ae9da6ee3df3b1c"
-				m.Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
+				Eventually(func() *corev1.EventList {
+					events := &corev1.EventList{}
+					m.Client.List(context.TODO(), events)
+					return events
+				}, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
 
 			Context("And a child is removed", func() {
 				var originalHash string
 				BeforeEach(func() {
-					m.Eventually(daemonset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					Eventually(daemonset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 					originalHash = daemonset.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
-					removeContainer2 := func(obj utils.Object) utils.Object {
+					removeContainer2 := func(obj client.Object) client.Object {
 						ss, _ := obj.(*appsv1.DaemonSet)
 						containers := ss.Spec.Template.Spec.Containers
 						Expect(containers[0].Name).To(Equal("container1"))
@@ -226,21 +227,22 @@ var _ = Describe("DaemonSet controller Suite", func() {
 
 					m.Update(daemonset, removeContainer2).Should(Succeed())
 					waitForDaemonSetReconciled(daemonset)
+					waitForDaemonSetReconciled(daemonset)
 
 					// Get the updated DaemonSet
 					m.Get(daemonset, timeout).Should(Succeed())
 				})
 
 				It("Removes the OwnerReference from the orphaned ConfigMap", func() {
-					m.Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+					Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
 				It("Removes the OwnerReference from the orphaned Secret", func() {
-					m.Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+					Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
 				It("Updates the config hash in the Pod Template", func() {
-					m.Eventually(daemonset, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+					Eventually(daemonset, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 				})
 			})
 
@@ -248,13 +250,13 @@ var _ = Describe("DaemonSet controller Suite", func() {
 				var originalHash string
 
 				BeforeEach(func() {
-					m.Eventually(daemonset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					Eventually(daemonset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 					originalHash = daemonset.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
 				})
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
-						modifyCM := func(obj utils.Object) utils.Object {
+						modifyCM := func(obj client.Object) client.Object {
 							cm, _ := obj.(*corev1.ConfigMap)
 							cm.Data["key1"] = modified
 							return cm
@@ -268,13 +270,13 @@ var _ = Describe("DaemonSet controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
-						modifyCM := func(obj utils.Object) utils.Object {
+						modifyCM := func(obj client.Object) client.Object {
 							cm, _ := obj.(*corev1.ConfigMap)
 							cm.Data["key1"] = modified
 							return cm
@@ -288,13 +290,13 @@ var _ = Describe("DaemonSet controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
-						modifyS := func(obj utils.Object) utils.Object {
+						modifyS := func(obj client.Object) client.Object {
 							s, _ := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -311,13 +313,13 @@ var _ = Describe("DaemonSet controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
-						modifyS := func(obj utils.Object) utils.Object {
+						modifyS := func(obj client.Object) client.Object {
 							s, _ := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -334,49 +336,51 @@ var _ = Describe("DaemonSet controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
 					})
 				})
 			})
 
 			Context("And the annotation is removed", func() {
 				BeforeEach(func() {
-					removeAnnotations := func(obj utils.Object) utils.Object {
+					removeAnnotations := func(obj client.Object) client.Object {
 						obj.SetAnnotations(make(map[string]string))
 						return obj
 					}
 					m.Update(daemonset, removeAnnotations).Should(Succeed())
 					waitForDaemonSetReconciled(daemonset)
-
-					m.Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
+					waitForDaemonSetReconciled(daemonset)
 					m.Get(daemonset).Should(Succeed())
+					Eventually(daemonset, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
 				})
 
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []core.Object{cm1, cm2, s1, s2} {
-						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+						m.Get(obj, timeout).Should(Succeed())
+						Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
 				It("Removes the DaemonSet's finalizer", func() {
-					m.Eventually(daemonset, timeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
+					m.Get(daemonset).Should(Succeed())
+					Eventually(daemonset, timeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 				})
 			})
 
 			Context("And is deleted", func() {
 				BeforeEach(func() {
 					// Make sure the cache has synced before we run the test
-					m.Eventually(daemonset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					Eventually(daemonset, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 					m.Delete(daemonset).Should(Succeed())
-					m.Eventually(daemonset, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 					waitForDaemonSetReconciled(daemonset)
 
 					// Get the updated DaemonSet
 					m.Get(daemonset, timeout).Should(Succeed())
+					Eventually(daemonset, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []core.Object{cm1, cm2, s1, s2} {
-						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+						Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 

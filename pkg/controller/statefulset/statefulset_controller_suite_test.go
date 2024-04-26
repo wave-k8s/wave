@@ -17,9 +17,9 @@ limitations under the License.
 package statefulset
 
 import (
+	"context"
 	"log"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/wave-k8s/wave/test/reporters"
@@ -27,13 +27,14 @@ import (
 	"github.com/go-logr/glogr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/wave-k8s/wave/pkg/apis"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 var cfg *rest.Config
@@ -44,6 +45,8 @@ func TestMain(t *testing.T) {
 }
 
 var t *envtest.Environment
+
+var testCtx, testCancel = context.WithCancel(context.Background())
 
 var _ = BeforeSuite(func() {
 	t = &envtest.Environment{
@@ -68,23 +71,18 @@ var _ = AfterSuite(func() {
 // writes the request to requests after Reconcile is finished.
 func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan reconcile.Request) {
 	requests := make(chan reconcile.Request)
-	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
-		result, err := inner.Reconcile(req)
+	fn := reconcile.Func(func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+		result, err := inner.Reconcile(ctx, req)
 		requests <- req
 		return result, err
 	})
 	return fn, requests
 }
 
-// StartTestManager adds recFn
-func StartTestManager(mgr manager.Manager) (chan struct{}, *sync.WaitGroup) {
-	stop := make(chan struct{})
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer GinkgoRecover()
-		Expect(mgr.Start(stop)).NotTo(HaveOccurred())
-		wg.Done()
-	}()
-	return stop, wg
+// Run runs the webhook server.
+func Run(ctx context.Context, k8sManager ctrl.Manager) error {
+	if err := k8sManager.Start(ctx); err != nil {
+		return err
+	}
+	return nil
 }

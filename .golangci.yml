@@ -1,0 +1,3 @@
+run:
+  tests: false
+  timeout: 30m

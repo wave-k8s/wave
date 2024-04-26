@@ -1,8 +1,42 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
 vendor/
+
+# Build output directory
 release/
+
+# Environment variables file
 .env
+
+# Coverage output
 cover.out
+
+# Specific directories
 /wave
+bin/
+
+# OS generated files
 **/.DS_Store
+
+# Tool-specific files
 kubebuilder
 *.code-workspace
+.idea
+.vscode
+default.etcd/
+

@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/wave-k8s/wave/test/utils"
@@ -59,7 +61,9 @@ var _ = Describe("Wave controller Suite", func() {
 
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{
-			MetricsBindAddress: "0",
+			Metrics: metricsserver.Options{
+				BindAddress: "0",
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		var cerr error
@@ -153,7 +157,7 @@ var _ = Describe("Wave controller Suite", func() {
 				}
 				annotations[RequiredAnnotation] = requiredAnnotationValue
 
-				m.Update(deployment, func(obj utils.Object) utils.Object {
+				m.Update(deployment, func(obj client.Object) client.Object {
 					obj.SetAnnotations(annotations)
 					return obj
 				}, timeout).Should(Succeed())
@@ -162,45 +166,53 @@ var _ = Describe("Wave controller Suite", func() {
 
 				// Get the updated Deployment
 				m.Get(deployment, timeout).Should(Succeed())
+				_, err = h.HandleDeployment(deployment)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Get the updated Deployment
+				m.Get(deployment, timeout).Should(Succeed())
 			})
 
 			It("Adds OwnerReferences to all children", func() {
 				for _, obj := range []Object{cm1, cm2, cm3, s1, s2, s3} {
-					m.Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
+					m.Get(obj, timeout).Should(Succeed())
+					Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				}
 			})
 
 			It("Adds a finalizer to the Deployment", func() {
-				m.Eventually(deployment, timeout).Should(utils.WithFinalizers(ContainElement(FinalizerString)))
+				Eventually(deployment, timeout).Should(utils.WithFinalizers(ContainElement(FinalizerString)))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
-				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
+				Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
 			})
 
 			It("Sends an event when updating the hash", func() {
-				m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
+				Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
 
-				events := &corev1.EventList{}
 				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
-
 				hashMessage := "Configuration hash updated to ebabf80ef45218b27078a41ca16b35a4f91cb5672f389e520ae9da6ee3df3b1c"
-				m.Eventually(events, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
+				Eventually(func() *corev1.EventList {
+					events := &corev1.EventList{}
+					m.Client.List(context.TODO(), events)
+					return events
+				}, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
 
 			Context("And a child is removed", func() {
 				var originalHash string
 				BeforeEach(func() {
-					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
+					Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
 					originalHash = deployment.Spec.Template.GetAnnotations()[ConfigHashAnnotation]
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
 					containers := deployment.Spec.Template.Spec.Containers
 					Expect(containers[0].Name).To(Equal("container1"))
-					m.Update(deployment, func(obj utils.Object) utils.Object {
+					m.Update(deployment, func(obj client.Object) client.Object {
 						dpl := obj.(*appsv1.Deployment)
 						dpl.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
 						return dpl
@@ -213,15 +225,15 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 
 				It("Removes the OwnerReference from the orphaned ConfigMap", func() {
-					m.Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+					Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
 				It("Removes the OwnerReference from the orphaned Secret", func() {
-					m.Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+					Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 				})
 
 				It("Updates the config hash in the Pod Template", func() {
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
+					Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
 				})
 			})
 
@@ -229,13 +241,13 @@ var _ = Describe("Wave controller Suite", func() {
 				var originalHash string
 
 				BeforeEach(func() {
-					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
+					Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
 					originalHash = deployment.Spec.Template.GetAnnotations()[ConfigHashAnnotation]
 				})
 
 				Context("A ConfigMap volume is updated", func() {
 					BeforeEach(func() {
-						m.Update(cm1, func(obj utils.Object) utils.Object {
+						m.Update(cm1, func(obj client.Object) client.Object {
 							cm := obj.(*corev1.ConfigMap)
 							cm.Data["key1"] = modified
 							return cm
@@ -249,13 +261,13 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
+						Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A ConfigMap EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.Update(cm2, func(obj utils.Object) utils.Object {
+						m.Update(cm2, func(obj client.Object) client.Object {
 							cm := obj.(*corev1.ConfigMap)
 							cm.Data["key1"] = modified
 							return cm
@@ -269,13 +281,13 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
+						Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A ConfigMap Env for a key being used is updated", func() {
 					BeforeEach(func() {
-						m.Update(cm3, func(obj utils.Object) utils.Object {
+						m.Update(cm3, func(obj client.Object) client.Object {
 							cm := obj.(*corev1.ConfigMap)
 							cm.Data["key1"] = modified
 
@@ -290,13 +302,13 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
+						Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A ConfigMap Env for a key that is not being used is updated", func() {
 					BeforeEach(func() {
-						m.Update(cm3, func(obj utils.Object) utils.Object {
+						m.Update(cm3, func(obj client.Object) client.Object {
 							cm := obj.(*corev1.ConfigMap)
 							cm.Data["key3"] = modified
 
@@ -317,7 +329,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 				Context("A Secret volume is updated", func() {
 					BeforeEach(func() {
-						m.Update(s1, func(obj utils.Object) utils.Object {
+						m.Update(s1, func(obj client.Object) client.Object {
 							s := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -335,13 +347,13 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
+						Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A Secret EnvSource is updated", func() {
 					BeforeEach(func() {
-						m.Update(s2, func(obj utils.Object) utils.Object {
+						m.Update(s2, func(obj client.Object) client.Object {
 							s := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -359,13 +371,13 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
+						Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A Secret Env for a key being used is updated", func() {
 					BeforeEach(func() {
-						m.Update(s3, func(obj utils.Object) utils.Object {
+						m.Update(s3, func(obj client.Object) client.Object {
 							s := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -383,13 +395,13 @@ var _ = Describe("Wave controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						m.Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
+						Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(ConfigHashAnnotation, originalHash)))
 					})
 				})
 
 				Context("A Secret Env for a key that is not being used is updated", func() {
 					BeforeEach(func() {
-						m.Update(s3, func(obj utils.Object) utils.Object {
+						m.Update(s3, func(obj client.Object) client.Object {
 							s := obj.(*corev1.Secret)
 							if s.StringData == nil {
 								s.StringData = make(map[string]string)
@@ -415,8 +427,8 @@ var _ = Describe("Wave controller Suite", func() {
 			Context("And the annotation is removed", func() {
 				BeforeEach(func() {
 					// Make sure the cache has synced before we run the test
-					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
-					m.Update(deployment, func(obj utils.Object) utils.Object {
+					Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
+					m.Update(deployment, func(obj client.Object) client.Object {
 						obj.SetAnnotations(make(map[string]string))
 
 						return obj
@@ -424,35 +436,38 @@ var _ = Describe("Wave controller Suite", func() {
 					_, err := h.HandleDeployment(deployment)
 					Expect(err).NotTo(HaveOccurred())
 
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(RequiredAnnotation)))
+					Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(RequiredAnnotation)))
 				})
 
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []Object{cm1, cm2, s1, s2} {
-						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+						m.Get(obj, timeout).Should(Succeed())
+						Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
 				It("Removes the Deployment's finalizer", func() {
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
+					m.Get(deployment, timeout).Should(Succeed())
+					Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
 				})
 			})
 
 			Context("And is deleted", func() {
 				BeforeEach(func() {
 					// Make sure the cache has synced before we run the test
-					m.Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
+					Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
 
 					m.Delete(deployment).Should(Succeed())
-					m.Eventually(deployment, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 					m.Get(deployment).Should(Succeed())
+					Eventually(deployment, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 
 					_, err := h.HandleDeployment(deployment)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("Removes the OwnerReference from the all children", func() {
 					for _, obj := range []Object{cm1, cm2, s1, s2} {
-						m.Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+						m.Get(obj, timeout).Should(Succeed())
+						Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
 					}
 				})
 
