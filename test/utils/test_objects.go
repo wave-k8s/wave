@@ -83,6 +83,84 @@ var ExampleDeployment = &appsv1.Deployment{
 							},
 						},
 					},
+					{
+						Name: "projection1",
+						VolumeSource: corev1.VolumeSource{
+							Projected: &corev1.ProjectedVolumeSource{
+								Sources: []corev1.VolumeProjection{{
+									Secret: &corev1.SecretProjection{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example5",
+										},
+										Optional: &trueValue,
+									},
+								}},
+							},
+						},
+					},
+					{
+						Name: "projection2",
+						VolumeSource: corev1.VolumeSource{
+							Projected: &corev1.ProjectedVolumeSource{
+								Sources: []corev1.VolumeProjection{{
+									ConfigMap: &corev1.ConfigMapProjection{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example5",
+										},
+										Optional: &trueValue,
+									},
+								}},
+							},
+						},
+					},
+					{
+						Name: "projection3",
+						VolumeSource: corev1.VolumeSource{
+							Projected: &corev1.ProjectedVolumeSource{
+								Sources: []corev1.VolumeProjection{{
+									Secret: &corev1.SecretProjection{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example6",
+										},
+										Items: []corev1.KeyToPath{
+											{
+												Key:  "example6_key1",
+												Path: "example6_key1.txt",
+											},
+											{
+												Key:  "example6_key3",
+												Path: "example6_key3.txt",
+											},
+										},
+									},
+								}},
+							},
+						},
+					},
+					{
+						Name: "projection4",
+						VolumeSource: corev1.VolumeSource{
+							Projected: &corev1.ProjectedVolumeSource{
+								Sources: []corev1.VolumeProjection{{
+									ConfigMap: &corev1.ConfigMapProjection{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "example6",
+										},
+										Items: []corev1.KeyToPath{
+											{
+												Key:  "example6_key1",
+												Path: "example6_key1.txt",
+											},
+											{
+												Key:  "example6_key3",
+												Path: "example6_key3.txt",
+											},
+										},
+									},
+								}},
+							},
+						},
+					},
 				},
 				Containers: []corev1.Container{
 					{
@@ -785,6 +863,34 @@ var ExampleConfigMap4 = &corev1.ConfigMap{
 	},
 }
 
+// ExampleConfigMap5 is an example ConfigMap object for use within test suites
+var ExampleConfigMap5 = &corev1.ConfigMap{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "example5",
+		Namespace: "default",
+		Labels:    labels,
+	},
+	Data: map[string]string{
+		"key1": "example5:key1",
+		"key2": "example5:key2",
+		"key3": "example5:key3",
+	},
+}
+
+// ExampleConfigMap6 is an example ConfigMap object for use within test suites
+var ExampleConfigMap6 = &corev1.ConfigMap{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "example6",
+		Namespace: "default",
+		Labels:    labels,
+	},
+	Data: map[string]string{
+		"key1": "example6:key1",
+		"key2": "example6:key2",
+		"key3": "example6:key3",
+	},
+}
+
 // ExampleSecret1 is an example Secret object for use within test suites
 var ExampleSecret1 = &corev1.Secret{
 	ObjectMeta: metav1.ObjectMeta{
@@ -838,5 +944,33 @@ var ExampleSecret4 = &corev1.Secret{
 		"key1": "example4:key1",
 		"key2": "example4:key2",
 		"key3": "example4:key3",
+	},
+}
+
+// ExampleSecret5 is an example Secret object for use within test suites
+var ExampleSecret5 = &corev1.Secret{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "example5",
+		Namespace: "default",
+		Labels:    labels,
+	},
+	StringData: map[string]string{
+		"key1": "example5:key1",
+		"key2": "example5:key2",
+		"key3": "example5:key3",
+	},
+}
+
+// ExampleSecret6 is an example Secret object for use within test suites
+var ExampleSecret6 = &corev1.Secret{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "example6",
+		Namespace: "default",
+		Labels:    labels,
+	},
+	StringData: map[string]string{
+		"key1": "example6:key1",
+		"key2": "example6:key2",
+		"key3": "example6:key3",
 	},
 }

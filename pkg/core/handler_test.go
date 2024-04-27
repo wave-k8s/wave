@@ -53,9 +53,15 @@ var _ = Describe("Wave controller Suite", func() {
 	var cm1 *corev1.ConfigMap
 	var cm2 *corev1.ConfigMap
 	var cm3 *corev1.ConfigMap
+	var cm4 *corev1.ConfigMap
+	var cm5 *corev1.ConfigMap
+	var cm6 *corev1.ConfigMap
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
 	var s3 *corev1.Secret
+	var s4 *corev1.Secret
+	var s5 *corev1.Secret
+	var s6 *corev1.Secret
 
 	var modified = "modified"
 
@@ -79,22 +85,40 @@ var _ = Describe("Wave controller Suite", func() {
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
 		cm2 = utils.ExampleConfigMap2.DeepCopy()
 		cm3 = utils.ExampleConfigMap3.DeepCopy()
+		cm4 = utils.ExampleConfigMap4.DeepCopy()
+		cm5 = utils.ExampleConfigMap5.DeepCopy()
+		cm6 = utils.ExampleConfigMap6.DeepCopy()
 		s1 = utils.ExampleSecret1.DeepCopy()
 		s2 = utils.ExampleSecret2.DeepCopy()
 		s3 = utils.ExampleSecret3.DeepCopy()
+		s4 = utils.ExampleSecret4.DeepCopy()
+		s5 = utils.ExampleSecret5.DeepCopy()
+		s6 = utils.ExampleSecret6.DeepCopy()
 
 		m.Create(cm1).Should(Succeed())
 		m.Create(cm2).Should(Succeed())
 		m.Create(cm3).Should(Succeed())
+		m.Create(cm4).Should(Succeed())
+		m.Create(cm5).Should(Succeed())
+		m.Create(cm6).Should(Succeed())
 		m.Create(s1).Should(Succeed())
 		m.Create(s2).Should(Succeed())
 		m.Create(s3).Should(Succeed())
+		m.Create(s4).Should(Succeed())
+		m.Create(s5).Should(Succeed())
+		m.Create(s6).Should(Succeed())
 		m.Get(cm1, timeout).Should(Succeed())
 		m.Get(cm2, timeout).Should(Succeed())
 		m.Get(cm3, timeout).Should(Succeed())
+		m.Get(cm4, timeout).Should(Succeed())
+		m.Get(cm5, timeout).Should(Succeed())
+		m.Get(cm6, timeout).Should(Succeed())
 		m.Get(s1, timeout).Should(Succeed())
 		m.Get(s2, timeout).Should(Succeed())
 		m.Get(s3, timeout).Should(Succeed())
+		m.Get(s4, timeout).Should(Succeed())
+		m.Get(s5, timeout).Should(Succeed())
+		m.Get(s6, timeout).Should(Succeed())
 
 		deployment = utils.ExampleDeployment.DeepCopy()
 
@@ -194,7 +218,7 @@ var _ = Describe("Wave controller Suite", func() {
 				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
-				hashMessage := "Configuration hash updated to bd786f47ef9b79841ddba1059752f95c4fe21906df5e2964786b4658e02758d5"
+				hashMessage := "Configuration hash updated to 421778c325761f51dbf7a23a20eb9c1bc516ffd4aa7362ebec03175d427d7557"
 				Eventually(func() *corev1.EventList {
 					events := &corev1.EventList{}
 					m.Client.List(context.TODO(), events)

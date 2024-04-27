@@ -110,6 +110,33 @@ func getChildNamesByType(obj podController) (map[string]configMetadata, map[stri
 		if s := vol.VolumeSource.Secret; s != nil {
 			secrets[s.SecretName] = configMetadata{required: isRequired(s.Optional), allKeys: true}
 		}
+
+		if projection := vol.VolumeSource.Projected; projection != nil {
+			for _, source := range projection.Sources {
+				if cm := source.ConfigMap; cm != nil {
+					if cm.Items == nil {
+						configMaps[cm.Name] = configMetadata{required: isRequired(cm.Optional), allKeys: true}
+					} else {
+						keys := make(map[string]struct{})
+						for _, item := range cm.Items {
+							keys[item.Key] = struct{}{}
+						}
+						configMaps[cm.Name] = configMetadata{required: isRequired(cm.Optional), allKeys: false, keys: keys}
+					}
+				}
+				if s := source.Secret; s != nil {
+					if s.Items == nil {
+						secrets[s.Name] = configMetadata{required: isRequired(s.Optional), allKeys: true}
+					} else {
+						keys := make(map[string]struct{})
+						for _, item := range s.Items {
+							keys[item.Key] = struct{}{}
+						}
+						secrets[s.Name] = configMetadata{required: isRequired(s.Optional), allKeys: false, keys: keys}
+					}
+				}
+			}
+		}
 	}
 
 	// Range through all Containers and their respective EnvFrom,
