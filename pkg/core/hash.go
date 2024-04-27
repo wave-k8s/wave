@@ -30,10 +30,10 @@ import (
 func calculateConfigHash(children []configObject) (string, error) {
 	// hashSource contains all the data to be hashed
 	hashSource := struct {
-		ConfigMaps map[string]map[string]string `json:"configMaps"`
+		ConfigMaps map[string]map[string][]byte `json:"configMaps"`
 		Secrets    map[string]map[string][]byte `json:"secrets"`
 	}{
-		ConfigMaps: make(map[string]map[string]string),
+		ConfigMaps: make(map[string]map[string][]byte),
 		Secrets:    make(map[string]map[string][]byte),
 	}
 
@@ -65,14 +65,24 @@ func calculateConfigHash(children []configObject) (string, error) {
 
 // getConfigMapData extracts all the relevant data from the ConfigMap, whether that is
 // the whole ConfigMap or only the specified keys.
-func getConfigMapData(child configObject) map[string]string {
+func getConfigMapData(child configObject) map[string][]byte {
 	cm := *child.object.(*corev1.ConfigMap)
 	if child.allKeys {
-		return cm.Data
+		data := make(map[string][]byte)
+		for key := range cm.Data {
+			data[key] = []byte(cm.Data[key])
+		}
+		for key := range cm.BinaryData {
+			data[key] = cm.BinaryData[key]
+		}
+		return data
 	}
-	keyData := make(map[string]string)
+	keyData := make(map[string][]byte)
 	for key := range child.keys {
 		if value, exists := cm.Data[key]; exists {
+			keyData[key] = []byte(value)
+		}
+		if value, exists := cm.BinaryData[key]; exists {
 			keyData[key] = value
 		}
 	}

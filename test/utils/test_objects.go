@@ -736,6 +736,11 @@ var ExampleConfigMap1 = &corev1.ConfigMap{
 		"key2": "example1:key2",
 		"key3": "example1:key3",
 	},
+	BinaryData: map[string][]byte{
+		"binary_key1": []byte("example1:binary_key1"),
+		"binary_key2": []byte("example1:binary_key2"),
+		"binary_key3": []byte("example1:binary_key3"),
+	},
 }
 
 // ExampleConfigMap2 is an example ConfigMap object for use within test suites

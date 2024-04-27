@@ -194,7 +194,7 @@ var _ = Describe("Wave controller Suite", func() {
 				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
-				hashMessage := "Configuration hash updated to ebabf80ef45218b27078a41ca16b35a4f91cb5672f389e520ae9da6ee3df3b1c"
+				hashMessage := "Configuration hash updated to bd786f47ef9b79841ddba1059752f95c4fe21906df5e2964786b4658e02758d5"
 				Eventually(func() *corev1.EventList {
 					events := &corev1.EventList{}
 					m.Client.List(context.TODO(), events)
