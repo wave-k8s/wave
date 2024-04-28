@@ -23,6 +23,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -32,12 +33,14 @@ import (
 // Handler performs the main business logic of the Wave controller
 type Handler struct {
 	client.Client
-	recorder record.EventRecorder
+	recorder          record.EventRecorder
+	watchedConfigmaps map[types.NamespacedName]map[types.NamespacedName]bool
+	watchedSecrets    map[types.NamespacedName]map[types.NamespacedName]bool
 }
 
 // NewHandler constructs a new instance of Handler
 func NewHandler(c client.Client, r record.EventRecorder) *Handler {
-	return &Handler{Client: c, recorder: r}
+	return &Handler{Client: c, recorder: r, watchedConfigmaps: make(map[types.NamespacedName]map[types.NamespacedName]bool), watchedSecrets: make(map[types.NamespacedName]map[types.NamespacedName]bool)}
 }
 
 // HandleDeployment is called by the deployment controller to reconcile deployments
@@ -57,28 +60,18 @@ func (h *Handler) HandleDaemonSet(instance *appsv1.DaemonSet) (reconcile.Result,
 
 // handlePodController reconciles the state of a podController
 func (h *Handler) handlePodController(instance podController) (reconcile.Result, error) {
-	log := logf.Log.WithName("wave")
+	log := logf.Log.WithName("wave").WithValues("namespace", instance.GetNamespace(), "name", instance.GetName())
+
+	// To cleanup legacy ownerReferences and finalizer
+	if hasFinalizer(instance) {
+		log.V(0).Info("Removing old finalizer")
+		return h.deleteOwnerReferencesAndFinalizer(instance)
+	}
 
 	// If the required annotation isn't present, ignore the instance
 	if !hasRequiredAnnotation(instance) {
-		// Perform deletion logic if the finalizer is present on the object
-		if hasFinalizer(instance) {
-			log.V(0).Info("Required annotation removed from instance, cleaning up orphans", "namespace", instance.GetNamespace(), "name", instance.GetName())
-			return h.handleDelete(instance)
-		}
+		h.removeWatchesForInstance(instance)
 		return reconcile.Result{}, nil
-	}
-
-	// If the instance is marked for deletion, run cleanup process
-	if toBeDeleted(instance) {
-		log.V(0).Info("Instance marked for deletion, cleaning up orphans", "namespace", instance.GetNamespace(), "name", instance.GetName())
-		return h.handleDelete(instance)
-	}
-
-	// Get all children that have an OwnerReference pointing to this instance
-	existing, err := h.getExistingChildren(instance)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error fetching existing children: %v", err)
 	}
 
 	// Get all children that the instance currently references
@@ -87,11 +80,8 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 		return reconcile.Result{}, fmt.Errorf("error fetching current children: %v", err)
 	}
 
-	// Reconcile the OwnerReferences on the existing and current children
-	err = h.updateOwnerReferences(instance, existing, current)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error updating OwnerReferences: %v", err)
-	}
+	h.removeWatchesForInstance(instance)
+	h.watchChildrenForInstance(instance, current)
 
 	hash, err := calculateConfigHash(current)
 	if err != nil {
@@ -101,11 +91,10 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 	// Update the desired state of the Deployment in a DeepCopy
 	copy := instance.DeepCopyPodController()
 	setConfigHash(copy, hash)
-	addFinalizer(copy)
 
 	// If the desired state doesn't match the existing state, update it
 	if !reflect.DeepEqual(instance, copy) {
-		log.V(0).Info("Updating instance hash", "namespace", instance.GetNamespace(), "name", instance.GetName(), "hash", hash)
+		log.V(0).Info("Updating instance hash", "hash", hash)
 		h.recorder.Eventf(copy.GetApiObject(), corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
 
 		err := h.Update(context.TODO(), copy.GetApiObject())
@@ -113,6 +102,5 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 			return reconcile.Result{}, fmt.Errorf("error updating instance %s/%s: %v", instance.GetNamespace(), instance.GetName(), err)
 		}
 	}
-
 	return reconcile.Result{}, nil
 }

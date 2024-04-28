@@ -32,23 +32,6 @@ var _ = Describe("Wave finalizer Suite", func() {
 		podControllerDeployment = &deployment{deploymentObject}
 	})
 
-	Context("addFinalizer", func() {
-		It("adds the wave finalizer to the deployment", func() {
-			addFinalizer(podControllerDeployment)
-
-			Expect(deploymentObject.GetFinalizers()).To(ContainElement(FinalizerString))
-		})
-
-		It("leaves existing finalizers in place", func() {
-			f := deploymentObject.GetFinalizers()
-			f = append(f, "kubernetes")
-			deploymentObject.SetFinalizers(f)
-			addFinalizer(podControllerDeployment)
-
-			Expect(deploymentObject.GetFinalizers()).To(ContainElement("kubernetes"))
-		})
-	})
-
 	Context("removeFinalizer", func() {
 		It("removes the wave finalizer from the deployment", func() {
 			f := deploymentObject.GetFinalizers()

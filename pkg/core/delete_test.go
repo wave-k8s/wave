@@ -17,8 +17,6 @@ limitations under the License.
 package core
 
 import (
-	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -29,15 +27,13 @@ import (
 	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-var _ = Describe("Wave owner references Suite", func() {
+var _ = Describe("Wave migration Suite", func() {
 	var c client.Client
 	var h *Handler
 	var m utils.Matcher
@@ -91,7 +87,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		)
 	})
 
-	Context("handleDelete", func() {
+	Context("When a legacy deployment is reconciled", func() {
 		var cm1 *corev1.ConfigMap
 		var cm2 *corev1.ConfigMap
 		var s1 *corev1.Secret
@@ -112,45 +108,13 @@ var _ = Describe("Wave owner references Suite", func() {
 
 			f := deploymentObject.GetFinalizers()
 			f = append(f, FinalizerString)
-			f = append(f, "keep.me.around/finalizer")
 			m.Update(deploymentObject, func(obj client.Object) client.Object {
 				obj.SetFinalizers(f)
 				return obj
 			}, timeout).Should(Succeed())
 
-			_, err := h.handleDelete(podControllerDeployment)
+			_, err := h.handlePodController(podControllerDeployment)
 			Expect(err).NotTo(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			// Make sure to delete any finalizers (if the deployment exists)
-			Eventually(func() error {
-				key := types.NamespacedName{Namespace: deploymentObject.GetNamespace(), Name: deploymentObject.GetName()}
-				err := c.Get(context.TODO(), key, deploymentObject)
-				if err != nil && errors.IsNotFound(err) {
-					return nil
-				}
-				if err != nil {
-					return err
-				}
-				deploymentObject.SetFinalizers([]string{})
-				return c.Update(context.TODO(), deploymentObject)
-			}, timeout).Should(Succeed())
-
-			Eventually(func() error {
-				key := types.NamespacedName{Namespace: deploymentObject.GetNamespace(), Name: deploymentObject.GetName()}
-				err := c.Get(context.TODO(), key, deploymentObject)
-				if err != nil && errors.IsNotFound(err) {
-					return nil
-				}
-				if err != nil {
-					return err
-				}
-				if len(deploymentObject.GetFinalizers()) > 0 {
-					return fmt.Errorf("Finalizers not upated")
-				}
-				return nil
-			}, timeout).Should(Succeed())
 		})
 
 		It("removes owner references from all children", func() {
@@ -164,20 +128,6 @@ var _ = Describe("Wave owner references Suite", func() {
 			m.Get(deploymentObject, timeout).Should(Succeed())
 			Eventually(deploymentObject, timeout).ShouldNot(utils.WithFinalizers(ContainElement(FinalizerString)))
 		})
-	})
-
-	// Waiting for toBeDeleted to be implemented
-	Context("toBeDeleted", func() {
-		It("returns true if deletion timestamp is non-nil", func() {
-			t := metav1.NewTime(time.Now())
-			deploymentObject.SetDeletionTimestamp(&t)
-			Expect(toBeDeleted(deploymentObject)).To(BeTrue())
-		})
-
-		It("returns false if the deleteion timestamp is nil", func() {
-			Expect(toBeDeleted(deploymentObject)).To(BeFalse())
-		})
-
 	})
 
 })
