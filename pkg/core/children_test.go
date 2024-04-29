@@ -17,9 +17,10 @@ limitations under the License.
 package core
 
 import (
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sync"
 	"time"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -38,7 +39,6 @@ var _ = Describe("Wave children Suite", func() {
 	var m utils.Matcher
 	var deploymentObject *appsv1.Deployment
 	var podControllerDeployment podController
-	var existingChildren []Object
 	var currentChildren []configObject
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
@@ -49,10 +49,14 @@ var _ = Describe("Wave children Suite", func() {
 	var cm2 *corev1.ConfigMap
 	var cm3 *corev1.ConfigMap
 	var cm4 *corev1.ConfigMap
+	var cm5 *corev1.ConfigMap
+	var cm6 *corev1.ConfigMap
 	var s1 *corev1.Secret
 	var s2 *corev1.Secret
 	var s3 *corev1.Secret
 	var s4 *corev1.Secret
+	var s5 *corev1.Secret
+	var s6 *corev1.Secret
 
 	BeforeEach(func() {
 		mgr, err := manager.New(cfg, manager.Options{
@@ -75,19 +79,27 @@ var _ = Describe("Wave children Suite", func() {
 		cm2 = utils.ExampleConfigMap2.DeepCopy()
 		cm3 = utils.ExampleConfigMap3.DeepCopy()
 		cm4 = utils.ExampleConfigMap4.DeepCopy()
+		cm5 = utils.ExampleConfigMap5.DeepCopy()
+		cm6 = utils.ExampleConfigMap6.DeepCopy()
 		s1 = utils.ExampleSecret1.DeepCopy()
 		s2 = utils.ExampleSecret2.DeepCopy()
 		s3 = utils.ExampleSecret3.DeepCopy()
 		s4 = utils.ExampleSecret4.DeepCopy()
+		s5 = utils.ExampleSecret5.DeepCopy()
+		s6 = utils.ExampleSecret6.DeepCopy()
 
 		m.Create(cm1).Should(Succeed())
 		m.Create(cm2).Should(Succeed())
 		m.Create(cm3).Should(Succeed())
 		m.Create(cm4).Should(Succeed())
+		m.Create(cm5).Should(Succeed())
+		m.Create(cm6).Should(Succeed())
 		m.Create(s1).Should(Succeed())
 		m.Create(s2).Should(Succeed())
 		m.Create(s3).Should(Succeed())
 		m.Create(s4).Should(Succeed())
+		m.Create(s5).Should(Succeed())
+		m.Create(s6).Should(Succeed())
 
 		deploymentObject = utils.ExampleDeployment.DeepCopy()
 		podControllerDeployment = &deployment{deploymentObject}
@@ -101,10 +113,14 @@ var _ = Describe("Wave children Suite", func() {
 		m.Get(cm2, timeout).Should(Succeed())
 		m.Get(cm3, timeout).Should(Succeed())
 		m.Get(cm4, timeout).Should(Succeed())
+		m.Get(cm5, timeout).Should(Succeed())
+		m.Get(cm6, timeout).Should(Succeed())
 		m.Get(s1, timeout).Should(Succeed())
 		m.Get(s2, timeout).Should(Succeed())
 		m.Get(s3, timeout).Should(Succeed())
 		m.Get(s4, timeout).Should(Succeed())
+		m.Get(s5, timeout).Should(Succeed())
+		m.Get(s6, timeout).Should(Succeed())
 		m.Get(deploymentObject, timeout).Should(Succeed())
 	})
 
@@ -130,6 +146,23 @@ var _ = Describe("Wave children Suite", func() {
 			Expect(currentChildren).To(ContainElement(configObject{
 				object:   cm1,
 				required: true,
+				allKeys:  true,
+			}))
+		})
+
+		It("returns ConfigMaps referenced in Volume Projections", func() {
+			Expect(currentChildren).To(ContainElement(configObject{
+				object:   cm6,
+				required: true,
+				allKeys:  false,
+				keys: map[string]struct{}{
+					"example6_key1": {},
+					"example6_key3": {},
+				},
+			}))
+			Expect(currentChildren).To(ContainElement(configObject{
+				object:   cm5,
+				required: false,
 				allKeys:  true,
 			}))
 		})
@@ -171,6 +204,23 @@ var _ = Describe("Wave children Suite", func() {
 			}))
 		})
 
+		It("returns Secrets referenced in Volume Projections", func() {
+			Expect(currentChildren).To(ContainElement(configObject{
+				object:   s6,
+				required: true,
+				allKeys:  false,
+				keys: map[string]struct{}{
+					"example6_key1": {},
+					"example6_key3": {},
+				},
+			}))
+			Expect(currentChildren).To(ContainElement(configObject{
+				object:   s5,
+				required: false,
+				allKeys:  true,
+			}))
+		})
+
 		It("returns Secrets referenced in EnvFrom", func() {
 			Expect(currentChildren).To(ContainElement(configObject{
 				object:   s2,
@@ -201,7 +251,7 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("does not return duplicate children", func() {
-			Expect(currentChildren).To(HaveLen(8))
+			Expect(currentChildren).To(HaveLen(12))
 		})
 
 		It("returns an error if one of the referenced children is missing", func() {
@@ -300,8 +350,8 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("does not return extra children", func() {
-			Expect(configMaps).To(HaveLen(7))
-			Expect(secrets).To(HaveLen(7))
+			Expect(configMaps).To(HaveLen(9))
+			Expect(secrets).To(HaveLen(9))
 		})
 	})
 
@@ -319,32 +369,36 @@ var _ = Describe("Wave children Suite", func() {
 			}
 
 			var err error
-			existingChildren, err = h.getExistingChildren(podControllerDeployment)
+			_, err = h.getExistingChildren(podControllerDeployment)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		existingChildrenFn := func() ([]Object, error) {
+			return h.getExistingChildren(podControllerDeployment)
+		}
+
 		It("returns ConfigMaps with the correct OwnerReference", func() {
-			Expect(existingChildren).To(ContainElement(cm1))
+			Eventually(existingChildrenFn).Should(ContainElement(cm1))
 		})
 
 		It("doesn't return ConfigMaps without OwnerReferences", func() {
-			Expect(existingChildren).NotTo(ContainElement(cm2))
-			Expect(existingChildren).NotTo(ContainElement(cm3))
-			Expect(existingChildren).NotTo(ContainElement(cm4))
+			Eventually(existingChildrenFn).ShouldNot(ContainElement(cm2))
+			Eventually(existingChildrenFn).ShouldNot(ContainElement(cm3))
+			Eventually(existingChildrenFn).ShouldNot(ContainElement(cm4))
 		})
 
 		It("returns Secrets with the correct OwnerReference", func() {
-			Expect(existingChildren).To(ContainElement(s1))
+			Eventually(existingChildrenFn).Should(ContainElement(s1))
 		})
 
 		It("doesn't return Secrets without OwnerReferences", func() {
-			Expect(existingChildren).NotTo(ContainElement(s2))
-			Expect(existingChildren).NotTo(ContainElement(s3))
-			Expect(existingChildren).NotTo(ContainElement(s4))
+			Eventually(existingChildrenFn).ShouldNot(ContainElement(s2))
+			Eventually(existingChildrenFn).ShouldNot(ContainElement(s3))
+			Eventually(existingChildrenFn).ShouldNot(ContainElement(s4))
 		})
 
 		It("does not return duplicate children", func() {
-			Expect(existingChildren).To(HaveLen(2))
+			Eventually(existingChildrenFn).Should(HaveLen(2))
 		})
 	})
 

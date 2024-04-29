@@ -17,9 +17,10 @@ limitations under the License.
 package core
 
 import (
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sync"
 	"time"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -97,7 +98,7 @@ var _ = Describe("Wave hash Suite", func() {
 			)
 		})
 
-		It("returns a different hash when an allKeys child's data is updated", func() {
+		It("returns a different hash when an allKeys child's configmap string data is updated", func() {
 			c := []configObject{
 				{object: cm1, allKeys: true},
 				{object: cm2, allKeys: true},
@@ -120,7 +121,7 @@ var _ = Describe("Wave hash Suite", func() {
 			Expect(h2).NotTo(Equal(h1))
 		})
 
-		It("returns a different hash when an all-field child's data is updated", func() {
+		It("returns a different hash when an allKeys child's configmap binary data is updated", func() {
 			c := []configObject{
 				{object: cm1, allKeys: true},
 				{object: cm2, allKeys: true},
@@ -133,7 +134,30 @@ var _ = Describe("Wave hash Suite", func() {
 
 			m.Update(cm1, func(obj client.Object) client.Object {
 				cm := obj.(*corev1.ConfigMap)
-				cm.Data["key1"] = modified
+				cm.BinaryData["binary_key1"] = []byte(modified)
+
+				return cm
+			}, timeout).Should(Succeed())
+			h2, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(h2).NotTo(Equal(h1))
+		})
+
+		It("returns a different hash when an allKeys child's secret data is updated", func() {
+			c := []configObject{
+				{object: cm1, allKeys: true},
+				{object: cm2, allKeys: true},
+				{object: s1, allKeys: true},
+				{object: s2, allKeys: true},
+			}
+
+			h1, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			m.Update(s1, func(obj client.Object) client.Object {
+				cm := obj.(*corev1.Secret)
+				cm.Data["key1"] = []byte("modified")
 
 				return cm
 			}, timeout).Should(Succeed())
@@ -146,7 +170,8 @@ var _ = Describe("Wave hash Suite", func() {
 		It("returns a different hash when a single-field child's data is updated", func() {
 			c := []configObject{
 				{object: cm1, allKeys: false, keys: map[string]struct{}{
-					"key1": {},
+					"key1":        {},
+					"binary_key1": {},
 				},
 				},
 				{object: cm2, allKeys: true},
@@ -166,6 +191,17 @@ var _ = Describe("Wave hash Suite", func() {
 
 				return cm
 			}, timeout).Should(Succeed())
+			h2, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
+
+			m.Update(cm1, func(obj client.Object) client.Object {
+				cm := obj.(*corev1.ConfigMap)
+				cm.BinaryData["binary_key1"] = []byte(modified)
+
+				return cm
+			}, timeout).Should(Succeed())
+			h3, err := calculateConfigHash(c)
+			Expect(err).NotTo(HaveOccurred())
 
 			m.Update(s1, func(obj client.Object) client.Object {
 				s := obj.(*corev1.Secret)
@@ -173,16 +209,22 @@ var _ = Describe("Wave hash Suite", func() {
 
 				return s
 			}, timeout).Should(Succeed())
-			h2, err := calculateConfigHash(c)
+			h4, err := calculateConfigHash(c)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(h2).NotTo(Equal(h1))
+			Expect(h3).NotTo(Equal(h1))
+			Expect(h3).NotTo(Equal(h2))
+			Expect(h4).NotTo(Equal(h1))
+			Expect(h4).NotTo(Equal(h2))
+			Expect(h4).NotTo(Equal(h3))
 		})
 
 		It("returns the same hash when a single-field child's data is updated but not for that field", func() {
 			c := []configObject{
 				{object: cm1, allKeys: false, keys: map[string]struct{}{
-					"key1": {},
+					"key1":        {},
+					"binary_key1": {},
 				},
 				},
 				{object: cm2, allKeys: true},
@@ -199,6 +241,7 @@ var _ = Describe("Wave hash Suite", func() {
 			m.Update(cm1, func(obj client.Object) client.Object {
 				cm := obj.(*corev1.ConfigMap)
 				cm.Data["key3"] = modified
+				cm.BinaryData["binary_key3"] = []byte("modified")
 
 				return cm
 			}, timeout).Should(Succeed())
