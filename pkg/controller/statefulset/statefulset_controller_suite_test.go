@@ -24,7 +24,6 @@ import (
 
 	"github.com/wave-k8s/wave/test/reporters"
 
-	"github.com/go-logr/glogr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,6 +33,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -54,7 +54,7 @@ var _ = BeforeSuite(func() {
 	}
 	apis.AddToScheme(scheme.Scheme)
 
-	logf.SetLogger(glogr.New())
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	var err error
 	if cfg, err = t.Start(); err != nil {
