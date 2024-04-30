@@ -4,6 +4,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -15,6 +16,10 @@ const (
 	// FinalizerString is the finalizer added to deployments to allow Wave to
 	// perform advanced deletion logic
 	FinalizerString = "wave.pusher.com/finalizer"
+
+	// SchedulingDisabledAnnotation is set on a deployment if scheduling has been disabled
+	// due to missing children and contains the original scheduler
+	SchedulingDisabledAnnotation = "wave.pusher.com/scheduling-disabled"
 
 	// RequiredAnnotation is the key of the annotation on the Deployment that Wave
 	// checks for before processing the deployment
@@ -123,5 +128,24 @@ func (d *daemonset) GetApiObject() client.Object {
 		Status:     d.Status,
 		Spec:       d.Spec,
 		ObjectMeta: d.ObjectMeta,
+	}
+}
+
+func GetNamespacedName(name string, namespace string) types.NamespacedName {
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+}
+
+type ObjectWithNameAndNamespace interface {
+	GetNamespace() string
+	GetName() string
+}
+
+func GetNamespacedNameFromObject(obj ObjectWithNameAndNamespace) types.NamespacedName {
+	return types.NamespacedName{
+		Name:      obj.GetName(),
+		Namespace: obj.GetNamespace(),
 	}
 }

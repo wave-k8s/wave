@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	webhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var _ = Describe("StatefulSet controller Suite", func() {
@@ -95,6 +96,11 @@ var _ = Describe("StatefulSet controller Suite", func() {
 			Metrics: metricsserver.Options{
 				BindAddress: "0",
 			},
+			WebhookServer: webhook.NewServer(webhook.Options{
+				Host:    t.WebhookInstallOptions.LocalServingHost,
+				Port:    t.WebhookInstallOptions.LocalServingPort,
+				CertDir: t.WebhookInstallOptions.LocalServingCertDir,
+			}),
 		})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -108,6 +114,10 @@ var _ = Describe("StatefulSet controller Suite", func() {
 		r := newReconciler(mgr)
 		recFn, requestsStart, requests = SetupTestReconcile(r)
 		Expect(add(mgr, recFn, r.handler)).NotTo(HaveOccurred())
+
+		// register mutating pod webhook
+		err = AddStatefulSetWebhook(mgr)
+		Expect(err).ToNot(HaveOccurred())
 
 		testCtx, testCancel = context.WithCancel(context.Background())
 		go Run(testCtx, mgr)
@@ -134,11 +144,6 @@ var _ = Describe("StatefulSet controller Suite", func() {
 		m.Get(s3, timeout).Should(Succeed())
 
 		statefulset = utils.ExampleStatefulSet.DeepCopy()
-
-		// Create a statefulset and wait for it to be reconciled
-		clearReconciled()
-		m.Create(statefulset).Should(Succeed())
-		waitForStatefulSetReconciled(statefulset)
 	})
 
 	AfterEach(func() {
@@ -152,7 +157,14 @@ var _ = Describe("StatefulSet controller Suite", func() {
 		)
 	})
 
-	Context("When a StatefulSet is reconciled", func() {
+	Context("When a StatefulSet with all children existing is reconciled", func() {
+		BeforeEach(func() {
+			// Create a statefulset and wait for it to be reconciled
+			clearReconciled()
+			m.Create(statefulset).Should(Succeed())
+			waitForStatefulSetReconciled(statefulset)
+		})
+
 		Context("And it has the required annotation", func() {
 			BeforeEach(func() {
 				addAnnotation := func(obj client.Object) client.Object {
@@ -166,12 +178,16 @@ var _ = Describe("StatefulSet controller Suite", func() {
 				}
 				clearReconciled()
 				m.Update(statefulset, addAnnotation).Should(Succeed())
-				// Two runs since we the controller retriggers itself by changing the object
-				waitForStatefulSetReconciled(statefulset)
 				waitForStatefulSetReconciled(statefulset)
 
 				// Get the updated StatefulSet
 				m.Get(statefulset, timeout).Should(Succeed())
+			})
+
+			It("Has scheduling enabled", func() {
+				m.Get(statefulset, timeout).Should(Succeed())
+				Expect(statefulset.Spec.Template.Spec.SchedulerName).To(Equal("default-scheduler"))
+				Expect(statefulset.ObjectMeta.Annotations).NotTo(HaveKey(core.SchedulingDisabledAnnotation))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
@@ -209,7 +225,6 @@ var _ = Describe("StatefulSet controller Suite", func() {
 					}
 					clearReconciled()
 					m.Update(statefulset, removeContainer2).Should(Succeed())
-					waitForStatefulSetReconciled(statefulset)
 					waitForStatefulSetReconciled(statefulset)
 
 					// Get the updated StatefulSet
@@ -423,4 +438,42 @@ var _ = Describe("StatefulSet controller Suite", func() {
 		})
 	})
 
+	Context("When a Deployment with missing children is reconciled", func() {
+		BeforeEach(func() {
+			m.Delete(cm1).Should(Succeed())
+
+			annotations := statefulset.GetAnnotations()
+			if annotations == nil {
+				annotations = make(map[string]string)
+			}
+			annotations[core.RequiredAnnotation] = "true"
+			statefulset.SetAnnotations(annotations)
+
+			// Create a deployment and wait for it to be reconciled
+			clearReconciled()
+			m.Create(statefulset).Should(Succeed())
+			waitForStatefulSetReconciled(statefulset)
+		})
+
+		It("Has scheduling disabled", func() {
+			m.Get(statefulset, timeout).Should(Succeed())
+			Expect(statefulset.Spec.Template.Spec.SchedulerName).To(Equal("invalid"))
+			Expect(statefulset.ObjectMeta.Annotations[core.SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
+		})
+
+		Context("And the missing child is created", func() {
+			BeforeEach(func() {
+				clearReconciled()
+				cm1 = utils.ExampleConfigMap1.DeepCopy()
+				m.Create(cm1).Should(Succeed())
+				waitForStatefulSetReconciled(statefulset)
+			})
+
+			It("Has scheduling renabled", func() {
+				m.Get(statefulset, timeout).Should(Succeed())
+				Expect(statefulset.Spec.Template.Spec.SchedulerName).To(Equal("default-scheduler"))
+				Expect(statefulset.ObjectMeta.Annotations).NotTo(HaveKey(core.SchedulingDisabledAnnotation))
+			})
+		})
+	})
 })

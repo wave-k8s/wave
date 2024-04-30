@@ -10,6 +10,9 @@ jobs:
         version:
           - v1.21
           - v1.29
+        setup:
+          - minimal
+          - production
     runs-on: ubuntu-latest
     name: test on minikube
     steps:
@@ -19,4 +22,4 @@ jobs:
         with:
           kubernetes-version: ${{ matrix.version }}
       - name: Build and run wave
-        run: hack/run-test-in-minikube.sh
+        run: hack/run-test-in-minikube.sh ${{ matrix.setup }}

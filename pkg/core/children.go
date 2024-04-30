@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,10 +39,21 @@ type configMetadata struct {
 	keys     map[string]struct{}
 }
 
+type configMetadataMap map[types.NamespacedName]configMetadata
+
+type NotFoundError struct {
+	string
+}
+
+func (e *NotFoundError) Error() string {
+	return e.string
+}
+
 // getResult is returned from the getObject method as a helper struct to be
 // passed into a channel
 type getResult struct {
 	err      error
+	notFound bool
 	obj      Object
 	metadata configMetadata
 }
@@ -50,29 +62,32 @@ type getResult struct {
 // referenced in the Deployment's spec.  Any reference to a whole ConfigMap or Secret
 // (i.e. via an EnvFrom or a Volume) will result in one entry in the list, irrespective of
 // whether individual elements are also references (i.e. via an Env entry).
-func (h *Handler) getCurrentChildren(obj podController) ([]configObject, error) {
-	configMaps, secrets := getChildNamesByType(obj)
-
+func (h *Handler) getCurrentChildren(configMaps configMetadataMap, secrets configMetadataMap) ([]configObject, error) {
 	// get all of ConfigMaps and Secrets
 	resultsChan := make(chan getResult)
 	for name, metadata := range configMaps {
-		go func(name string, metadata configMetadata) {
-			resultsChan <- h.getConfigMap(obj.GetNamespace(), name, metadata)
+		go func(name types.NamespacedName, metadata configMetadata) {
+			resultsChan <- h.getConfigMap(name, metadata)
 		}(name, metadata)
 	}
 	for name, metadata := range secrets {
-		go func(name string, metadata configMetadata) {
-			resultsChan <- h.getSecret(obj.GetNamespace(), name, metadata)
+		go func(name types.NamespacedName, metadata configMetadata) {
+			resultsChan <- h.getSecret(name, metadata)
 		}(name, metadata)
 	}
 
 	// Range over and collect results from the gets
 	var errs []string
+	var notFoundErrs []string
 	var children []configObject
 	for i := 0; i < len(configMaps)+len(secrets); i++ {
 		result := <-resultsChan
 		if result.err != nil {
-			errs = append(errs, result.err.Error())
+			if result.notFound {
+				notFoundErrs = append(notFoundErrs, result.err.Error())
+			} else {
+				errs = append(errs, result.err.Error())
+			}
 		}
 		if result.obj != nil {
 			children = append(children, configObject{
@@ -89,6 +104,11 @@ func (h *Handler) getCurrentChildren(obj podController) ([]configObject, error) 
 		return []configObject{}, fmt.Errorf("error(s) encountered when geting children: %s", strings.Join(errs, ", "))
 	}
 
+	// If there we did not find required elements
+	if len(notFoundErrs) > 0 {
+		return []configObject{}, &NotFoundError{fmt.Sprintf("required children not found: %s", strings.Join(notFoundErrs, ", "))}
+	}
+
 	// No errors, return the list of children
 	return children, nil
 }
@@ -96,43 +116,43 @@ func (h *Handler) getCurrentChildren(obj podController) ([]configObject, error) 
 // getChildNamesByType parses the Deployment object and returns two maps,
 // the first containing ConfigMap metadata for all referenced ConfigMaps, keyed on the name of the ConfigMap,
 // the second containing Secret metadata for all referenced Secrets, keyed on the name of the Secrets
-func getChildNamesByType(obj podController) (map[string]configMetadata, map[string]configMetadata) {
+func getChildNamesByType(obj podController) (configMetadataMap, configMetadataMap) {
 	// Create sets for storing the names fo the ConfigMaps/Secrets
-	configMaps := make(map[string]configMetadata)
-	secrets := make(map[string]configMetadata)
+	configMaps := make(configMetadataMap)
+	secrets := make(configMetadataMap)
 
 	// Range through all Volumes and check the VolumeSources for ConfigMaps
 	// and Secrets
 	for _, vol := range obj.GetPodTemplate().Spec.Volumes {
 		if cm := vol.VolumeSource.ConfigMap; cm != nil {
-			configMaps[cm.Name] = configMetadata{required: isRequired(cm.Optional), allKeys: true}
+			configMaps[GetNamespacedName(cm.Name, obj.GetNamespace())] = configMetadata{required: isRequired(cm.Optional), allKeys: true}
 		}
 		if s := vol.VolumeSource.Secret; s != nil {
-			secrets[s.SecretName] = configMetadata{required: isRequired(s.Optional), allKeys: true}
+			secrets[GetNamespacedName(s.SecretName, obj.GetNamespace())] = configMetadata{required: isRequired(s.Optional), allKeys: true}
 		}
 
 		if projection := vol.VolumeSource.Projected; projection != nil {
 			for _, source := range projection.Sources {
 				if cm := source.ConfigMap; cm != nil {
 					if cm.Items == nil {
-						configMaps[cm.Name] = configMetadata{required: isRequired(cm.Optional), allKeys: true}
+						configMaps[GetNamespacedName(cm.Name, obj.GetNamespace())] = configMetadata{required: isRequired(cm.Optional), allKeys: true}
 					} else {
 						keys := make(map[string]struct{})
 						for _, item := range cm.Items {
 							keys[item.Key] = struct{}{}
 						}
-						configMaps[cm.Name] = configMetadata{required: isRequired(cm.Optional), allKeys: false, keys: keys}
+						configMaps[GetNamespacedName(cm.Name, obj.GetNamespace())] = configMetadata{required: isRequired(cm.Optional), allKeys: false, keys: keys}
 					}
 				}
 				if s := source.Secret; s != nil {
 					if s.Items == nil {
-						secrets[s.Name] = configMetadata{required: isRequired(s.Optional), allKeys: true}
+						secrets[GetNamespacedName(s.Name, obj.GetNamespace())] = configMetadata{required: isRequired(s.Optional), allKeys: true}
 					} else {
 						keys := make(map[string]struct{})
 						for _, item := range s.Items {
 							keys[item.Key] = struct{}{}
 						}
-						secrets[s.Name] = configMetadata{required: isRequired(s.Optional), allKeys: false, keys: keys}
+						secrets[GetNamespacedName(s.Name, obj.GetNamespace())] = configMetadata{required: isRequired(s.Optional), allKeys: false, keys: keys}
 					}
 				}
 			}
@@ -144,10 +164,10 @@ func getChildNamesByType(obj podController) (map[string]configMetadata, map[stri
 	for _, container := range obj.GetPodTemplate().Spec.Containers {
 		for _, env := range container.EnvFrom {
 			if cm := env.ConfigMapRef; cm != nil {
-				configMaps[cm.Name] = configMetadata{required: isRequired(cm.Optional), allKeys: true}
+				configMaps[GetNamespacedName(cm.Name, obj.GetNamespace())] = configMetadata{required: isRequired(cm.Optional), allKeys: true}
 			}
 			if s := env.SecretRef; s != nil {
-				secrets[s.Name] = configMetadata{required: isRequired(s.Optional), allKeys: true}
+				secrets[GetNamespacedName(s.Name, obj.GetNamespace())] = configMetadata{required: isRequired(s.Optional), allKeys: true}
 			}
 		}
 	}
@@ -157,10 +177,10 @@ func getChildNamesByType(obj podController) (map[string]configMetadata, map[stri
 		for _, env := range container.Env {
 			if valFrom := env.ValueFrom; valFrom != nil {
 				if cm := valFrom.ConfigMapKeyRef; cm != nil {
-					configMaps[cm.Name] = parseConfigMapKeyRef(configMaps[cm.Name], cm)
+					configMaps[GetNamespacedName(cm.Name, obj.GetNamespace())] = parseConfigMapKeyRef(configMaps[GetNamespacedName(cm.Name, obj.GetNamespace())], cm)
 				}
 				if s := valFrom.SecretKeyRef; s != nil {
-					secrets[s.Name] = parseSecretKeyRef(secrets[s.Name], s)
+					secrets[GetNamespacedName(s.Name, obj.GetNamespace())] = parseSecretKeyRef(secrets[GetNamespacedName(s.Name, obj.GetNamespace())], s)
 				}
 			}
 		}
@@ -203,28 +223,31 @@ func parseSecretKeyRef(metadata configMetadata, s *corev1.SecretKeySelector) con
 
 // getConfigMap gets a ConfigMap with the given name and namespace from the
 // API server.
-func (h *Handler) getConfigMap(namespace, name string, metadata configMetadata) getResult {
-	return h.getObject(namespace, name, metadata, &corev1.ConfigMap{})
+func (h *Handler) getConfigMap(name types.NamespacedName, metadata configMetadata) getResult {
+	return h.getObject(name, metadata, &corev1.ConfigMap{})
 }
 
 // getSecret gets a Secret with the given name and namespace from the
 // API server.
-func (h *Handler) getSecret(namespace, name string, metadata configMetadata) getResult {
-	return h.getObject(namespace, name, metadata, &corev1.Secret{})
+func (h *Handler) getSecret(name types.NamespacedName, metadata configMetadata) getResult {
+	return h.getObject(name, metadata, &corev1.Secret{})
 }
 
 // getObject gets the Object with the given name and namespace from the API
 // server
-func (h *Handler) getObject(namespace, name string, metadata configMetadata, obj Object) getResult {
-	objectName := types.NamespacedName{Namespace: namespace, Name: name}
+func (h *Handler) getObject(objectName types.NamespacedName, metadata configMetadata, obj Object) getResult {
 	err := h.Get(context.TODO(), objectName, obj)
 	if err != nil {
-		if metadata.required {
-			return getResult{err: err}
+		if errors.IsNotFound(err) {
+			if metadata.required {
+				return getResult{err: err, notFound: true}
+			}
+			return getResult{metadata: metadata, notFound: true}
+		} else {
+			return getResult{err: err, notFound: false}
 		}
-		return getResult{metadata: metadata}
 	}
-	return getResult{obj: obj, metadata: metadata}
+	return getResult{obj: obj, metadata: metadata, notFound: false}
 }
 
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are

@@ -32,12 +32,36 @@ spec:
           {{- if .Values.syncPeriod }}
             - --sync-period={{ .Values.syncPeriod }}
           {{- end }}
-          volumeMounts: {{ toYaml .Values.extraVolumeMounts | nindent 12 }}
+          {{- if .Values.webhooks.enabled }}
+            - --enable-webhooks=true
+          {{- end }}
+          volumeMounts:
+          {{- if .Values.webhooks.enabled }}
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+          {{- end }} 
+          {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - containerPort: 9443
+              name: webhook-server
+              protocol: TCP
           resources: {{- toYaml .Values.resources | nindent 12 }}
       securityContext: {{ toYaml .Values.securityContext | nindent 8 }}
       serviceAccountName: {{ .Values.serviceAccount.name | default (include "wave-fullname" .) }}
       nodeSelector: {{ toYaml .Values.nodeSelector | nindent 8 }}
       affinity: {{ toYaml .Values.affinity | nindent 8 }}
       tolerations: {{ toYaml .Values.tolerations | nindent 8 }}
+      volumes:
+      {{- if .Values.webhooks.enabled }}
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: {{ template "wave-fullname" . }}-webhook-server-cert
+      {{- end }}
+      {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       topologySpreadConstraints: {{ toYaml .Values.topologySpreadConstraints | nindent 8 }}
-      volumes: {{ toYaml .Values.extraVolumes | nindent 8 }}

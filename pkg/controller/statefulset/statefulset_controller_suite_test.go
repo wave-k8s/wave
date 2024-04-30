@@ -33,6 +33,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	admissionv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var cfg *rest.Config
@@ -47,8 +50,51 @@ var t *envtest.Environment
 var testCtx, testCancel = context.WithCancel(context.Background())
 
 var _ = BeforeSuite(func() {
+	failurePolicy := admissionv1.Ignore
+	sideEffects := admissionv1.SideEffectClassNone
+	webhookPath := "/mutate-apps-v1-statefulset"
+	webhookInstallOptions := envtest.WebhookInstallOptions{
+		MutatingWebhooks: []*admissionv1.MutatingWebhookConfiguration{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "statefulset-operator",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "MutatingWebhookConfiguration",
+					APIVersion: "admissionregistration.k8s.io/v1",
+				},
+				Webhooks: []admissionv1.MutatingWebhook{
+					{
+						Name:                    "statefulsets.wave.pusher.com",
+						AdmissionReviewVersions: []string{"v1"},
+						FailurePolicy:           &failurePolicy,
+						ClientConfig: admissionv1.WebhookClientConfig{
+							Service: &admissionv1.ServiceReference{
+								Path: &webhookPath,
+							},
+						},
+						Rules: []admissionv1.RuleWithOperations{
+							{
+								Operations: []admissionv1.OperationType{
+									admissionv1.Create,
+									admissionv1.Update,
+								},
+								Rule: admissionv1.Rule{
+									APIGroups:   []string{"apps"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"statefulsets"},
+								},
+							},
+						},
+						SideEffects: &sideEffects,
+					},
+				},
+			},
+		},
+	}
 	t = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crds")},
+		WebhookInstallOptions: webhookInstallOptions,
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crds")},
 	}
 	apis.AddToScheme(scheme.Scheme)
 

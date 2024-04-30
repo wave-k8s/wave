@@ -27,7 +27,11 @@ import (
 
 	"github.com/wave-k8s/wave/pkg/apis"
 	"github.com/wave-k8s/wave/pkg/controller"
-	"github.com/wave-k8s/wave/pkg/webhook"
+	"github.com/wave-k8s/wave/pkg/controller/daemonset"
+	"github.com/wave-k8s/wave/pkg/controller/deployment"
+	"github.com/wave-k8s/wave/pkg/controller/statefulset"
+	k8swebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
+
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -42,6 +46,7 @@ var (
 	leaderElectionNamespace = flag.String("leader-election-namespace", "", "Namespace for the configmap used by the leader election system")
 	syncPeriod              = flag.Duration("sync-period", 5*time.Minute, "Reconcile sync period")
 	showVersion             = flag.Bool("version", false, "Show version and exit")
+	enableWebhooks          = flag.Bool("enable-webhooks", false, "Enable webhooks")
 	setupLog                = ctrl.Log.WithName("setup")
 )
 
@@ -69,7 +74,14 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("setting up manager")
+	var webhookServer k8swebhook.Server
+	if *enableWebhooks {
+		webhookServer = k8swebhook.NewServer(k8swebhook.Options{
+			Port: 9443,
+		})
+	}
 	mgr, err := manager.New(cfg, manager.Options{
+		WebhookServer:           webhookServer,
 		LeaderElection:          *leaderElection,
 		LeaderElectionID:        *leaderElectionID,
 		LeaderElectionNamespace: *leaderElectionNamespace,
@@ -97,11 +109,21 @@ func main() {
 		setupLog.Error(err, "unable to register controllers to the manager")
 		os.Exit(1)
 	}
+	if *enableWebhooks {
+		if err := deployment.AddDeploymentWebhook(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Deployment")
+			os.Exit(1)
+		}
 
-	setupLog.Info("setting up webhooks")
-	if err := webhook.AddToManager(mgr); err != nil {
-		setupLog.Error(err, "unable to register webhooks to the manager")
-		os.Exit(1)
+		if err := statefulset.AddStatefulSetWebhook(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "StatefulSet")
+			os.Exit(1)
+		}
+
+		if err := daemonset.AddDaemonSetWebhook(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "DaemonSet")
+			os.Exit(1)
+		}
 	}
 
 	// Start the Cmd

@@ -1,0 +1,25 @@
+{{- if .Values.webhooks.enabled }}
+# The following manifests contain a self-signed issuer CR and a certificate CR.
+# More document can be found at https://docs.cert-manager.io
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ template "wave-fullname" . }}-selfsigned-issuer
+  namespace: {{ .Release.Namespace }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ template "wave-fullname" . }}-serving-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  dnsNames:
+  - {{ template "wave-fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc
+  - {{ template "wave-fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: {{ template "wave-fullname" . }}-selfsigned-issuer
+  secretName: {{ template "wave-fullname" . }}-webhook-server-cert
+{{- end }}

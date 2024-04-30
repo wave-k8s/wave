@@ -1,0 +1,70 @@
+---
+{{- if .Values.webhooks.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: '{{ template "wave-fullname" . }}-mutating-webhook-configuration'
+  annotations:
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/{{ template "wave-fullname" . }}-serving-cert'
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: '{{ template "wave-fullname" . }}-webhook-service'
+        namespace: '{{ .Release.Namespace }}'
+        path: /mutate-apps-v1-deployment
+    failurePolicy: Ignore
+    name: deployments.wave.pusher.com
+    rules:
+      - apiGroups:
+          - apps
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - deployments
+    sideEffects: NoneOnDryRun
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: '{{ template "wave-fullname" . }}-webhook-service'
+        namespace: '{{ .Release.Namespace }}'
+        path: /mutate-apps-v1-statefulset
+    failurePolicy: Ignore
+    name: statefulsets.wave.pusher.com
+    rules:
+      - apiGroups:
+          - apps
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - statefulsets
+    sideEffects: NoneOnDryRun
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: '{{ template "wave-fullname" . }}-webhook-service'
+        namespace: '{{ .Release.Namespace }}'
+        path: /mutate-apps-v1-daemonset
+    failurePolicy: Ignore
+    name: daemonsets.wave.pusher.com
+    rules:
+      - apiGroups:
+          - apps
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - daemonsets
+    sideEffects: NoneOnDryRun
+{{- end }}
