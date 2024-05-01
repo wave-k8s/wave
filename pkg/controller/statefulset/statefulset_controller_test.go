@@ -449,7 +449,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 			annotations[core.RequiredAnnotation] = "true"
 			statefulset.SetAnnotations(annotations)
 
-			// Create a deployment and wait for it to be reconciled
+			// Create a statefulset and wait for it to be reconciled
 			clearReconciled()
 			m.Create(statefulset).Should(Succeed())
 			waitForStatefulSetReconciled(statefulset)
