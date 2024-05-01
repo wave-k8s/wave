@@ -4,7 +4,8 @@ BINARY := wave
 VERSION := $(shell git describe --always --dirty --tags 2>/dev/null || echo "undefined")
 ECHO := echo
 CONTROLLER_TOOLS_VERSION ?= v0.14.0
-ENVTEST_K8S_VERSION = 1.29.0
+ENVTEST_K8S_VERSION ?= 1.29.0
+GOLANGCI_LINT_VERSION ?= v1.57.2
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -63,19 +64,9 @@ vet:
 
 .PHONY: lint
 lint: tidy
+	test -s $(LOCALBIN)/golangci-lint || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION)
 	@ $(ECHO) "\033[36mLinting code\033[0m"
-	$(LINTER) run --disable-all \
-                --exclude-use-default=false \
-                --enable=govet \
-                --enable=ineffassign \
-                --enable=deadcode \
-                --enable=golint \
-                --enable=goconst \
-                --enable=gofmt \
-                --enable=goimports \
-                --skip-dirs=pkg/client/ \
-                --deadline=120s \
-                --tests ./...
+	$(LOCALBIN)/golangci-lint run
 	@ $(ECHO)
 
 # Run tests
