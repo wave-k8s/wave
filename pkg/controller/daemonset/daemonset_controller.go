@@ -34,11 +34,12 @@ import (
 // Add creates a new DaemonSet Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+	r := newReconciler(mgr)
+	return add(mgr, r, r.handler)
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager) *ReconcileDaemonSet {
 	return &ReconcileDaemonSet{
 		scheme:  mgr.GetScheme(),
 		handler: core.NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
@@ -46,7 +47,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, r reconcile.Reconciler, h *core.Handler) error {
 	// Create a new controller
 	c, err := controller.New("daemonset-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -58,16 +59,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	handler := handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &appsv1.DaemonSet{})
-
 	// Watch ConfigMaps owned by a DaemonSet
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), handler)
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), core.EnqueueRequestForWatcher(h.GetWatchedConfigmaps()))
 	if err != nil {
 		return err
 	}
 
 	// Watch Secrets owned by a DaemonSet
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}), handler)
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}), core.EnqueueRequestForWatcher(h.GetWatchedSecrets()))
 	if err != nil {
 		return err
 	}
@@ -95,6 +94,7 @@ func (r *ReconcileDaemonSet) Reconcile(ctx context.Context, request reconcile.Re
 	err := r.handler.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			r.handler.RemoveWatches(request.NamespacedName)
 			// Object not found, return.  Created objects are automatically garbage collected.
 			return reconcile.Result{}, nil
 		}

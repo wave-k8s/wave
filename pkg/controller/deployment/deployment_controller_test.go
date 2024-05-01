@@ -18,7 +18,6 @@ package deployment
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -30,8 +29,6 @@ import (
 	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,12 +42,12 @@ var _ = Describe("Deployment controller Suite", func() {
 	var m utils.Matcher
 
 	var deployment *appsv1.Deployment
+	var requestsStart <-chan reconcile.Request
 	var requests <-chan reconcile.Request
 
 	const timeout = time.Second * 5
 	const consistentlyTimeout = time.Second
 
-	var ownerRef metav1.OwnerReference
 	var cm1 *corev1.ConfigMap
 	var cm2 *corev1.ConfigMap
 	var cm3 *corev1.ConfigMap
@@ -73,8 +70,27 @@ var _ = Describe("Deployment controller Suite", func() {
 				Namespace: obj.GetNamespace(),
 			},
 		}
-		// wait for reconcile for creating the Deployment
+		// wait for reconcile for creating the DaemonSet
+		Eventually(requestsStart, timeout).Should(Receive(Equal(request)))
 		Eventually(requests, timeout).Should(Receive(Equal(request)))
+	}
+
+	var consistentlyDeploymentNotReconciled = func(obj core.Object) {
+		request := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      obj.GetName(),
+				Namespace: obj.GetNamespace(),
+			},
+		}
+		// wait for reconcile for creating the DaemonSet
+		Consistently(requestsStart, consistentlyTimeout).ShouldNot(Receive(Equal(request)))
+	}
+
+	var clearReconciled = func() {
+		for len(requestsStart) > 0 {
+			<-requestsStart
+			<-requests
+		}
 	}
 
 	BeforeEach(func() {
@@ -93,8 +109,9 @@ var _ = Describe("Deployment controller Suite", func() {
 		m = utils.Matcher{Client: c}
 
 		var recFn reconcile.Reconciler
-		recFn, requests = SetupTestReconcile(newReconciler(mgr))
-		Expect(add(mgr, recFn)).NotTo(HaveOccurred())
+		r := newReconciler(mgr)
+		recFn, requestsStart, requests = SetupTestReconcile(r)
+		Expect(add(mgr, recFn, r.handler)).NotTo(HaveOccurred())
 
 		testCtx, testCancel = context.WithCancel(context.Background())
 		go Run(testCtx, mgr)
@@ -141,41 +158,13 @@ var _ = Describe("Deployment controller Suite", func() {
 		deployment = utils.ExampleDeployment.DeepCopy()
 
 		// Create a deployment and wait for it to be reconciled
+		clearReconciled()
 		m.Create(deployment).Should(Succeed())
 		waitForDeploymentReconciled(deployment)
-
-		ownerRef = utils.GetOwnerRefDeployment(deployment)
 	})
 
 	AfterEach(func() {
-		// Make sure to delete any finalizers (if the deployment exists)
-		Eventually(func() error {
-			key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-			err := c.Get(context.TODO(), key, deployment)
-			if err != nil && errors.IsNotFound(err) {
-				return nil
-			}
-			if err != nil {
-				return err
-			}
-			deployment.SetFinalizers([]string{})
-			return c.Update(context.TODO(), deployment)
-		}, timeout).Should(Succeed())
-
-		Eventually(func() error {
-			key := types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()}
-			err := c.Get(context.TODO(), key, deployment)
-			if err != nil && errors.IsNotFound(err) {
-				return nil
-			}
-			if err != nil {
-				return err
-			}
-			if len(deployment.GetFinalizers()) > 0 {
-				return fmt.Errorf("Finalizers not upated")
-			}
-			return nil
-		}, timeout).Should(Succeed())
+		testCancel()
 
 		utils.DeleteAll(cfg, timeout,
 			&appsv1.DeploymentList{},
@@ -183,8 +172,6 @@ var _ = Describe("Deployment controller Suite", func() {
 			&corev1.SecretList{},
 			&corev1.EventList{},
 		)
-
-		testCancel()
 	})
 
 	Context("When a Deployment is reconciled", func() {
@@ -199,23 +186,14 @@ var _ = Describe("Deployment controller Suite", func() {
 					obj.SetAnnotations(annotations)
 					return obj
 				}
-
+				clearReconciled()
 				m.Update(deployment, addAnnotation).Should(Succeed())
+				// Two runs since we the controller retriggers itself by changing the object
+				waitForDeploymentReconciled(deployment)
 				waitForDeploymentReconciled(deployment)
 
 				// Get the updated Deployment
 				m.Get(deployment, timeout).Should(Succeed())
-			})
-
-			It("Adds OwnerReferences to all children", func() {
-				for _, obj := range []core.Object{cm1, cm2, cm3, s1, s2, s3} {
-					m.Get(obj, timeout).Should(Succeed())
-					Eventually(obj, timeout).Should(utils.WithOwnerReferences(ContainElement(ownerRef)))
-				}
-			})
-
-			It("Adds a finalizer to the Deployment", func() {
-				Eventually(deployment, timeout).Should(utils.WithFinalizers(ContainElement(core.FinalizerString)))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
@@ -251,7 +229,7 @@ var _ = Describe("Deployment controller Suite", func() {
 						dep.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
 						return dep
 					}
-
+					clearReconciled()
 					m.Update(deployment, removeContainer2).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
 					waitForDeploymentReconciled(deployment)
@@ -260,16 +238,22 @@ var _ = Describe("Deployment controller Suite", func() {
 					m.Get(deployment, timeout).Should(Succeed())
 				})
 
-				It("Removes the OwnerReference from the orphaned ConfigMap", func() {
-					Eventually(cm2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
-				})
-
-				It("Removes the OwnerReference from the orphaned Secret", func() {
-					Eventually(s2, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
-				})
-
 				It("Updates the config hash in the Pod Template", func() {
-					Eventually(deployment, timeout).ShouldNot(utils.WithPodTemplateAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+					Eventually(func() string {
+						return deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+					}, timeout).ShouldNot(Equal(originalHash))
+				})
+
+				It("Changes to the removed children no longer trigger a reconcile", func() {
+					modifyCM := func(obj client.Object) client.Object {
+						cm, _ := obj.(*corev1.ConfigMap)
+						cm.Data["key1"] = "modified"
+						return cm
+					}
+					clearReconciled()
+
+					m.Update(cm2, modifyCM).Should(Succeed())
+					consistentlyDeploymentNotReconciled(deployment)
 				})
 			})
 
@@ -277,6 +261,7 @@ var _ = Describe("Deployment controller Suite", func() {
 				var originalHash string
 
 				BeforeEach(func() {
+					m.Get(deployment, timeout).Should(Succeed())
 					Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
 					originalHash = deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
 				})
@@ -288,8 +273,9 @@ var _ = Describe("Deployment controller Suite", func() {
 							cm.Data["key1"] = modified
 							return cm
 						}
+						clearReconciled()
 						m.Update(cm1, modifyCM).Should(Succeed())
-
+						waitForDeploymentReconciled(deployment)
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
@@ -297,7 +283,9 @@ var _ = Describe("Deployment controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(func() string {
+							return deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+						}, timeout).ShouldNot(Equal(originalHash))
 					})
 				})
 
@@ -308,8 +296,9 @@ var _ = Describe("Deployment controller Suite", func() {
 							cm.Data["key1"] = modified
 							return cm
 						}
+						clearReconciled()
 						m.Update(cm2, modifyCM).Should(Succeed())
-
+						waitForDeploymentReconciled(deployment)
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
@@ -317,7 +306,9 @@ var _ = Describe("Deployment controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(func() string {
+							return deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+						}, timeout).ShouldNot(Equal(originalHash))
 					})
 				})
 
@@ -331,8 +322,9 @@ var _ = Describe("Deployment controller Suite", func() {
 							s.StringData["key1"] = modified
 							return s
 						}
+						clearReconciled()
 						m.Update(s1, modifyS).Should(Succeed())
-
+						waitForDeploymentReconciled(deployment)
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
@@ -340,7 +332,9 @@ var _ = Describe("Deployment controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(func() string {
+							return deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+						}, timeout).ShouldNot(Equal(originalHash))
 					})
 				})
 
@@ -354,8 +348,9 @@ var _ = Describe("Deployment controller Suite", func() {
 							s.StringData["key1"] = modified
 							return s
 						}
+						clearReconciled()
 						m.Update(s2, modifyS).Should(Succeed())
-
+						waitForDeploymentReconciled(deployment)
 						waitForDeploymentReconciled(deployment)
 
 						// Get the updated Deployment
@@ -363,7 +358,9 @@ var _ = Describe("Deployment controller Suite", func() {
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
-						Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKeyWithValue(core.ConfigHashAnnotation, originalHash)))
+						Eventually(func() string {
+							return deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+						}, timeout).ShouldNot(Equal(originalHash))
 					})
 				})
 			})
@@ -374,23 +371,27 @@ var _ = Describe("Deployment controller Suite", func() {
 						obj.SetAnnotations(make(map[string]string))
 						return obj
 					}
+					clearReconciled()
 					m.Update(deployment, removeAnnotations).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
-					waitForDeploymentReconciled(deployment)
-
 					m.Get(deployment).Should(Succeed())
 					Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
 				})
 
-				It("Removes the OwnerReference from the all children", func() {
-					for _, obj := range []core.Object{cm1, cm2, s1, s2} {
-						Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
-					}
+				It("Removes the config hash annotation", func() {
+					m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(core.ConfigHashAnnotation)))
 				})
 
-				It("Removes the Deployment's finalizer", func() {
-					m.Get(deployment).Should(Succeed())
-					Eventually(deployment, timeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
+				It("Changes to children no longer trigger a reconcile", func() {
+					modifyCM := func(obj client.Object) client.Object {
+						cm, _ := obj.(*corev1.ConfigMap)
+						cm.Data["key1"] = "modified"
+						return cm
+					}
+					clearReconciled()
+
+					m.Update(cm1, modifyCM).Should(Succeed())
+					consistentlyDeploymentNotReconciled(deployment)
 				})
 			})
 
@@ -398,22 +399,24 @@ var _ = Describe("Deployment controller Suite", func() {
 				BeforeEach(func() {
 					// Make sure the cache has synced before we run the test
 					Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					clearReconciled()
 					m.Delete(deployment).Should(Succeed())
 					waitForDeploymentReconciled(deployment)
-
-					// Get the updated Deployment
-					m.Get(deployment, timeout).Should(Succeed())
-					Eventually(deployment, timeout).ShouldNot(utils.WithDeletionTimestamp(BeNil()))
 				})
-				It("Removes the OwnerReference from the all children", func() {
-					for _, obj := range []core.Object{cm1, cm2, s1, s2} {
-						Eventually(obj, timeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
+				It("Not longer exists", func() {
+					m.Get(deployment).Should(MatchError(MatchRegexp(`not found`)))
+				})
+
+				It("Changes to children no longer trigger a reconcile", func() {
+					modifyCM := func(obj client.Object) client.Object {
+						cm, _ := obj.(*corev1.ConfigMap)
+						cm.Data["key1"] = "modified"
+						return cm
 					}
-				})
+					clearReconciled()
 
-				It("Removes the Deployment's finalizer", func() {
-					// Removing the finalizer causes the deployment to be deleted
-					m.Get(deployment, timeout).ShouldNot(Succeed())
+					m.Update(cm1, modifyCM).Should(Succeed())
+					consistentlyDeploymentNotReconciled(deployment)
 				})
 			})
 		})
@@ -424,18 +427,20 @@ var _ = Describe("Deployment controller Suite", func() {
 				m.Get(deployment, timeout).Should(Succeed())
 			})
 
-			It("Doesn't add any OwnerReferences to any children", func() {
-				for _, obj := range []core.Object{cm1, cm2, s1, s2} {
-					m.Consistently(obj, consistentlyTimeout).ShouldNot(utils.WithOwnerReferences(ContainElement(ownerRef)))
-				}
-			})
-
-			It("Doesn't add a finalizer to the Deployment", func() {
-				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithFinalizers(ContainElement(core.FinalizerString)))
-			})
-
 			It("Doesn't add a config hash to the Pod Template", func() {
 				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(core.ConfigHashAnnotation)))
+			})
+
+			It("Changes to children no do not trigger a reconcile", func() {
+				modifyCM := func(obj client.Object) client.Object {
+					cm, _ := obj.(*corev1.ConfigMap)
+					cm.Data["key1"] = "modified"
+					return cm
+				}
+				clearReconciled()
+
+				m.Update(cm1, modifyCM).Should(Succeed())
+				consistentlyDeploymentNotReconciled(deployment)
 			})
 		})
 	})

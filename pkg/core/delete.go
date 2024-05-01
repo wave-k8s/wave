@@ -21,13 +21,12 @@ import (
 	"fmt"
 	"reflect"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// handleDelete removes all existing Owner References pointing to the object
+// deleteOwnerReferencesAndFinalizer removes all existing Owner References pointing to the object
 // before removing the object's Finalizer
-func (h *Handler) handleDelete(obj podController) (reconcile.Result, error) {
+func (h *Handler) deleteOwnerReferencesAndFinalizer(obj podController) (reconcile.Result, error) {
 	// Fetch all children with an OwnerReference pointing to the object
 	existing, err := h.getExistingChildren(obj)
 	if err != nil {
@@ -50,10 +49,4 @@ func (h *Handler) handleDelete(obj podController) (reconcile.Result, error) {
 		}
 	}
 	return reconcile.Result{}, nil
-}
-
-// toBeDeleted checks whether the object has been marked for deletion
-func toBeDeleted(obj metav1.Object) bool {
-	// IsZero means that the object hasn't been marked for deletion
-	return !obj.GetDeletionTimestamp().IsZero()
 }
