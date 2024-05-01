@@ -445,7 +445,7 @@ var _ = Describe("DaemonSet controller Suite", func() {
 			annotations[core.RequiredAnnotation] = "true"
 			daemonset.SetAnnotations(annotations)
 
-			// Create a deployment and wait for it to be reconciled
+			// Create a daemonset and wait for it to be reconciled
 			clearReconciled()
 			m.Create(daemonset).Should(Succeed())
 			waitForDaemonSetReconciled(daemonset)
