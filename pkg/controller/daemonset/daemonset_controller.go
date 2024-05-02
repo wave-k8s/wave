@@ -31,6 +31,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+// +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=,resources=events,verbs=create;update;patch
+
 // Add creates a new DaemonSet Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -84,10 +89,6 @@ type ReconcileDaemonSet struct {
 
 // Reconcile reads that state of the cluster for a DaemonSet object and
 // updates its PodSpec based on mounted configuration
-// +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=,resources=events,verbs=create;update;patch
 func (r *ReconcileDaemonSet) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the DaemonSet instance
 	instance := &appsv1.DaemonSet{}
