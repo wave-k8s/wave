@@ -53,13 +53,13 @@ You can find supported versions in the following table:
 | Wave Version | API Client | Maximum Supported Kubernetes Versions | E2E Tested Versions |
 |--------------|------------|---------------------------------------|---------------------|
 | 0.5          | 1.14       | 1.15                                  |                     |
-| 0.6+         | 1.29       | 1.30                                  | 1.21, 1.29          |
+| 0.6+         | 1.29       | 1.30                                  | 1.21, 1.30          |
 |              |            |                                       |                     |
 
 
 ## Installation
 
-Wave is released periodically. The latest version is `v0.5.0`
+Wave is released periodically. The latest version is `v0.7.0`
 
 A list of changes can be seen in the [CHANGELOG](CHANGELOG.md).
 
