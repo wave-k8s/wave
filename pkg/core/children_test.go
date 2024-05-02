@@ -275,6 +275,24 @@ var _ = Describe("Wave children Suite", func() {
 			configMaps, secrets = getChildNamesByType(podControllerDeployment)
 		})
 
+		It("returns ConfigMaps referenced in extra-configmaps annotations", func() {
+			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("test-cm1", "ns1"),
+				configMetadata{required: false, allKeys: true}))
+			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("test-cm2", "ns2"),
+				configMetadata{required: false, allKeys: true}))
+			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("local-cm1", podControllerDeployment.GetNamespace()),
+				configMetadata{required: false, allKeys: true}))
+		})
+
+		It("returns Secrets referenced in extra-secrets annotations", func() {
+			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("test-secret1", "ns1"),
+				configMetadata{required: false, allKeys: true}))
+			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("test-secret2", "ns2"),
+				configMetadata{required: false, allKeys: true}))
+			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("local-secret1", podControllerDeployment.GetNamespace()),
+				configMetadata{required: false, allKeys: true}))
+		})
+
 		It("returns ConfigMaps referenced in Volumes", func() {
 			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName(cm1.GetName(), podControllerDeployment.GetNamespace()),
 				configMetadata{required: true, allKeys: true}))
@@ -364,8 +382,8 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("does not return extra children", func() {
-			Expect(configMaps).To(HaveLen(9))
-			Expect(secrets).To(HaveLen(9))
+			Expect(configMaps).To(HaveLen(12))
+			Expect(secrets).To(HaveLen(12))
 		})
 	})
 

@@ -26,14 +26,20 @@ var labels = map[string]string{
 	"app": "example",
 }
 
+var annotations = map[string]string{
+	"wave.pusher.com/extra-configmaps": "ns1/test-cm1,ns2/test-cm2,local-cm1",
+	"wave.pusher.com/extra-secrets":    "ns1/test-secret1,ns2/test-secret2,local-secret1",
+}
+
 var trueValue = true
 
 // ExampleDeployment is an example Deployment object for use within test suites
 var ExampleDeployment = &appsv1.Deployment{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      "example",
-		Namespace: "default",
-		Labels:    labels,
+		Name:        "example",
+		Namespace:   "default",
+		Labels:      labels,
+		Annotations: annotations,
 	},
 	Spec: appsv1.DeploymentSpec{
 		Selector: &metav1.LabelSelector{
