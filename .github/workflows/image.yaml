@@ -29,8 +29,12 @@ jobs:
           echo -n ::set-output name=VERSION::
           VERSION=$(git describe --always --dirty --tags 2>/dev/null || echo "undefined")
           ( echo "$VERSION" )
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Build and publish image to Quay
-        uses: docker/build-push-action@v1
+        uses: docker/build-push-action@v5
         with:
           build_args: |
             VERSION=${{ steps.version.outputs.VERSION }}
@@ -39,3 +43,4 @@ jobs:
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
           tags: "${{ steps.image_tags.outputs.IMAGE_TAGS }}"
+          platforms: linux/amd64,linux/arm64
