@@ -7,7 +7,7 @@
 Wave watches Deployments, StatefulSets and DaemonSets within a Kubernetes
 cluster and ensures that their Pods always have up to date configuration.
 
-By monitoring mounted ConfigMaps and Secrets mounted, Wave can trigger
+By monitoring mounted ConfigMaps and Secrets, Wave can trigger
 a Rolling Update of the Deployment when the mounted configuration is changed.
 
 ## Introduction
