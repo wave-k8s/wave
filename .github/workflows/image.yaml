@@ -16,11 +16,11 @@ jobs:
         id: image_tags
         run: |
           echo -n ::set-output name=IMAGE_TAGS::
-          TAGS=('latest')
+          TAGS=('${{ secrets.REGISTRY_REPOSITORY}}/${{ env.image_name }}:latest')
           GIT_HASH=$(git rev-parse --short "$GITHUB_SHA")
-          TAGS+=("$GIT_HASH")
+          TAGS+=("${{ secrets.REGISTRY_REPOSITORY}}/${{ env.image_name }}:$GIT_HASH")
           if [[ "${GITHUB_REF}" =~ refs/tags/(.*) ]]; then
-            TAGS+=("${BASH_REMATCH[1]}")
+            TAGS+=("${{ secrets.REGISTRY_REPOSITORY}}/${{ env.image_name }}:${BASH_REMATCH[1]}")
           fi
           ( IFS=$','; echo "${TAGS[*]}" )
       - name: Get binary version
@@ -33,14 +33,17 @@ jobs:
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+      - name: Login to Quay.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.REGISTRY_URI }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
       - name: Build and publish image to Quay
         uses: docker/build-push-action@v1
         with:
-          build_args: |
+          build-args: |
             VERSION=${{ steps.version.outputs.VERSION }}
-          registry: ${{ secrets.REGISTRY_URI }}
-          repository: ${{ secrets.REGISTRY_REPOSITORY}}/${{ env.image_name }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
           tags: "${{ steps.image_tags.outputs.IMAGE_TAGS }}"
           platforms: linux/amd64,linux/arm64
+          push: true
