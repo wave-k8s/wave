@@ -48,6 +48,21 @@ func (h *Handler) HandleDeployment(instance *appsv1.Deployment) (reconcile.Resul
 	return h.handlePodController(&deployment{Deployment: instance})
 }
 
+// HandleDeploymentWebhook is called by the deployment webhook
+func (h *Handler) HandleDeploymentWebhook(instance *appsv1.Deployment, dryRun *bool, isCreate bool) error {
+	return h.updatePodController(&deployment{Deployment: instance}, (dryRun != nil && *dryRun), isCreate)
+}
+
+// HandleStatefulSetWebhook is called by the statefulset webhook
+func (h *Handler) HandleStatefulSetWebhook(instance *appsv1.StatefulSet, dryRun *bool, isCreate bool) error {
+	return h.updatePodController(&statefulset{StatefulSet: instance}, (dryRun != nil && *dryRun), isCreate)
+}
+
+// HandleDaemonSetWebhook is called by the daemonset webhook
+func (h *Handler) HandleDaemonSetWebhook(instance *appsv1.DaemonSet, dryRun *bool, isCreate bool) error {
+	return h.updatePodController(&daemonset{DaemonSet: instance}, (dryRun != nil && *dryRun), isCreate)
+}
+
 // HandleStatefulSet is called by the StatefulSet controller to reconcile StatefulSets
 func (h *Handler) HandleStatefulSet(instance *appsv1.StatefulSet) (reconcile.Result, error) {
 	return h.handlePodController(&statefulset{StatefulSet: instance})
@@ -74,14 +89,22 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 		return reconcile.Result{}, nil
 	}
 
-	// Get all children that the instance currently references
-	current, err := h.getCurrentChildren(instance)
+	log.V(5).Info("Reconciling")
+
+	// Get all children and add watches
+	configMaps, secrets := getChildNamesByType(instance)
+	h.removeWatchesForInstance(instance)
+	h.watchChildrenForInstance(instance, configMaps, secrets)
+
+	// Get content of children
+	current, err := h.getCurrentChildren(configMaps, secrets)
 	if err != nil {
+		if _, ok := err.(*NotFoundError); ok {
+			// We are missing children but we added watchers for all children so we are done
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, fmt.Errorf("error fetching current children: %v", err)
 	}
-
-	h.removeWatchesForInstance(instance)
-	h.watchChildrenForInstance(instance, current)
 
 	hash, err := calculateConfigHash(current)
 	if err != nil {
@@ -91,6 +114,10 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 	// Update the desired state of the Deployment in a DeepCopy
 	copy := instance.DeepCopyPodController()
 	setConfigHash(copy, hash)
+
+	if isSchedulingDisabled(copy) {
+		restoreScheduling(copy)
+	}
 
 	// If the desired state doesn't match the existing state, update it
 	if !reflect.DeepEqual(instance, copy) {
@@ -103,4 +130,48 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 		}
 	}
 	return reconcile.Result{}, nil
+}
+
+// handlePodController will only update the hash. Everything else is left to the reconciler.
+func (h *Handler) updatePodController(instance podController, dryRun bool, isCreate bool) error {
+	log := logf.Log.WithName("wave").WithValues("namespace", instance.GetNamespace(), "name", instance.GetName(), "dryRun", dryRun, "isCreate", isCreate)
+	log.V(5).Info("Running webhook")
+
+	// If the required annotation isn't present, ignore the instance
+	if !hasRequiredAnnotation(instance) {
+		return nil
+	}
+
+	// Get all children that the instance currently references
+	configMaps, secrets := getChildNamesByType(instance)
+	current, err := h.getCurrentChildren(configMaps, secrets)
+	if err != nil {
+		if _, ok := err.(*NotFoundError); ok {
+			if isCreate {
+				log.V(0).Info("Not all required children found yet. Disabling scheduling!", "err", err)
+				disableScheduling(instance)
+			} else {
+				log.V(0).Info("Not all required children found yet. Skipping mutation!", "err", err)
+			}
+			return nil
+		} else {
+			return fmt.Errorf("error fetching current children: %v", err)
+		}
+	}
+
+	hash, err := calculateConfigHash(current)
+	if err != nil {
+		return fmt.Errorf("error calculating configuration hash: %v", err)
+	}
+
+	// Update the desired state of the Deployment
+	oldHash := getConfigHash(instance)
+	setConfigHash(instance, hash)
+
+	if !dryRun && oldHash != hash {
+		log.V(0).Info("Updating instance hash", "hash", hash)
+		h.recorder.Eventf(instance.GetApiObject(), corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
+	}
+
+	return nil
 }

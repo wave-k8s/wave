@@ -7,6 +7,6 @@ metadata:
 spec:
   selector:
     matchLabels:
-      {{ include "wave.selectorLabels" . | nindent 6}}
+      {{ include "wave-labels.chart" . | nindent 6 }}
   maxUnavailable: 1
 {{- end }}

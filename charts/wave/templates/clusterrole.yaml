@@ -37,4 +37,10 @@ rules:
       - update
       - patch
       - watch
+  - verbs:
+      - '*'
+    apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
 {{- end }}

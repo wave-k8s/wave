@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	webhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var _ = Describe("Deployment controller Suite", func() {
@@ -101,6 +102,11 @@ var _ = Describe("Deployment controller Suite", func() {
 			Metrics: metricsserver.Options{
 				BindAddress: "0",
 			},
+			WebhookServer: webhook.NewServer(webhook.Options{
+				Host:    t.WebhookInstallOptions.LocalServingHost,
+				Port:    t.WebhookInstallOptions.LocalServingPort,
+				CertDir: t.WebhookInstallOptions.LocalServingCertDir,
+			}),
 		})
 		Expect(err).NotTo(HaveOccurred())
 		var cerr error
@@ -112,6 +118,10 @@ var _ = Describe("Deployment controller Suite", func() {
 		r := newReconciler(mgr)
 		recFn, requestsStart, requests = SetupTestReconcile(r)
 		Expect(add(mgr, recFn, r.handler)).NotTo(HaveOccurred())
+
+		// register mutating pod webhook
+		err = AddDeploymentWebhook(mgr)
+		Expect(err).ToNot(HaveOccurred())
 
 		testCtx, testCancel = context.WithCancel(context.Background())
 		go Run(testCtx, mgr)
@@ -156,11 +166,6 @@ var _ = Describe("Deployment controller Suite", func() {
 		m.Get(s6, timeout).Should(Succeed())
 
 		deployment = utils.ExampleDeployment.DeepCopy()
-
-		// Create a deployment and wait for it to be reconciled
-		clearReconciled()
-		m.Create(deployment).Should(Succeed())
-		waitForDeploymentReconciled(deployment)
 	})
 
 	AfterEach(func() {
@@ -174,7 +179,14 @@ var _ = Describe("Deployment controller Suite", func() {
 		)
 	})
 
-	Context("When a Deployment is reconciled", func() {
+	Context("When a Deployment with all children existing is reconciled", func() {
+		BeforeEach(func() {
+			// Create a deployment and wait for it to be reconciled
+			clearReconciled()
+			m.Create(deployment).Should(Succeed())
+			waitForDeploymentReconciled(deployment)
+		})
+
 		Context("And it has the required annotation", func() {
 			BeforeEach(func() {
 				addAnnotation := func(obj client.Object) client.Object {
@@ -188,12 +200,16 @@ var _ = Describe("Deployment controller Suite", func() {
 				}
 				clearReconciled()
 				m.Update(deployment, addAnnotation).Should(Succeed())
-				// Two runs since we the controller retriggers itself by changing the object
-				waitForDeploymentReconciled(deployment)
 				waitForDeploymentReconciled(deployment)
 
 				// Get the updated Deployment
 				m.Get(deployment, timeout).Should(Succeed())
+			})
+
+			It("Has scheduling enabled", func() {
+				m.Get(deployment, timeout).Should(Succeed())
+				Expect(deployment.Spec.Template.Spec.SchedulerName).To(Equal("default-scheduler"))
+				Expect(deployment.ObjectMeta.Annotations).NotTo(HaveKey(core.SchedulingDisabledAnnotation))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
@@ -231,7 +247,6 @@ var _ = Describe("Deployment controller Suite", func() {
 					}
 					clearReconciled()
 					m.Update(deployment, removeContainer2).Should(Succeed())
-					waitForDeploymentReconciled(deployment)
 					waitForDeploymentReconciled(deployment)
 
 					// Get the updated Deployment
@@ -441,6 +456,45 @@ var _ = Describe("Deployment controller Suite", func() {
 
 				m.Update(cm1, modifyCM).Should(Succeed())
 				consistentlyDeploymentNotReconciled(deployment)
+			})
+		})
+	})
+
+	Context("When a Deployment with missing children is reconciled", func() {
+		BeforeEach(func() {
+			m.Delete(cm1).Should(Succeed())
+
+			annotations := deployment.GetAnnotations()
+			if annotations == nil {
+				annotations = make(map[string]string)
+			}
+			annotations[core.RequiredAnnotation] = "true"
+			deployment.SetAnnotations(annotations)
+
+			// Create a deployment and wait for it to be reconciled
+			clearReconciled()
+			m.Create(deployment).Should(Succeed())
+			waitForDeploymentReconciled(deployment)
+		})
+
+		It("Has scheduling disabled", func() {
+			m.Get(deployment, timeout).Should(Succeed())
+			Expect(deployment.Spec.Template.Spec.SchedulerName).To(Equal(core.SchedulingDisabledSchedulerName))
+			Expect(deployment.ObjectMeta.Annotations[core.SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
+		})
+
+		Context("And the missing child is created", func() {
+			BeforeEach(func() {
+				clearReconciled()
+				cm1 = utils.ExampleConfigMap1.DeepCopy()
+				m.Create(cm1).Should(Succeed())
+				waitForDeploymentReconciled(deployment)
+			})
+
+			It("Has scheduling renabled", func() {
+				m.Get(deployment, timeout).Should(Succeed())
+				Expect(deployment.Spec.Template.Spec.SchedulerName).To(Equal("default-scheduler"))
+				Expect(deployment.ObjectMeta.Annotations).NotTo(HaveKey(core.SchedulingDisabledAnnotation))
 			})
 		})
 	})

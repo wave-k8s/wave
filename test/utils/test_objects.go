@@ -44,6 +44,7 @@ var ExampleDeployment = &appsv1.Deployment{
 				Labels: labels,
 			},
 			Spec: corev1.PodSpec{
+				SchedulerName: "default-scheduler",
 				Volumes: []corev1.Volume{
 					{
 						Name: "secret1",

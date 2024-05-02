@@ -1,0 +1,15 @@
+{{- if .Values.webhooks.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "wave-fullname" . }}-webhook-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{ include "wave-labels.chart" . | nindent 4 }}
+spec:
+  ports:
+    - port: 443
+      targetPort: 9443
+  selector:
+    {{ include "wave-labels.chart" . | nindent 4 }}
+{{- end }}

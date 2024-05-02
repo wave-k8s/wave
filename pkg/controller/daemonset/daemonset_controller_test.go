@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	webhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var _ = Describe("DaemonSet controller Suite", func() {
@@ -94,6 +95,11 @@ var _ = Describe("DaemonSet controller Suite", func() {
 			Metrics: metricsserver.Options{
 				BindAddress: "0",
 			},
+			WebhookServer: webhook.NewServer(webhook.Options{
+				Host:    t.WebhookInstallOptions.LocalServingHost,
+				Port:    t.WebhookInstallOptions.LocalServingPort,
+				CertDir: t.WebhookInstallOptions.LocalServingCertDir,
+			}),
 		})
 		Expect(err).NotTo(HaveOccurred())
 		var cerr error
@@ -105,6 +111,10 @@ var _ = Describe("DaemonSet controller Suite", func() {
 		r := newReconciler(mgr)
 		recFn, requestsStart, requests = SetupTestReconcile(r)
 		Expect(add(mgr, recFn, r.handler)).NotTo(HaveOccurred())
+
+		// register mutating pod webhook
+		err = AddDaemonSetWebhook(mgr)
+		Expect(err).ToNot(HaveOccurred())
 
 		testCtx, testCancel = context.WithCancel(context.Background())
 		go Run(testCtx, mgr)
@@ -131,11 +141,6 @@ var _ = Describe("DaemonSet controller Suite", func() {
 		m.Get(s3, timeout).Should(Succeed())
 
 		daemonset = utils.ExampleDaemonSet.DeepCopy()
-
-		// Create a daemonset and wait for it to be reconciled
-		clearReconciled()
-		m.Create(daemonset).Should(Succeed())
-		waitForDaemonSetReconciled(daemonset)
 	})
 
 	AfterEach(func() {
@@ -149,7 +154,14 @@ var _ = Describe("DaemonSet controller Suite", func() {
 		)
 	})
 
-	Context("When a DaemonSet is reconciled", func() {
+	Context("When a DaemonSet with all children existing is reconciled", func() {
+		BeforeEach(func() {
+			// Create a daemonset and wait for it to be reconciled
+			clearReconciled()
+			m.Create(daemonset).Should(Succeed())
+			waitForDaemonSetReconciled(daemonset)
+		})
+
 		Context("And it has the required annotation", func() {
 			BeforeEach(func() {
 				addAnnotation := func(obj client.Object) client.Object {
@@ -163,12 +175,16 @@ var _ = Describe("DaemonSet controller Suite", func() {
 				}
 				clearReconciled()
 				m.Update(daemonset, addAnnotation).Should(Succeed())
-				// Two runs since we the controller retriggers itself by changing the object
-				waitForDaemonSetReconciled(daemonset)
 				waitForDaemonSetReconciled(daemonset)
 
 				// Get the updated DaemonSet
 				m.Get(daemonset, timeout).Should(Succeed())
+			})
+
+			It("Has scheduling enabled", func() {
+				m.Get(daemonset, timeout).Should(Succeed())
+				Expect(daemonset.Spec.Template.Spec.SchedulerName).To(Equal("default-scheduler"))
+				Expect(daemonset.ObjectMeta.Annotations).NotTo(HaveKey(core.SchedulingDisabledAnnotation))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
@@ -204,7 +220,6 @@ var _ = Describe("DaemonSet controller Suite", func() {
 					}
 					clearReconciled()
 					m.Update(daemonset, removeContainer2).Should(Succeed())
-					waitForDaemonSetReconciled(daemonset)
 					waitForDaemonSetReconciled(daemonset)
 
 					// Get the updated DaemonSet
@@ -419,4 +434,42 @@ var _ = Describe("DaemonSet controller Suite", func() {
 		})
 	})
 
+	Context("When a DaemonSet with missing children is reconciled", func() {
+		BeforeEach(func() {
+			m.Delete(cm1).Should(Succeed())
+
+			annotations := daemonset.GetAnnotations()
+			if annotations == nil {
+				annotations = make(map[string]string)
+			}
+			annotations[core.RequiredAnnotation] = "true"
+			daemonset.SetAnnotations(annotations)
+
+			// Create a daemonset and wait for it to be reconciled
+			clearReconciled()
+			m.Create(daemonset).Should(Succeed())
+			waitForDaemonSetReconciled(daemonset)
+		})
+
+		It("Has scheduling disabled", func() {
+			m.Get(daemonset, timeout).Should(Succeed())
+			Expect(daemonset.Spec.Template.Spec.SchedulerName).To(Equal(core.SchedulingDisabledSchedulerName))
+			Expect(daemonset.ObjectMeta.Annotations[core.SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
+		})
+
+		Context("And the missing child is created", func() {
+			BeforeEach(func() {
+				clearReconciled()
+				cm1 = utils.ExampleConfigMap1.DeepCopy()
+				m.Create(cm1).Should(Succeed())
+				waitForDaemonSetReconciled(daemonset)
+			})
+
+			It("Has scheduling renabled", func() {
+				m.Get(daemonset, timeout).Should(Succeed())
+				Expect(daemonset.Spec.Template.Spec.SchedulerName).To(Equal("default-scheduler"))
+				Expect(daemonset.ObjectMeta.Annotations).NotTo(HaveKey(core.SchedulingDisabledAnnotation))
+			})
+		})
+	})
 })
