@@ -43,7 +43,7 @@ rather than when the Pods happen to be re-cycled.
 
 ## Compatibility
 
-Wave uses the the golang Kubernetes client library which only supports
+Wave uses the golang Kubernetes client library which only supports
 the previous and the next Kubernetes version.
 However, since Wave only edits Deployments, Daemonsets and StatefulSet
 we can support older Kubernetes verions as long as no fields were removed
@@ -162,13 +162,21 @@ the Kubernetes API server. Every informer has a sync period, after which it will
 refresh all resources within its cache. At this point, every item in the cache
 is queued for reconciliation by the controller.
 
-Therefore, by setting the following flag;
+By default, sync will happen every 10h.
+Kubernetes will inform Wave about changes in any Deployment, DaemonSet,
+StatefulSet, Secret or ConfigMap in the meantime and Wave will trigger a
+reconciliation right away.
+If you encounter any bugs you can reduce sync period by setting the following flag:
 
 ```
---sync-period=5m // Default value of 5m (5 minutes)
+--sync-period=5m // Default value of 10h (10 hours)
 ```
 
-You can ensure that every resource will be reconciled at least every 5 minutes.
+This will ensure that every resource will be reconciled at least every 5 minutes.
+Please note that this will cause more load on your API and increase CPU load in
+the Wave container.
+It might also increase latency during the time of the sync.
+Do not set this unless you encounter bugs (and in that case please tell us).
 
 ## Quick Start
 
