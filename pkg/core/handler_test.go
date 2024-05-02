@@ -189,12 +189,12 @@ var _ = Describe("Wave controller Suite", func() {
 			})
 
 			It("Is watched by the handler", func() {
-				Expect(h.GetWatchedConfigmaps()[example1Name]).To(HaveKey(instanceName))
-				Expect(h.GetWatchedConfigmaps()[example2Name]).To(HaveKey(instanceName))
-				Expect(h.GetWatchedConfigmaps()[example3Name]).To(HaveKey(instanceName))
-				Expect(h.GetWatchedSecrets()[example1Name]).To(HaveKey(instanceName))
-				Expect(h.GetWatchedSecrets()[example2Name]).To(HaveKey(instanceName))
-				Expect(h.GetWatchedSecrets()[example3Name]).To(HaveKey(instanceName))
+				Expect(h.GetWatchedConfigmaps().watchers[example1Name]).To(HaveKey(instanceName))
+				Expect(h.GetWatchedConfigmaps().watchers[example2Name]).To(HaveKey(instanceName))
+				Expect(h.GetWatchedConfigmaps().watchers[example3Name]).To(HaveKey(instanceName))
+				Expect(h.GetWatchedSecrets().watchers[example1Name]).To(HaveKey(instanceName))
+				Expect(h.GetWatchedSecrets().watchers[example2Name]).To(HaveKey(instanceName))
+				Expect(h.GetWatchedSecrets().watchers[example3Name]).To(HaveKey(instanceName))
 			})
 
 			It("Sends an event when updating the hash", func() {
@@ -240,12 +240,12 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 
 				It("Is is not longer watched by the handler", func() {
-					Expect(h.GetWatchedConfigmaps()[example1Name]).To(HaveKey(instanceName))
-					Expect(h.GetWatchedConfigmaps()[example2Name]).NotTo(HaveKey(instanceName))
-					Expect(h.GetWatchedConfigmaps()[example3Name]).To(HaveKey(instanceName))
-					Expect(h.GetWatchedSecrets()[example1Name]).To(HaveKey(instanceName))
-					Expect(h.GetWatchedSecrets()[example2Name]).NotTo(HaveKey(instanceName))
-					Expect(h.GetWatchedSecrets()[example3Name]).To(HaveKey(instanceName))
+					Expect(h.GetWatchedConfigmaps().watchers[example1Name]).To(HaveKey(instanceName))
+					Expect(h.GetWatchedConfigmaps().watchers[example2Name]).NotTo(HaveKey(instanceName))
+					Expect(h.GetWatchedConfigmaps().watchers[example3Name]).To(HaveKey(instanceName))
+					Expect(h.GetWatchedSecrets().watchers[example1Name]).To(HaveKey(instanceName))
+					Expect(h.GetWatchedSecrets().watchers[example2Name]).NotTo(HaveKey(instanceName))
+					Expect(h.GetWatchedSecrets().watchers[example3Name]).To(HaveKey(instanceName))
 				})
 			})
 
@@ -464,8 +464,8 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 
 				It("No longer is watched by the handler", func() {
-					Expect(len(h.GetWatchedConfigmaps())).To(Equal(0))
-					Expect(len(h.GetWatchedSecrets())).To(Equal(0))
+					Expect(len(h.GetWatchedConfigmaps().watchers)).To(Equal(0))
+					Expect(len(h.GetWatchedSecrets().watchers)).To(Equal(0))
 				})
 			})
 
@@ -486,8 +486,8 @@ var _ = Describe("Wave controller Suite", func() {
 				})
 
 				It("No longer is watched by the handler", func() {
-					Expect(len(h.GetWatchedConfigmaps())).To(Equal(0))
-					Expect(len(h.GetWatchedSecrets())).To(Equal(0))
+					Expect(len(h.GetWatchedConfigmaps().watchers)).To(Equal(0))
+					Expect(len(h.GetWatchedSecrets().watchers)).To(Equal(0))
 				})
 			})
 		})
@@ -499,8 +499,8 @@ var _ = Describe("Wave controller Suite", func() {
 			})
 
 			It("Is not watched by the handler", func() {
-				Expect(len(h.GetWatchedConfigmaps())).To(Equal(0))
-				Expect(len(h.GetWatchedSecrets())).To(Equal(0))
+				Expect(len(h.GetWatchedConfigmaps().watchers)).To(Equal(0))
+				Expect(len(h.GetWatchedSecrets().watchers)).To(Equal(0))
 			})
 
 			It("Doesn't add a config hash to the Pod Template", func() {
