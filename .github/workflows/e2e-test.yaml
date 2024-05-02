@@ -9,7 +9,7 @@ jobs:
       matrix:
         version:
           - v1.21
-          - v1.29
+          - v1.30
         setup:
           - minimal
           - production
