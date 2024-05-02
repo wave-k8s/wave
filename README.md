@@ -41,6 +41,22 @@ matches the live configuration.
 It allows developers to discover misconfiguration as it is deployed,
 rather than when the Pods happen to be re-cycled.
 
+## Compatibility
+
+Wave uses the the golang Kubernetes client library which only supports
+the previous and the next Kubernetes version.
+However, since Wave only edits Deployments, Daemonsets and StatefulSet
+we can support older Kubernetes verions as long as no fields were removed
+from those three objects.
+You can find supported versions in the following table:
+
+| Wave Version | API Client | Maximum Supported Kubernetes Versions | E2E Tested Versions |
+|--------------|------------|---------------------------------------|---------------------|
+| 0.5          | 1.14       | 1.15                                  |                     |
+| 0.6+         | 1.29       | 1.30                                  | 1.21, 1.29          |
+|              |            |                                       |                     |
+
+
 ## Installation
 
 Wave is released periodically. The latest version is `v0.5.0`
