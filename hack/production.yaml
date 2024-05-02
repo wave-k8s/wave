@@ -14,3 +14,10 @@ topologySpreadConstraints:
     labelSelector:
       matchLabels:
         app: wave
+
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 25m
+  limits:
+    memory: 2Gi

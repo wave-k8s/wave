@@ -4,10 +4,10 @@
 
 # Wave
 
-Wave watches Deployments within a Kubernetes cluster and ensures that each
-Deployment's Pods always have up to date configuration.
+Wave watches Deployments, StatefulSets and DaemonSets within a Kubernetes
+cluster and ensures that their Pods always have up to date configuration.
 
-By monitoring ConfigMaps and Secrets mounted by a Deployment, Wave can trigger
+By monitoring mounted ConfigMaps and Secrets, Wave can trigger
 a Rolling Update of the Deployment when the mounted configuration is changed.
 
 ## Introduction
@@ -41,6 +41,22 @@ matches the live configuration.
 It allows developers to discover misconfiguration as it is deployed,
 rather than when the Pods happen to be re-cycled.
 
+## Compatibility
+
+Wave uses the the golang Kubernetes client library which only supports
+the previous and the next Kubernetes version.
+However, since Wave only edits Deployments, Daemonsets and StatefulSet
+we can support older Kubernetes verions as long as no fields were removed
+from those three objects.
+You can find supported versions in the following table:
+
+| Wave Version | API Client | Maximum Supported Kubernetes Versions | E2E Tested Versions |
+|--------------|------------|---------------------------------------|---------------------|
+| 0.5          | 1.14       | 1.15                                  |                     |
+| 0.6+         | 1.29       | 1.30                                  | 1.21, 1.29          |
+|              |            |                                       |                     |
+
+
 ## Installation
 
 Wave is released periodically. The latest version is `v0.5.0`
@@ -59,6 +75,39 @@ To deploy, add the repository to helm and install:
 ```
 $ helm repo add wave-k8s https://wave-k8s.github.io/wave/
 $ helm install wave wave-k8s/wave
+```
+
+Helm will install a minimal setup.
+For production setups we recommend the following values:
+
+```
+# run two replias for HA
+replicas: 2
+
+# enable webhooks for faster updates
+webhooks:
+  enabled: true
+
+# make sure that replicas do not restart at the same time
+pdb:
+  enabled: true
+
+# schedule to multiple AZs
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app: wave
+
+# set resources. adjust this to your setup
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 25m
+  limits:
+    memory: 2Gi
 ```
 
 #### Deploying with Kustomize
@@ -80,7 +129,7 @@ instance permission to read all Secrets, ConfigMaps and Deployments and
 the ability to update Deployments within each namespace in the cluster.
 
 Example `ClusterRole` and `ClusterRoleBindings` are available in the
-[config/rbac](config/rbac) folder.
+[config/rbac](config/rbac) folder or as part of the helm chart.
 
 ### Configuration
 
@@ -209,26 +258,27 @@ controller to start a Rolling Update of the Deployment's Pods without changing
 any of the configuration of the containers or other controllers operation on the
 Pods and Deployment.
 
-### Finalizers
+#### Configuring How Pods are Updated
 
-Wave adds an `OwnerReference` to all ConfigMaps and Secrets that are referenced
+Since Wave triggers a Rolling Update you can configure how pods are replaced
+in [Strategy](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy) field of your Deployment object.
+You can choose between `RollingUpdate` (default) and `Recreate`.
+
+### Watching
+
+Wave watches all ConfigMaps and Secrets that are referenced
 by a Deployment. This allows Wave to trigger a reconciliation whenever the
 ConfigMaps or Secrets are modified.
 
-Normally, when an owner is deleted, the Kubernetes Garbage Collector deletes all
-child resources. This is not desirable and so Wave prevents this from happening.
+### Webhooks
 
-Wave managed Deployments will have a `wave.pusher.com/finalizer` Finalizer
-added to them. This allows Wave to perform advanced clean-up operation when a
-Deployment is deleted.
-
-When Wave encounters a Deployment marked for deletion that has the Wave
-Finalizer, it checks for all ConfigMaps and Secrets with an OwnerReference
-pointing to the Deployment and removes the OwnerReference. Thus preventing the
-ConfigMaps and Secrets from being deleted by the Garbage Collector.
-
-Read the docs for more about
-[Kubernetes Garbage Collection](https://kubernetes.io/docs/concepts/workloads/controllers/garbage-collection/).
+Wave can update Deployments on creation/update using Mutating Webhooks.
+This will prevent triggering restarts when adding the hash annotation initially.
+Additionally, Wave will prevent scheduling of pods which lack any of their
+required Secrets or ConfigMaps to reduce stress on the cluster.
+Pods will stay in state `Pending` instead of `ContainerCreating`.
+When required Secrets/ConfigMaps have been created Wave will restore the
+scheduler and add the config hash without requiring any restarts.
 
 ## Communication
 
