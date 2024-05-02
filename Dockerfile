@@ -16,7 +16,7 @@ RUN go mod download
 COPY . .
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o wave -ldflags="-X main.VERSION=${VERSION}" ./cmd/manager
+RUN CGO_ENABLED=0 GOOS=linux go build -a -o wave -ldflags="-X main.VERSION=${VERSION}" ./cmd/manager
 
 # Copy the controller-manager into a thin image
 FROM alpine:3.11
