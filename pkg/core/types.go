@@ -21,6 +21,9 @@ const (
 	// due to missing children and contains the original scheduler
 	SchedulingDisabledAnnotation = "wave.pusher.com/scheduling-disabled"
 
+	// SchedulingDisabledSchedulerName is the dummy scheduler to disable scheduling of pods
+	SchedulingDisabledSchedulerName = "wave.pusher.com/invalid"
+
 	// RequiredAnnotation is the key of the annotation on the Deployment that Wave
 	// checks for before processing the deployment
 	RequiredAnnotation = "wave.pusher.com/update-on-config-change"

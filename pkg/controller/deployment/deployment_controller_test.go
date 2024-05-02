@@ -479,7 +479,7 @@ var _ = Describe("Deployment controller Suite", func() {
 
 		It("Has scheduling disabled", func() {
 			m.Get(deployment, timeout).Should(Succeed())
-			Expect(deployment.Spec.Template.Spec.SchedulerName).To(Equal("invalid"))
+			Expect(deployment.Spec.Template.Spec.SchedulerName).To(Equal(core.SchedulingDisabledSchedulerName))
 			Expect(deployment.ObjectMeta.Annotations[core.SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
 		})
 

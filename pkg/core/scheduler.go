@@ -19,7 +19,7 @@ func disableScheduling(obj podController) {
 
 	// Set invalid scheduler
 	podTemplate := obj.GetPodTemplate()
-	podTemplate.Spec.SchedulerName = "invalid"
+	podTemplate.Spec.SchedulerName = SchedulingDisabledSchedulerName
 	obj.SetPodTemplate(podTemplate)
 }
 

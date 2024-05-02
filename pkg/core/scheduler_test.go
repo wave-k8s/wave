@@ -44,7 +44,7 @@ var _ = Describe("Wave scheduler Suite", func() {
 
 		It("Disables scheduling", func() {
 			podTemplate := podControllerDeployment.GetPodTemplate()
-			Expect(podTemplate.Spec.SchedulerName).To(Equal("invalid"))
+			Expect(podTemplate.Spec.SchedulerName).To(Equal(SchedulingDisabledSchedulerName))
 		})
 
 		It("Is reports as disabled", func() {

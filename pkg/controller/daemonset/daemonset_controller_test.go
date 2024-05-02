@@ -453,7 +453,7 @@ var _ = Describe("DaemonSet controller Suite", func() {
 
 		It("Has scheduling disabled", func() {
 			m.Get(daemonset, timeout).Should(Succeed())
-			Expect(daemonset.Spec.Template.Spec.SchedulerName).To(Equal("invalid"))
+			Expect(daemonset.Spec.Template.Spec.SchedulerName).To(Equal(core.SchedulingDisabledSchedulerName))
 			Expect(daemonset.ObjectMeta.Annotations[core.SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
 		})
 

@@ -457,7 +457,7 @@ var _ = Describe("StatefulSet controller Suite", func() {
 
 		It("Has scheduling disabled", func() {
 			m.Get(statefulset, timeout).Should(Succeed())
-			Expect(statefulset.Spec.Template.Spec.SchedulerName).To(Equal("invalid"))
+			Expect(statefulset.Spec.Template.Spec.SchedulerName).To(Equal(core.SchedulingDisabledSchedulerName))
 			Expect(statefulset.ObjectMeta.Annotations[core.SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
 		})
 
