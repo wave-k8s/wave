@@ -59,7 +59,7 @@ You can find supported versions in the following table:
 
 ## Installation
 
-Wave is released periodically. The latest version is `v0.7.2`
+Wave is released periodically. The latest version is `v0.8.0`
 
 A list of changes can be seen in the [CHANGELOG](CHANGELOG.md).
 
