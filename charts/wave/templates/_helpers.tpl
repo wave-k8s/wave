@@ -18,6 +18,5 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 {{- define "wave-labels.chart" -}}
 app: {{ template "wave-name" . }}
 release: {{ .Release.Name | quote }}
-chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
 heritage: {{ .Release.Service | quote }}
 {{- end -}}
