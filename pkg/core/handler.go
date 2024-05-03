@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -34,13 +35,21 @@ import (
 type Handler struct {
 	client.Client
 	recorder          record.EventRecorder
-	watchedConfigmaps map[types.NamespacedName]map[types.NamespacedName]bool
-	watchedSecrets    map[types.NamespacedName]map[types.NamespacedName]bool
+	watchedConfigmaps WatcherList
+	watchedSecrets    WatcherList
 }
 
 // NewHandler constructs a new instance of Handler
 func NewHandler(c client.Client, r record.EventRecorder) *Handler {
-	return &Handler{Client: c, recorder: r, watchedConfigmaps: make(map[types.NamespacedName]map[types.NamespacedName]bool), watchedSecrets: make(map[types.NamespacedName]map[types.NamespacedName]bool)}
+	return &Handler{Client: c, recorder: r,
+		watchedConfigmaps: WatcherList{
+			watchers:      make(map[types.NamespacedName]map[types.NamespacedName]bool),
+			watchersMutex: &sync.RWMutex{},
+		},
+		watchedSecrets: WatcherList{
+			watchers:      make(map[types.NamespacedName]map[types.NamespacedName]bool),
+			watchersMutex: &sync.RWMutex{},
+		}}
 }
 
 // HandleDeployment is called by the deployment controller to reconcile deployments

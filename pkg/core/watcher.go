@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -13,14 +14,18 @@ import (
 
 var _ handler.EventHandler = &enqueueRequestForWatcher{}
 
-type enqueueRequestForWatcher struct {
-	// watcherList
-	watcherList map[types.NamespacedName]map[types.NamespacedName]bool
+type WatcherList struct {
+	watchers      map[types.NamespacedName]map[types.NamespacedName]bool
+	watchersMutex *sync.RWMutex
 }
 
-func EnqueueRequestForWatcher(watcherList map[types.NamespacedName]map[types.NamespacedName]bool) handler.EventHandler {
+type enqueueRequestForWatcher struct {
+	WatcherList
+}
+
+func EnqueueRequestForWatcher(watcherList WatcherList) handler.EventHandler {
 	e := &enqueueRequestForWatcher{
-		watcherList: watcherList,
+		WatcherList: watcherList,
 	}
 	return e
 }
@@ -50,37 +55,42 @@ func (e *enqueueRequestForWatcher) Generic(ctx context.Context, evt event.Generi
 // all owners of object
 func (e *enqueueRequestForWatcher) queueOwnerReconcileRequest(object metav1.Object, q workqueue.RateLimitingInterface) {
 	name := GetNamespacedNameFromObject(object)
-	if watchers, ok := e.watcherList[name]; ok {
+	e.watchersMutex.Lock()
+	if watchers, ok := e.watchers[name]; ok {
 		for watcher := range watchers {
 			request := reconcile.Request{NamespacedName: watcher}
 			q.Add(request)
 		}
 	}
+	e.watchersMutex.Unlock()
 }
 
-func (h *Handler) GetWatchedConfigmaps() map[types.NamespacedName]map[types.NamespacedName]bool {
+func (h *Handler) GetWatchedConfigmaps() WatcherList {
 	return h.watchedConfigmaps
 }
 
-func (h *Handler) GetWatchedSecrets() map[types.NamespacedName]map[types.NamespacedName]bool {
+func (h *Handler) GetWatchedSecrets() WatcherList {
 	return h.watchedSecrets
 }
 
 func (h *Handler) watchChildrenForInstance(instance podController, configMaps configMetadataMap, secrets configMetadataMap) {
 	instanceName := GetNamespacedNameFromObject(instance)
+	h.watchedConfigmaps.watchersMutex.Lock()
 	for childName := range configMaps {
-
-		if _, ok := h.watchedConfigmaps[childName]; !ok {
-			h.watchedConfigmaps[childName] = map[types.NamespacedName]bool{}
+		if _, ok := h.watchedConfigmaps.watchers[childName]; !ok {
+			h.watchedConfigmaps.watchers[childName] = map[types.NamespacedName]bool{}
 		}
-		h.watchedConfigmaps[childName][instanceName] = true
+		h.watchedConfigmaps.watchers[childName][instanceName] = true
 	}
+	h.watchedConfigmaps.watchersMutex.Unlock()
+	h.watchedSecrets.watchersMutex.Lock()
 	for childName := range secrets {
-		if _, ok := h.watchedSecrets[childName]; !ok {
-			h.watchedSecrets[childName] = map[types.NamespacedName]bool{}
+		if _, ok := h.watchedSecrets.watchers[childName]; !ok {
+			h.watchedSecrets.watchers[childName] = map[types.NamespacedName]bool{}
 		}
-		h.watchedSecrets[childName][instanceName] = true
+		h.watchedSecrets.watchers[childName][instanceName] = true
 	}
+	h.watchedSecrets.watchersMutex.Unlock()
 }
 
 func (h *Handler) removeWatchesForInstance(instance podController) {
@@ -88,16 +98,20 @@ func (h *Handler) removeWatchesForInstance(instance podController) {
 }
 
 func (h *Handler) RemoveWatches(instanceName types.NamespacedName) {
-	for child, watchers := range h.watchedConfigmaps {
+	h.watchedConfigmaps.watchersMutex.Lock()
+	for child, watchers := range h.watchedConfigmaps.watchers {
 		delete(watchers, instanceName)
 		if len(watchers) == 0 {
-			delete(h.watchedConfigmaps, child)
+			delete(h.watchedConfigmaps.watchers, child)
 		}
 	}
-	for child, watchers := range h.watchedSecrets {
+	h.watchedConfigmaps.watchersMutex.Unlock()
+	h.watchedSecrets.watchersMutex.Lock()
+	for child, watchers := range h.watchedSecrets.watchers {
 		delete(watchers, instanceName)
 		if len(watchers) == 0 {
-			delete(h.watchedSecrets, child)
+			delete(h.watchedSecrets.watchers, child)
 		}
 	}
+	h.watchedSecrets.watchersMutex.Unlock()
 }
