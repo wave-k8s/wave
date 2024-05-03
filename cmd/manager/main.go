@@ -44,7 +44,7 @@ var (
 	leaderElection          = flag.Bool("leader-election", false, "Should the controller use leader election")
 	leaderElectionID        = flag.String("leader-election-id", "", "Name of the configmap used by the leader election system")
 	leaderElectionNamespace = flag.String("leader-election-namespace", "", "Namespace for the configmap used by the leader election system")
-	syncPeriod              = flag.Duration("sync-period", 5*time.Minute, "Reconcile sync period")
+	syncPeriod              = flag.Duration("sync-period", 10*time.Hour, "Reconcile sync period")
 	showVersion             = flag.Bool("version", false, "Show version and exit")
 	enableWebhooks          = flag.Bool("enable-webhooks", false, "Enable webhooks")
 	setupLog                = ctrl.Log.WithName("setup")
