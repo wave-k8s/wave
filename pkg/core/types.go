@@ -24,6 +24,14 @@ const (
 	// SchedulingDisabledSchedulerName is the dummy scheduler to disable scheduling of pods
 	SchedulingDisabledSchedulerName = "wave.pusher.com/invalid"
 
+	// ExtraConfigMapsAnnotation is the key of the annotation that contains additional
+	// ConfigMaps which Wave should watch
+	ExtraConfigMapsAnnotation = "wave.pusher.com/extra-configmaps"
+
+	// ExtraSecretsAnnotation is the key of the annotation that contains additional
+	// Secrets which Wave should watch
+	ExtraSecretsAnnotation = "wave.pusher.com/extra-secrets"
+
 	// RequiredAnnotation is the key of the annotation on the Deployment that Wave
 	// checks for before processing the deployment
 	RequiredAnnotation = "wave.pusher.com/update-on-config-change"

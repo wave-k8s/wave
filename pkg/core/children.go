@@ -157,6 +157,30 @@ func getChildNamesByType(obj podController) (configMetadataMap, configMetadataMa
 				}
 			}
 		}
+
+		// Parse deployment annotations for cms/secrets used inside the pod
+		if annotations := obj.GetAnnotations(); annotations != nil {
+			if configMapString, ok := annotations[ExtraConfigMapsAnnotation]; ok {
+				for _, cm := range strings.Split(configMapString, ",") {
+					parts := strings.Split(cm, "/")
+					if len(parts) == 1 {
+						configMaps[GetNamespacedName(parts[0], obj.GetNamespace())] = configMetadata{required: false, allKeys: true}
+					} else if len(parts) == 2 {
+						configMaps[GetNamespacedName(parts[1], parts[0])] = configMetadata{required: false, allKeys: true}
+					}
+				}
+			}
+			if secretString, ok := annotations[ExtraSecretsAnnotation]; ok {
+				for _, secret := range strings.Split(secretString, ",") {
+					parts := strings.Split(secret, "/")
+					if len(parts) == 1 {
+						secrets[GetNamespacedName(parts[0], obj.GetNamespace())] = configMetadata{required: false, allKeys: true}
+					} else if len(parts) == 2 {
+						secrets[GetNamespacedName(parts[1], parts[0])] = configMetadata{required: false, allKeys: true}
+					}
+				}
+			}
+		}
 	}
 
 	// Range through all Containers and their respective EnvFrom,

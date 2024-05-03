@@ -224,6 +224,25 @@ spec:
 From now on, when a mounted ConfigMap or Secret is updated, Wave will update
 this `config-hash` annotation and cause a Rolling Update to occur.
 
+### Advanced Features
+
+If your Pod is reading some ConfigMap or Secret using the API and you want it
+to be restarted on change you can tell Wave in an annotation:
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    wave.pusher.com/update-on-config-change: "true"
+    wave.pusher.com/extra-configmaps: "some-namespace/my-configmap,configmap-in-same-namespace"
+    wave.pusher.com/extra-secrets: "some-namespace/my-secret,some-other-namespace/foo"
+...
+```
+
+Wave will watch those ConfigMap or Secret and behave just like if they were
+mounted.
+
 ## Project Concepts
 
 This section outlines some of the underlying concepts that enable this
