@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -100,6 +101,9 @@ var _ = Describe("DaemonSet controller Suite", func() {
 				Port:    t.WebhookInstallOptions.LocalServingPort,
 				CertDir: t.WebhookInstallOptions.LocalServingCertDir,
 			}),
+			Cache: cache.Options{
+				DefaultNamespaces: core.BuildCacheDefaultNamespaces(""),
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		var cerr error

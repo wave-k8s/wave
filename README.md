@@ -178,6 +178,14 @@ the Wave container.
 It might also increase latency during the time of the sync.
 Do not set this unless you encounter bugs (and in that case please tell us).
 
+#### Limit Namespaces
+
+You can limit Wave to only watch certain namespaces:
+
+```
+--namespaces=your-namespace,other-namespace
+```
+
 ## Quick Start
 
 If you haven't yet got Wave running on your cluster, see
