@@ -206,7 +206,7 @@ func ControllerTestSuite[I InstanceType](
 				hashMessage := "Configuration hash updated to 421778c325761f51dbf7a23a20eb9c1bc516ffd4aa7362ebec03175d427d7557"
 				Eventually(func() *corev1.EventList {
 					events := &corev1.EventList{}
-					m.Client.List(context.TODO(), events)
+					Expect(m.Client.List(context.TODO(), events)).To(Succeed())
 					return events
 				}, timeout).Should(utils.WithItems(ContainElement(WithTransform(eventMessage, Equal(hashMessage)))))
 			})
