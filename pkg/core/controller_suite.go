@@ -1,103 +1,37 @@
-/*
-Copyright 2018 Pusher Ltd. and Wave Contributors
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-package deployment
-
-import (
-	"context"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/wave-k8s/wave/pkg/core"
-	"github.com/wave-k8s/wave/test/utils"
-	appsv1 "k8s.io/api/apps/v1"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-)
-
-var _ = Describe("Deployment controller Suite", func() {
-	core.ControllerTestSuite(
-		&t, &cfg,
-		func() *appsv1.Deployment {
-			return utils.ExampleDeployment.DeepCopy()
-		},
-		func(mgr manager.Manager) (context.CancelFunc, chan reconcile.Request, chan reconcile.Request) {
-			var recFn reconcile.Reconciler
-			r := newReconciler(mgr)
-			recFn, requestsStart, requests := SetupTestReconcile(r)
-			Expect(add(mgr, recFn, r.handler)).NotTo(HaveOccurred())
-
-			// register mutating pod webhook
-			err := AddDeploymentWebhook(mgr)
-			Expect(err).ToNot(HaveOccurred())
-
-			testCtx, testCancel = context.WithCancel(context.Background())
-			go Run(testCtx, mgr)
-			return testCancel, requestsStart, requests
-		},
-	)
-})
-
-/*
-Copyright 2018 Pusher Ltd. and Wave Contributors
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-/*
-package deployment
+package core
 
 import (
 	"context"
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/wave-k8s/wave/pkg/core"
 	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	webhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-var _ = Describe("Deployment controller Suite", func() {
+func ControllerTestSuite[I InstanceType](
+	t **envtest.Environment, cfg **rest.Config,
+	makeObject func() I,
+	startController func(mgr manager.Manager) (context.CancelFunc, chan reconcile.Request, chan reconcile.Request)) {
 	var c client.Client
 	var m utils.Matcher
 
-	var deployment *appsv1.Deployment
+	var testCancel context.CancelFunc
+
+	var instance I
 	var requestsStart <-chan reconcile.Request
 	var requests <-chan reconcile.Request
 
@@ -119,7 +53,7 @@ var _ = Describe("Deployment controller Suite", func() {
 
 	const modified = "modified"
 
-	var waitForDeploymentReconciled = func(obj core.Object) {
+	var waitForInstanceReconciled = func(obj Object) {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      obj.GetName(),
@@ -131,7 +65,7 @@ var _ = Describe("Deployment controller Suite", func() {
 		Eventually(requests, timeout).Should(Receive(Equal(request)))
 	}
 
-	var consistentlyDeploymentNotReconciled = func(obj core.Object) {
+	var consistentlyInstanceNotReconciled = func(obj Object) {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      obj.GetName(),
@@ -153,36 +87,23 @@ var _ = Describe("Deployment controller Suite", func() {
 		// Reset the Prometheus Registry before each test to avoid errors
 		metrics.Registry = prometheus.NewRegistry()
 
-		mgr, err := manager.New(cfg, manager.Options{
+		mgr, err := manager.New(*cfg, manager.Options{
 			Metrics: metricsserver.Options{
 				BindAddress: "0",
 			},
 			WebhookServer: webhook.NewServer(webhook.Options{
-				Host:    t.WebhookInstallOptions.LocalServingHost,
-				Port:    t.WebhookInstallOptions.LocalServingPort,
-				CertDir: t.WebhookInstallOptions.LocalServingCertDir,
+				Host:    (*t).WebhookInstallOptions.LocalServingHost,
+				Port:    (*t).WebhookInstallOptions.LocalServingPort,
+				CertDir: (*t).WebhookInstallOptions.LocalServingCertDir,
 			}),
-			Cache: cache.Options{
-				DefaultNamespaces: core.BuildCacheDefaultNamespaces(""),
-			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		var cerr error
-		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+		c, cerr = client.New(*cfg, client.Options{Scheme: scheme.Scheme})
 		Expect(cerr).NotTo(HaveOccurred())
 		m = utils.Matcher{Client: c}
 
-		var recFn reconcile.Reconciler
-		r := newReconciler(mgr)
-		recFn, requestsStart, requests = SetupTestReconcile(r)
-		Expect(add(mgr, recFn, r.handler)).NotTo(HaveOccurred())
-
-		// register mutating pod webhook
-		err = AddDeploymentWebhook(mgr)
-		Expect(err).ToNot(HaveOccurred())
-
-		testCtx, testCancel = context.WithCancel(context.Background())
-		go Run(testCtx, mgr)
+		testCancel, requestsStart, requests = startController(mgr)
 
 		// Create some configmaps and secrets
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
@@ -223,26 +144,28 @@ var _ = Describe("Deployment controller Suite", func() {
 		m.Get(s5, timeout).Should(Succeed())
 		m.Get(s6, timeout).Should(Succeed())
 
-		deployment = utils.ExampleDeployment.DeepCopy()
+		instance = makeObject()
 	})
 
 	AfterEach(func() {
 		testCancel()
 
-		utils.DeleteAll(cfg, timeout,
+		utils.DeleteAll(*cfg, timeout,
+			&appsv1.DaemonSetList{},
 			&appsv1.DeploymentList{},
+			&appsv1.StatefulSetList{},
 			&corev1.ConfigMapList{},
 			&corev1.SecretList{},
 			&corev1.EventList{},
 		)
 	})
 
-	Context("When a Deployment with all children existing is reconciled", func() {
+	Context("When a instance with all children existing is reconciled", func() {
 		BeforeEach(func() {
-			// Create a deployment and wait for it to be reconciled
+			// Create a instance and wait for it to be reconciled
 			clearReconciled()
-			m.Create(deployment).Should(Succeed())
-			waitForDeploymentReconciled(deployment)
+			m.Create(instance).Should(Succeed())
+			waitForInstanceReconciled(instance)
 		})
 
 		Context("And it has the required annotation", func() {
@@ -252,30 +175,30 @@ var _ = Describe("Deployment controller Suite", func() {
 					if annotations == nil {
 						annotations = make(map[string]string)
 					}
-					annotations[core.RequiredAnnotation] = "true"
+					annotations[RequiredAnnotation] = "true"
 					obj.SetAnnotations(annotations)
 					return obj
 				}
 				clearReconciled()
-				m.Update(deployment, addAnnotation).Should(Succeed())
-				waitForDeploymentReconciled(deployment)
+				m.Update(instance, addAnnotation).Should(Succeed())
+				waitForInstanceReconciled(instance)
 
-				// Get the updated Deployment
-				m.Get(deployment, timeout).Should(Succeed())
+				// Get the updated instance
+				m.Get(instance, timeout).Should(Succeed())
 			})
 
 			It("Has scheduling enabled", func() {
-				m.Get(deployment, timeout).Should(Succeed())
-				Expect(deployment.Spec.Template.Spec.SchedulerName).To(Equal("default-scheduler"))
-				Expect(deployment.ObjectMeta.Annotations).NotTo(HaveKey(core.SchedulingDisabledAnnotation))
+				m.Get(instance, timeout).Should(Succeed())
+				Expect(GetPodTemplate(instance).Spec.SchedulerName).To(Equal("default-scheduler"))
+				Expect(instance.GetAnnotations()).NotTo(HaveKey(SchedulingDisabledAnnotation))
 			})
 
 			It("Adds a config hash to the Pod Template", func() {
-				Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+				Eventually(instance, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
 			})
 
 			It("Sends an event when updating the hash", func() {
-				Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+				Eventually(instance, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
 
 				eventMessage := func(event *corev1.Event) string {
 					return event.Message
@@ -291,29 +214,27 @@ var _ = Describe("Deployment controller Suite", func() {
 			Context("And a child is removed", func() {
 				var originalHash string
 				BeforeEach(func() {
-					Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
-					originalHash = deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+					Eventually(instance, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
+					originalHash = GetPodTemplate(instance).GetAnnotations()[ConfigHashAnnotation]
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
-					removeContainer2 := func(obj client.Object) client.Object {
-						dep, _ := obj.(*appsv1.Deployment)
-						containers := dep.Spec.Template.Spec.Containers
-						Expect(containers[0].Name).To(Equal("container1"))
-						dep.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
-						return dep
-					}
 					clearReconciled()
-					m.Update(deployment, removeContainer2).Should(Succeed())
-					waitForDeploymentReconciled(deployment)
+					m.Get(instance, timeout).Should(Succeed())
+					podTemplate := GetPodTemplate(instance)
+					Expect(podTemplate.Spec.Containers[0].Name).To(Equal("container1"))
+					podTemplate.Spec.Containers = []corev1.Container{podTemplate.Spec.Containers[0]}
+					SetPodTemplate(instance, podTemplate)
+					Expect(m.Client.Update(context.TODO(), instance)).Should(Succeed())
+					waitForInstanceReconciled(instance)
 
-					// Get the updated Deployment
-					m.Get(deployment, timeout).Should(Succeed())
+					// Get the updated instance
+					m.Get(instance, timeout).Should(Succeed())
 				})
 
 				It("Updates the config hash in the Pod Template", func() {
 					Eventually(func() string {
-						return deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+						return GetPodTemplate(instance).GetAnnotations()[ConfigHashAnnotation]
 					}, timeout).ShouldNot(Equal(originalHash))
 				})
 
@@ -326,7 +247,7 @@ var _ = Describe("Deployment controller Suite", func() {
 					clearReconciled()
 
 					m.Update(cm2, modifyCM).Should(Succeed())
-					consistentlyDeploymentNotReconciled(deployment)
+					consistentlyInstanceNotReconciled(instance)
 				})
 			})
 
@@ -334,9 +255,9 @@ var _ = Describe("Deployment controller Suite", func() {
 				var originalHash string
 
 				BeforeEach(func() {
-					m.Get(deployment, timeout).Should(Succeed())
-					Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
-					originalHash = deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+					m.Get(instance, timeout).Should(Succeed())
+					Eventually(instance, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
+					originalHash = GetPodTemplate(instance).GetAnnotations()[ConfigHashAnnotation]
 				})
 
 				Context("A ConfigMap volume is updated", func() {
@@ -348,16 +269,16 @@ var _ = Describe("Deployment controller Suite", func() {
 						}
 						clearReconciled()
 						m.Update(cm1, modifyCM).Should(Succeed())
-						waitForDeploymentReconciled(deployment)
-						waitForDeploymentReconciled(deployment)
+						waitForInstanceReconciled(instance)
+						waitForInstanceReconciled(instance)
 
-						// Get the updated Deployment
-						m.Get(deployment, timeout).Should(Succeed())
+						// Get the updated instance
+						m.Get(instance, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
 						Eventually(func() string {
-							return deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+							return GetPodTemplate(instance).GetAnnotations()[ConfigHashAnnotation]
 						}, timeout).ShouldNot(Equal(originalHash))
 					})
 				})
@@ -371,16 +292,16 @@ var _ = Describe("Deployment controller Suite", func() {
 						}
 						clearReconciled()
 						m.Update(cm2, modifyCM).Should(Succeed())
-						waitForDeploymentReconciled(deployment)
-						waitForDeploymentReconciled(deployment)
+						waitForInstanceReconciled(instance)
+						waitForInstanceReconciled(instance)
 
-						// Get the updated Deployment
-						m.Get(deployment, timeout).Should(Succeed())
+						// Get the updated instance
+						m.Get(instance, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
 						Eventually(func() string {
-							return deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+							return GetPodTemplate(instance).GetAnnotations()[ConfigHashAnnotation]
 						}, timeout).ShouldNot(Equal(originalHash))
 					})
 				})
@@ -397,16 +318,16 @@ var _ = Describe("Deployment controller Suite", func() {
 						}
 						clearReconciled()
 						m.Update(s1, modifyS).Should(Succeed())
-						waitForDeploymentReconciled(deployment)
-						waitForDeploymentReconciled(deployment)
+						waitForInstanceReconciled(instance)
+						waitForInstanceReconciled(instance)
 
-						// Get the updated Deployment
-						m.Get(deployment, timeout).Should(Succeed())
+						// Get the updated instance
+						m.Get(instance, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
 						Eventually(func() string {
-							return deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+							return GetPodTemplate(instance).GetAnnotations()[ConfigHashAnnotation]
 						}, timeout).ShouldNot(Equal(originalHash))
 					})
 				})
@@ -423,16 +344,16 @@ var _ = Describe("Deployment controller Suite", func() {
 						}
 						clearReconciled()
 						m.Update(s2, modifyS).Should(Succeed())
-						waitForDeploymentReconciled(deployment)
-						waitForDeploymentReconciled(deployment)
+						waitForInstanceReconciled(instance)
+						waitForInstanceReconciled(instance)
 
-						// Get the updated Deployment
-						m.Get(deployment, timeout).Should(Succeed())
+						// Get the updated instance
+						m.Get(instance, timeout).Should(Succeed())
 					})
 
 					It("Updates the config hash in the Pod Template", func() {
 						Eventually(func() string {
-							return deployment.Spec.Template.GetAnnotations()[core.ConfigHashAnnotation]
+							return GetPodTemplate(instance).GetAnnotations()[ConfigHashAnnotation]
 						}, timeout).ShouldNot(Equal(originalHash))
 					})
 				})
@@ -445,14 +366,14 @@ var _ = Describe("Deployment controller Suite", func() {
 						return obj
 					}
 					clearReconciled()
-					m.Update(deployment, removeAnnotations).Should(Succeed())
-					waitForDeploymentReconciled(deployment)
-					m.Get(deployment).Should(Succeed())
-					Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(core.RequiredAnnotation)))
+					m.Update(instance, removeAnnotations).Should(Succeed())
+					waitForInstanceReconciled(instance)
+					m.Get(instance).Should(Succeed())
+					Eventually(instance, timeout).ShouldNot(utils.WithAnnotations(HaveKey(RequiredAnnotation)))
 				})
 
 				It("Removes the config hash annotation", func() {
-					m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(core.ConfigHashAnnotation)))
+					m.Consistently(instance, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(ConfigHashAnnotation)))
 				})
 
 				It("Changes to children no longer trigger a reconcile", func() {
@@ -464,20 +385,20 @@ var _ = Describe("Deployment controller Suite", func() {
 					clearReconciled()
 
 					m.Update(cm1, modifyCM).Should(Succeed())
-					consistentlyDeploymentNotReconciled(deployment)
+					consistentlyInstanceNotReconciled(instance)
 				})
 			})
 
 			Context("And is deleted", func() {
 				BeforeEach(func() {
 					// Make sure the cache has synced before we run the test
-					Eventually(deployment, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(core.ConfigHashAnnotation)))
+					Eventually(instance, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
 					clearReconciled()
-					m.Delete(deployment).Should(Succeed())
-					waitForDeploymentReconciled(deployment)
+					m.Delete(instance).Should(Succeed())
+					waitForInstanceReconciled(instance)
 				})
 				It("Not longer exists", func() {
-					m.Get(deployment).Should(MatchError(MatchRegexp(`not found`)))
+					m.Get(instance).Should(MatchError(MatchRegexp(`not found`)))
 				})
 
 				It("Changes to children no longer trigger a reconcile", func() {
@@ -489,19 +410,19 @@ var _ = Describe("Deployment controller Suite", func() {
 					clearReconciled()
 
 					m.Update(cm1, modifyCM).Should(Succeed())
-					consistentlyDeploymentNotReconciled(deployment)
+					consistentlyInstanceNotReconciled(instance)
 				})
 			})
 		})
 
 		Context("And it does not have the required annotation", func() {
 			BeforeEach(func() {
-				// Get the updated Deployment
-				m.Get(deployment, timeout).Should(Succeed())
+				// Get the updated instance
+				m.Get(instance, timeout).Should(Succeed())
 			})
 
 			It("Doesn't add a config hash to the Pod Template", func() {
-				m.Consistently(deployment, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(core.ConfigHashAnnotation)))
+				m.Consistently(instance, consistentlyTimeout).ShouldNot(utils.WithAnnotations(ContainElement(ConfigHashAnnotation)))
 			})
 
 			It("Changes to children no do not trigger a reconcile", func() {
@@ -513,32 +434,32 @@ var _ = Describe("Deployment controller Suite", func() {
 				clearReconciled()
 
 				m.Update(cm1, modifyCM).Should(Succeed())
-				consistentlyDeploymentNotReconciled(deployment)
+				consistentlyInstanceNotReconciled(instance)
 			})
 		})
 	})
 
-	Context("When a Deployment with missing children is reconciled", func() {
+	Context("When a instance with missing children is reconciled", func() {
 		BeforeEach(func() {
 			m.Delete(cm1).Should(Succeed())
 
-			annotations := deployment.GetAnnotations()
+			annotations := instance.GetAnnotations()
 			if annotations == nil {
 				annotations = make(map[string]string)
 			}
-			annotations[core.RequiredAnnotation] = "true"
-			deployment.SetAnnotations(annotations)
+			annotations[RequiredAnnotation] = "true"
+			instance.SetAnnotations(annotations)
 
-			// Create a deployment and wait for it to be reconciled
+			// Create a instance and wait for it to be reconciled
 			clearReconciled()
-			m.Create(deployment).Should(Succeed())
-			waitForDeploymentReconciled(deployment)
+			m.Create(instance).Should(Succeed())
+			waitForInstanceReconciled(instance)
 		})
 
 		It("Has scheduling disabled", func() {
-			m.Get(deployment, timeout).Should(Succeed())
-			Expect(deployment.Spec.Template.Spec.SchedulerName).To(Equal(core.SchedulingDisabledSchedulerName))
-			Expect(deployment.ObjectMeta.Annotations[core.SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
+			m.Get(instance, timeout).Should(Succeed())
+			Expect(GetPodTemplate(instance).Spec.SchedulerName).To(Equal(SchedulingDisabledSchedulerName))
+			Expect(instance.GetAnnotations()[SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
 		})
 
 		Context("And the missing child is created", func() {
@@ -546,16 +467,15 @@ var _ = Describe("Deployment controller Suite", func() {
 				clearReconciled()
 				cm1 = utils.ExampleConfigMap1.DeepCopy()
 				m.Create(cm1).Should(Succeed())
-				waitForDeploymentReconciled(deployment)
+				waitForInstanceReconciled(instance)
 			})
 
 			It("Has scheduling renabled", func() {
-				m.Get(deployment, timeout).Should(Succeed())
-				Expect(deployment.Spec.Template.Spec.SchedulerName).To(Equal("default-scheduler"))
-				Expect(deployment.ObjectMeta.Annotations).NotTo(HaveKey(core.SchedulingDisabledAnnotation))
+				m.Get(instance, timeout).Should(Succeed())
+				Expect(GetPodTemplate(instance).Spec.SchedulerName).To(Equal("default-scheduler"))
+				Expect(instance.GetAnnotations()).NotTo(HaveKey(SchedulingDisabledAnnotation))
 			})
 		})
 	})
 
-})
-*/
+}
