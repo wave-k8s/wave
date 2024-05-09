@@ -19,14 +19,13 @@ package core
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // deleteOwnerReferencesAndFinalizer removes all existing Owner References pointing to the object
 // before removing the object's Finalizer
-func (h *Handler) deleteOwnerReferencesAndFinalizer(obj podController) (reconcile.Result, error) {
+func (h *Handler[I]) deleteOwnerReferencesAndFinalizer(obj I) (reconcile.Result, error) {
 	// Fetch all children with an OwnerReference pointing to the object
 	existing, err := h.getExistingChildren(obj)
 	if err != nil {
@@ -40,10 +39,9 @@ func (h *Handler) deleteOwnerReferencesAndFinalizer(obj podController) (reconcil
 	}
 
 	// Remove the object's Finalizer and update if necessary
-	copy := obj.DeepCopyPodController()
-	removeFinalizer(copy)
-	if !reflect.DeepEqual(obj, copy) {
-		err := h.Update(context.TODO(), copy.GetApiObject())
+	if hasFinalizer(obj) {
+		removeFinalizer(obj)
+		err := h.Update(context.TODO(), obj)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("error updating Deployment: %v", err)
 		}

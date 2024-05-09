@@ -35,10 +35,10 @@ import (
 
 var _ = Describe("Wave children Suite", func() {
 	var c client.Client
-	var h *Handler
+	var h *Handler[*appsv1.Deployment]
 	var m utils.Matcher
 	var deploymentObject *appsv1.Deployment
-	var podControllerDeployment podController
+	var podControllerDeployment *appsv1.Deployment
 	var currentChildren []configObject
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
@@ -70,7 +70,7 @@ var _ = Describe("Wave children Suite", func() {
 		Expect(cerr).NotTo(HaveOccurred())
 		c = mgr.GetClient()
 		//		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
-		h = NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave"))
+		h = NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave"))
 
 		m = utils.Matcher{Client: c}
 
@@ -102,7 +102,7 @@ var _ = Describe("Wave children Suite", func() {
 		m.Create(s6).Should(Succeed())
 
 		deploymentObject = utils.ExampleDeployment.DeepCopy()
-		podControllerDeployment = &deployment{deploymentObject}
+		podControllerDeployment = deploymentObject // TODO: remove
 
 		m.Create(deploymentObject).Should(Succeed())
 

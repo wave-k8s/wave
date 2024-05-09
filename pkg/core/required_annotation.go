@@ -18,7 +18,7 @@ package core
 
 // hasRequiredAnnotation returns true if the given PodController has the wave
 // annotation present
-func hasRequiredAnnotation(obj podController) bool {
+func hasRequiredAnnotation[I InstanceType](obj I) bool {
 	annotations := obj.GetAnnotations()
 	if value, ok := annotations[RequiredAnnotation]; ok {
 		if value == requiredAnnotationValue {

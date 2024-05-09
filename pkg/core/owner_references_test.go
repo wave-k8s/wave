@@ -36,10 +36,10 @@ import (
 
 var _ = Describe("Wave owner references Suite", func() {
 	var c client.Client
-	var h *Handler
+	var h *Handler[*appsv1.Deployment]
 	var m utils.Matcher
 	var deploymentObject *appsv1.Deployment
-	var podControllerDeployment podController
+	var podControllerDeployment *appsv1.Deployment
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
@@ -64,7 +64,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		var cerr error
 		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 		Expect(cerr).NotTo(HaveOccurred())
-		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
+		h = NewHandler[*appsv1.Deployment](c, mgr.GetEventRecorderFor("wave"))
 		m = utils.Matcher{Client: c}
 
 		// Create some configmaps and secrets
@@ -83,7 +83,7 @@ var _ = Describe("Wave owner references Suite", func() {
 		m.Create(s3).Should(Succeed())
 
 		deploymentObject = utils.ExampleDeployment.DeepCopy()
-		podControllerDeployment = &deployment{deploymentObject}
+		podControllerDeployment = deploymentObject // TODO: remove
 
 		m.Create(deploymentObject).Should(Succeed())
 

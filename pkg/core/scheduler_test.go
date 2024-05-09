@@ -25,11 +25,11 @@ import (
 
 var _ = Describe("Wave scheduler Suite", func() {
 	var deploymentObject *appsv1.Deployment
-	var podControllerDeployment podController
+	var podControllerDeployment *appsv1.Deployment
 
 	BeforeEach(func() {
 		deploymentObject = utils.ExampleDeployment.DeepCopy()
-		podControllerDeployment = &deployment{deploymentObject}
+		podControllerDeployment = deploymentObject
 	})
 
 	Context("When scheduler is disabled", func() {
@@ -43,7 +43,7 @@ var _ = Describe("Wave scheduler Suite", func() {
 		})
 
 		It("Disables scheduling", func() {
-			podTemplate := podControllerDeployment.GetPodTemplate()
+			podTemplate := GetPodTemplate(podControllerDeployment)
 			Expect(podTemplate.Spec.SchedulerName).To(Equal(SchedulingDisabledSchedulerName))
 		})
 
@@ -62,7 +62,7 @@ var _ = Describe("Wave scheduler Suite", func() {
 			})
 
 			It("Restores the scheduler", func() {
-				podTemplate := podControllerDeployment.GetPodTemplate()
+				podTemplate := GetPodTemplate(podControllerDeployment)
 				Expect(podTemplate.Spec.SchedulerName).To(Equal("default-scheduler"))
 			})
 

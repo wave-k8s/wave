@@ -65,15 +65,15 @@ func (e *enqueueRequestForWatcher) queueOwnerReconcileRequest(object metav1.Obje
 	e.watchersMutex.Unlock()
 }
 
-func (h *Handler) GetWatchedConfigmaps() WatcherList {
+func (h *Handler[I]) GetWatchedConfigmaps() WatcherList {
 	return h.watchedConfigmaps
 }
 
-func (h *Handler) GetWatchedSecrets() WatcherList {
+func (h *Handler[I]) GetWatchedSecrets() WatcherList {
 	return h.watchedSecrets
 }
 
-func (h *Handler) watchChildrenForInstance(instance podController, configMaps configMetadataMap, secrets configMetadataMap) {
+func (h *Handler[I]) watchChildrenForInstance(instance I, configMaps configMetadataMap, secrets configMetadataMap) {
 	instanceName := GetNamespacedNameFromObject(instance)
 	h.watchedConfigmaps.watchersMutex.Lock()
 	for childName := range configMaps {
@@ -93,11 +93,11 @@ func (h *Handler) watchChildrenForInstance(instance podController, configMaps co
 	h.watchedSecrets.watchersMutex.Unlock()
 }
 
-func (h *Handler) removeWatchesForInstance(instance podController) {
+func (h *Handler[I]) removeWatchesForInstance(instance I) {
 	h.RemoveWatches(GetNamespacedNameFromObject(instance))
 }
 
-func (h *Handler) RemoveWatches(instanceName types.NamespacedName) {
+func (h *Handler[I]) RemoveWatches(instanceName types.NamespacedName) {
 	h.watchedConfigmaps.watchersMutex.Lock()
 	for child, watchers := range h.watchedConfigmaps.watchers {
 		delete(watchers, instanceName)

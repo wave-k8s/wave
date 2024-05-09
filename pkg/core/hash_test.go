@@ -326,11 +326,11 @@ var _ = Describe("Wave hash Suite", func() {
 
 	Context("setConfigHash", func() {
 		var deploymentObject *appsv1.Deployment
-		var podControllerDeployment podController
+		var podControllerDeployment *appsv1.Deployment // TODO: remove
 
 		BeforeEach(func() {
 			deploymentObject = utils.ExampleDeployment.DeepCopy()
-			podControllerDeployment = &deployment{deploymentObject}
+			podControllerDeployment = deploymentObject
 		})
 
 		It("sets the hash annotation to the provided value", func() {

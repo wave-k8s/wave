@@ -48,12 +48,12 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) *ReconcileDeployment {
 	return &ReconcileDeployment{
 		scheme:  mgr.GetScheme(),
-		handler: core.NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+		handler: core.NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
 	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler, h *core.Handler) error {
+func add(mgr manager.Manager, r reconcile.Reconciler, h *core.Handler[*appsv1.Deployment]) error {
 	// Create a new controller
 	c, err := controller.New("deployment-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -86,7 +86,7 @@ var _ reconcile.Reconciler = &ReconcileDeployment{}
 // ReconcileDeployment reconciles a Deployment object
 type ReconcileDeployment struct {
 	scheme  *runtime.Scheme
-	handler *core.Handler
+	handler *core.Handler[*appsv1.Deployment]
 }
 
 // Reconcile reads that state of the cluster for a Deployment object and
@@ -105,5 +105,5 @@ func (r *ReconcileDeployment) Reconcile(ctx context.Context, request reconcile.R
 		return reconcile.Result{}, err
 	}
 
-	return r.handler.HandleDeployment(instance)
+	return r.handler.Handle(instance)
 }

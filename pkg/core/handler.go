@@ -19,10 +19,8 @@ package core
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -32,7 +30,7 @@ import (
 )
 
 // Handler performs the main business logic of the Wave controller
-type Handler struct {
+type Handler[I InstanceType] struct {
 	client.Client
 	recorder          record.EventRecorder
 	watchedConfigmaps WatcherList
@@ -40,8 +38,8 @@ type Handler struct {
 }
 
 // NewHandler constructs a new instance of Handler
-func NewHandler(c client.Client, r record.EventRecorder) *Handler {
-	return &Handler{Client: c, recorder: r,
+func NewHandler[I InstanceType](c client.Client, r record.EventRecorder) *Handler[I] {
+	return &Handler[I]{Client: c, recorder: r,
 		watchedConfigmaps: WatcherList{
 			watchers:      make(map[types.NamespacedName]map[types.NamespacedName]bool),
 			watchersMutex: &sync.RWMutex{},
@@ -52,38 +50,18 @@ func NewHandler(c client.Client, r record.EventRecorder) *Handler {
 		}}
 }
 
-// HandleDeployment is called by the deployment controller to reconcile deployments
-func (h *Handler) HandleDeployment(instance *appsv1.Deployment) (reconcile.Result, error) {
-	return h.handlePodController(&deployment{Deployment: instance})
+// HandleWebhook is called by the webhook
+func (h *Handler[I]) HandleWebhook(instance I, dryRun *bool, isCreate bool) error {
+	return h.updatePodController(instance, (dryRun != nil && *dryRun), isCreate)
 }
 
-// HandleDeploymentWebhook is called by the deployment webhook
-func (h *Handler) HandleDeploymentWebhook(instance *appsv1.Deployment, dryRun *bool, isCreate bool) error {
-	return h.updatePodController(&deployment{Deployment: instance}, (dryRun != nil && *dryRun), isCreate)
-}
-
-// HandleStatefulSetWebhook is called by the statefulset webhook
-func (h *Handler) HandleStatefulSetWebhook(instance *appsv1.StatefulSet, dryRun *bool, isCreate bool) error {
-	return h.updatePodController(&statefulset{StatefulSet: instance}, (dryRun != nil && *dryRun), isCreate)
-}
-
-// HandleDaemonSetWebhook is called by the daemonset webhook
-func (h *Handler) HandleDaemonSetWebhook(instance *appsv1.DaemonSet, dryRun *bool, isCreate bool) error {
-	return h.updatePodController(&daemonset{DaemonSet: instance}, (dryRun != nil && *dryRun), isCreate)
-}
-
-// HandleStatefulSet is called by the StatefulSet controller to reconcile StatefulSets
-func (h *Handler) HandleStatefulSet(instance *appsv1.StatefulSet) (reconcile.Result, error) {
-	return h.handlePodController(&statefulset{StatefulSet: instance})
-}
-
-// HandleDaemonSet is called by the DaemonSet controller to reconcile DaemonSets
-func (h *Handler) HandleDaemonSet(instance *appsv1.DaemonSet) (reconcile.Result, error) {
-	return h.handlePodController(&daemonset{DaemonSet: instance})
+// Handle is called by the controller to reconcile its object
+func (h *Handler[I]) Handle(instance I) (reconcile.Result, error) {
+	return h.handlePodController(instance)
 }
 
 // handlePodController reconciles the state of a podController
-func (h *Handler) handlePodController(instance podController) (reconcile.Result, error) {
+func (h *Handler[I]) handlePodController(instance I) (reconcile.Result, error) {
 	log := logf.Log.WithName("wave").WithValues("namespace", instance.GetNamespace(), "name", instance.GetName())
 
 	// To cleanup legacy ownerReferences and finalizer
@@ -121,19 +99,21 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 	}
 
 	// Update the desired state of the Deployment in a DeepCopy
-	copy := instance.DeepCopyPodController()
-	setConfigHash(copy, hash)
+	oldHash := getConfigHash(instance)
+	setConfigHash(instance, hash)
 
-	if isSchedulingDisabled(copy) {
-		restoreScheduling(copy)
+	schedulingChange := false
+	if isSchedulingDisabled(instance) {
+		restoreScheduling(instance)
+		schedulingChange = true
 	}
 
 	// If the desired state doesn't match the existing state, update it
-	if !reflect.DeepEqual(instance, copy) {
+	if hash != oldHash || schedulingChange {
 		log.V(0).Info("Updating instance hash", "hash", hash)
-		h.recorder.Eventf(copy.GetApiObject(), corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
+		h.recorder.Eventf(instance, corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
 
-		err := h.Update(context.TODO(), copy.GetApiObject())
+		err := h.Update(context.TODO(), instance)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("error updating instance %s/%s: %v", instance.GetNamespace(), instance.GetName(), err)
 		}
@@ -142,7 +122,7 @@ func (h *Handler) handlePodController(instance podController) (reconcile.Result,
 }
 
 // handlePodController will only update the hash. Everything else is left to the reconciler.
-func (h *Handler) updatePodController(instance podController, dryRun bool, isCreate bool) error {
+func (h *Handler[I]) updatePodController(instance I, dryRun bool, isCreate bool) error {
 	log := logf.Log.WithName("wave").WithValues("namespace", instance.GetNamespace(), "name", instance.GetName(), "dryRun", dryRun, "isCreate", isCreate)
 	log.V(5).Info("Running webhook")
 
@@ -179,7 +159,7 @@ func (h *Handler) updatePodController(instance podController, dryRun bool, isCre
 
 	if !dryRun && oldHash != hash {
 		log.V(0).Info("Updating instance hash", "hash", hash)
-		h.recorder.Eventf(instance.GetApiObject(), corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
+		h.recorder.Eventf(instance, corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
 	}
 
 	return nil

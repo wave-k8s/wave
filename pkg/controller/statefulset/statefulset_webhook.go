@@ -16,7 +16,7 @@ import (
 
 type StatefulSetWebhook struct {
 	client.Client
-	Handler *core.Handler
+	Handler *core.Handler[*appsv1.StatefulSet]
 }
 
 func (a *StatefulSetWebhook) Default(ctx context.Context, obj runtime.Object) error {
@@ -24,7 +24,7 @@ func (a *StatefulSetWebhook) Default(ctx context.Context, obj runtime.Object) er
 	if err != nil {
 		return err
 	}
-	err = a.Handler.HandleStatefulSetWebhook(obj.(*appsv1.StatefulSet), request.DryRun, request.Operation == "CREATE")
+	err = a.Handler.HandleWebhook(obj.(*appsv1.StatefulSet), request.DryRun, request.Operation == "CREATE")
 	return err
 }
 
@@ -32,7 +32,7 @@ func AddStatefulSetWebhook(mgr manager.Manager) error {
 	err := builder.WebhookManagedBy(mgr).For(&appsv1.StatefulSet{}).WithDefaulter(
 		&StatefulSetWebhook{
 			Client:  mgr.GetClient(),
-			Handler: core.NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+			Handler: core.NewHandler[*appsv1.StatefulSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
 		}).Complete()
 
 	return err

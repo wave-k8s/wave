@@ -48,12 +48,12 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) *ReconcileDaemonSet {
 	return &ReconcileDaemonSet{
 		scheme:  mgr.GetScheme(),
-		handler: core.NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+		handler: core.NewHandler[*appsv1.DaemonSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
 	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler, h *core.Handler) error {
+func add(mgr manager.Manager, r reconcile.Reconciler, h *core.Handler[*appsv1.DaemonSet]) error {
 	// Create a new controller
 	c, err := controller.New("daemonset-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -85,7 +85,7 @@ var _ reconcile.Reconciler = &ReconcileDaemonSet{}
 // ReconcileDaemonSet reconciles a DaemonSet object
 type ReconcileDaemonSet struct {
 	scheme  *runtime.Scheme
-	handler *core.Handler
+	handler *core.Handler[*appsv1.DaemonSet]
 }
 
 // Reconcile reads that state of the cluster for a DaemonSet object and
@@ -104,5 +104,5 @@ func (r *ReconcileDaemonSet) Reconcile(ctx context.Context, request reconcile.Re
 		return reconcile.Result{}, err
 	}
 
-	return r.handler.HandleDaemonSet(instance)
+	return r.handler.Handle(instance)
 }

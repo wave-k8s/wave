@@ -1,9 +1,13 @@
 package core
 
 import (
+	"fmt"
+	"reflect"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -57,88 +61,40 @@ type configObject struct {
 	keys     map[string]struct{}
 }
 
-// podController interface adjusted to include client.Object explicitly
-type podController interface {
+type InstanceType interface {
+	*appsv1.Deployment | *appsv1.StatefulSet | *appsv1.DaemonSet
 	client.Object
+	runtime.Object
 	metav1.Object
-	GetPodTemplate() *corev1.PodTemplateSpec
-	SetPodTemplate(*corev1.PodTemplateSpec)
-	DeepCopyPodController() podController
-	GetApiObject() client.Object
 }
 
-// Deployment struct implementing the podController interface
-type deployment struct {
-	*appsv1.Deployment
+type DeplyomentInterface interface {
+	metav1.TypeMeta
+	metav1.ObjectMeta
 }
 
-func (d *deployment) GetPodTemplate() *corev1.PodTemplateSpec {
-	return &d.Spec.Template
-}
-
-func (d *deployment) SetPodTemplate(template *corev1.PodTemplateSpec) {
-	d.Spec.Template = *template
-}
-
-func (d *deployment) DeepCopyPodController() podController {
-	return &deployment{d.Deployment.DeepCopy()}
-}
-
-func (d *deployment) GetApiObject() client.Object {
-	return &appsv1.Deployment{
-		Status:     d.Status,
-		Spec:       d.Spec,
-		ObjectMeta: d.ObjectMeta,
+func GetPodTemplate[I InstanceType](instance I) *corev1.PodTemplateSpec {
+	if deployment, ok := any(instance).(*appsv1.Deployment); ok {
+		return &deployment.Spec.Template
 	}
-}
-
-// StatefulSet struct implementing the podController interface
-type statefulset struct {
-	*appsv1.StatefulSet
-}
-
-func (s *statefulset) GetPodTemplate() *corev1.PodTemplateSpec {
-	return &s.Spec.Template
-}
-
-func (s *statefulset) SetPodTemplate(template *corev1.PodTemplateSpec) {
-	s.Spec.Template = *template
-}
-
-func (s *statefulset) DeepCopyPodController() podController {
-	return &statefulset{s.StatefulSet.DeepCopy()}
-}
-
-func (d *statefulset) GetApiObject() client.Object {
-	return &appsv1.StatefulSet{
-		Status:     d.Status,
-		Spec:       d.Spec,
-		ObjectMeta: d.ObjectMeta,
+	if statefulset, ok := any(instance).(*appsv1.StatefulSet); ok {
+		return &statefulset.Spec.Template
 	}
+	if daemonset, ok := any(instance).(*appsv1.DaemonSet); ok {
+		return &daemonset.Spec.Template
+	}
+	panic(fmt.Sprintf("Invalid type %s", reflect.TypeOf(instance)))
 }
 
-// DaemonSet struct implementing the podController interface
-type daemonset struct {
-	*appsv1.DaemonSet
-}
-
-func (d *daemonset) GetPodTemplate() *corev1.PodTemplateSpec {
-	return &d.Spec.Template
-}
-
-func (d *daemonset) SetPodTemplate(template *corev1.PodTemplateSpec) {
-	d.Spec.Template = *template
-}
-
-func (d *daemonset) DeepCopyPodController() podController {
-	return &daemonset{d.DaemonSet.DeepCopy()}
-}
-
-func (d *daemonset) GetApiObject() client.Object {
-	return &appsv1.DaemonSet{
-		Status:     d.Status,
-		Spec:       d.Spec,
-		ObjectMeta: d.ObjectMeta,
+func SetPodTemplate[I InstanceType](instance I, template *corev1.PodTemplateSpec) {
+	if deployment, ok := any(instance).(*appsv1.Deployment); ok {
+		deployment.Spec.Template = *template
+	} else if statefulset, ok := any(instance).(*appsv1.StatefulSet); ok {
+		statefulset.Spec.Template = *template
+	} else if daemonset, ok := any(instance).(*appsv1.DaemonSet); ok {
+		daemonset.Spec.Template = *template
+	} else {
+		panic(fmt.Sprintf("Invalid type %s", reflect.TypeOf(instance)))
 	}
 }
 

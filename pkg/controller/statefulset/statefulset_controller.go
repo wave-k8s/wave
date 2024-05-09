@@ -48,12 +48,12 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) *ReconcileStatefulSet {
 	return &ReconcileStatefulSet{
 		scheme:  mgr.GetScheme(),
-		handler: core.NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+		handler: core.NewHandler[*appsv1.StatefulSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
 	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler, h *core.Handler) error {
+func add(mgr manager.Manager, r reconcile.Reconciler, h *core.Handler[*appsv1.StatefulSet]) error {
 	// Create a new controller
 	c, err := controller.New("statefulset-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -86,7 +86,7 @@ var _ reconcile.Reconciler = &ReconcileStatefulSet{}
 // ReconcileStatefulSet reconciles a StatefulSet object
 type ReconcileStatefulSet struct {
 	scheme  *runtime.Scheme
-	handler *core.Handler
+	handler *core.Handler[*appsv1.StatefulSet]
 }
 
 // Reconcile reads that state of the cluster for a StatefulSet object and
@@ -105,5 +105,5 @@ func (r *ReconcileStatefulSet) Reconcile(ctx context.Context, request reconcile.
 		return reconcile.Result{}, err
 	}
 
-	return r.handler.HandleStatefulSet(instance)
+	return r.handler.Handle(instance)
 }

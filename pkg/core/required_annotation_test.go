@@ -25,11 +25,11 @@ import (
 
 var _ = Describe("Wave required annotation Suite", func() {
 	var deploymentObject *appsv1.Deployment
-	var podControllerDeployment podController
+	var podControllerDeployment *appsv1.Deployment
 
 	BeforeEach(func() {
 		deploymentObject = utils.ExampleDeployment.DeepCopy()
-		podControllerDeployment = &deployment{deploymentObject}
+		podControllerDeployment = deploymentObject // TODO: remove
 	})
 
 	Context("hasRequiredAnnotation", func() {

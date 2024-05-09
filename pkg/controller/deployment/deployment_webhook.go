@@ -16,7 +16,7 @@ import (
 
 type DeploymentWebhook struct {
 	client.Client
-	Handler *core.Handler
+	Handler *core.Handler[*appsv1.Deployment]
 }
 
 func (a *DeploymentWebhook) Default(ctx context.Context, obj runtime.Object) error {
@@ -24,7 +24,7 @@ func (a *DeploymentWebhook) Default(ctx context.Context, obj runtime.Object) err
 	if err != nil {
 		return err
 	}
-	err = a.Handler.HandleDeploymentWebhook(obj.(*appsv1.Deployment), request.DryRun, request.Operation == "CREATE")
+	err = a.Handler.HandleWebhook(obj.(*appsv1.Deployment), request.DryRun, request.Operation == "CREATE")
 	return err
 }
 
@@ -32,7 +32,7 @@ func AddDeploymentWebhook(mgr manager.Manager) error {
 	err := builder.WebhookManagedBy(mgr).For(&appsv1.Deployment{}).WithDefaulter(
 		&DeploymentWebhook{
 			Client:  mgr.GetClient(),
-			Handler: core.NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+			Handler: core.NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
 		}).Complete()
 
 	return err

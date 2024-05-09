@@ -36,7 +36,7 @@ import (
 
 var _ = Describe("Wave controller Suite", func() {
 	var c client.Client
-	var h *Handler
+	var h *Handler[*appsv1.Deployment]
 	var m utils.Matcher
 
 	var deployment *appsv1.Deployment
@@ -76,7 +76,7 @@ var _ = Describe("Wave controller Suite", func() {
 		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 		Expect(cerr).NotTo(HaveOccurred())
 
-		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
+		h = NewHandler[*appsv1.Deployment](c, mgr.GetEventRecorderFor("wave"))
 		m = utils.Matcher{Client: c}
 
 		stopMgr, mgrStopped = StartTestManager(mgr)
@@ -141,7 +141,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 		// Create a deployment and wait for it to be reconciled
 		m.Create(deployment).Should(Succeed())
-		_, err = h.HandleDeployment(deployment)
+		_, err = h.Handle(deployment)
 		Expect(err).NotTo(HaveOccurred())
 
 		m.Get(deployment).Should(Succeed())
@@ -172,12 +172,12 @@ var _ = Describe("Wave controller Suite", func() {
 					obj.SetAnnotations(annotations)
 					return obj
 				}, timeout).Should(Succeed())
-				_, err := h.HandleDeployment(deployment)
+				_, err := h.Handle(deployment)
 				Expect(err).NotTo(HaveOccurred())
 
 				// Get the updated Deployment
 				m.Get(deployment, timeout).Should(Succeed())
-				_, err = h.HandleDeployment(deployment)
+				_, err = h.Handle(deployment)
 				Expect(err).NotTo(HaveOccurred())
 
 				// Get the updated Deployment
@@ -226,7 +226,7 @@ var _ = Describe("Wave controller Suite", func() {
 						dpl.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
 						return dpl
 					}).Should(Succeed())
-					_, err := h.HandleDeployment(deployment)
+					_, err := h.Handle(deployment)
 					Expect(err).NotTo(HaveOccurred())
 
 					// Get the updated Deployment
@@ -265,7 +265,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return cm
 						}).Should(Succeed())
 
-						_, err := h.HandleDeployment(deployment)
+						_, err := h.Handle(deployment)
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -287,7 +287,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return cm
 						}, timeout).Should(Succeed())
 
-						_, err := h.HandleDeployment(deployment)
+						_, err := h.Handle(deployment)
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -310,7 +310,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return cm
 						}, timeout).Should(Succeed())
 
-						_, err := h.HandleDeployment(deployment)
+						_, err := h.Handle(deployment)
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -333,7 +333,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return cm
 						}, timeout).Should(Succeed())
 
-						_, err := h.HandleDeployment(deployment)
+						_, err := h.Handle(deployment)
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -357,7 +357,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return s
 						}, timeout).Should(Succeed())
 
-						_, err := h.HandleDeployment(deployment)
+						_, err := h.Handle(deployment)
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -383,7 +383,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return s
 						}, timeout).Should(Succeed())
 
-						_, err := h.HandleDeployment(deployment)
+						_, err := h.Handle(deployment)
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -409,7 +409,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return s
 						}, timeout).Should(Succeed())
 
-						_, err := h.HandleDeployment(deployment)
+						_, err := h.Handle(deployment)
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -435,7 +435,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return s
 						}, timeout).Should(Succeed())
 
-						_, err := h.HandleDeployment(deployment)
+						_, err := h.Handle(deployment)
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -457,7 +457,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 						return obj
 					}, timeout).Should(Succeed())
-					_, err := h.HandleDeployment(deployment)
+					_, err := h.Handle(deployment)
 					Expect(err).NotTo(HaveOccurred())
 
 					Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(RequiredAnnotation)))

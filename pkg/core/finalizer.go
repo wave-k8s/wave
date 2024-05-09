@@ -17,7 +17,7 @@ limitations under the License.
 package core
 
 // removeFinalizer removes the wave finalizer from the given podController
-func removeFinalizer(obj podController) {
+func removeFinalizer[I InstanceType](obj I) {
 	finalizers := obj.GetFinalizers()
 
 	// Filter existing finalizers removing any that match the finalizerString
@@ -33,7 +33,7 @@ func removeFinalizer(obj podController) {
 }
 
 // hasFinalizer checks for the presence of the Wave finalizer
-func hasFinalizer(obj podController) bool {
+func hasFinalizer[I InstanceType](obj I) bool {
 	finalizers := obj.GetFinalizers()
 	for _, finalizer := range finalizers {
 		if finalizer == FinalizerString {
