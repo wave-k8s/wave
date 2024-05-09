@@ -38,7 +38,6 @@ var _ = Describe("Wave migration Suite", func() {
 	var h *Handler[*appsv1.Deployment]
 	var m utils.Matcher
 	var deploymentObject *appsv1.Deployment
-	var podControllerDeployment *appsv1.Deployment
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
@@ -66,7 +65,6 @@ var _ = Describe("Wave migration Suite", func() {
 		m.Create(utils.ExampleSecret2.DeepCopy()).Should(Succeed())
 
 		deploymentObject = utils.ExampleDeployment.DeepCopy()
-		podControllerDeployment = deploymentObject // TODO: remove
 
 		m.Create(deploymentObject).Should(Succeed())
 
@@ -113,7 +111,7 @@ var _ = Describe("Wave migration Suite", func() {
 				return obj
 			}, timeout).Should(Succeed())
 
-			_, err := h.handlePodController(podControllerDeployment)
+			_, err := h.handlePodController(deploymentObject)
 			Expect(err).NotTo(HaveOccurred())
 		})
 

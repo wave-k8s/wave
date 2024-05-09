@@ -25,49 +25,47 @@ import (
 
 var _ = Describe("Wave scheduler Suite", func() {
 	var deploymentObject *appsv1.Deployment
-	var podControllerDeployment *appsv1.Deployment
 
 	BeforeEach(func() {
 		deploymentObject = utils.ExampleDeployment.DeepCopy()
-		podControllerDeployment = deploymentObject
 	})
 
 	Context("When scheduler is disabled", func() {
 		BeforeEach(func() {
-			disableScheduling(podControllerDeployment)
+			disableScheduling(deploymentObject)
 		})
 
 		It("Sets the annotations and stores the previous scheduler", func() {
-			annotations := podControllerDeployment.GetAnnotations()
+			annotations := deploymentObject.GetAnnotations()
 			Expect(annotations[SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
 		})
 
 		It("Disables scheduling", func() {
-			podTemplate := GetPodTemplate(podControllerDeployment)
+			podTemplate := GetPodTemplate(deploymentObject)
 			Expect(podTemplate.Spec.SchedulerName).To(Equal(SchedulingDisabledSchedulerName))
 		})
 
 		It("Is reports as disabled", func() {
-			Expect(isSchedulingDisabled(podControllerDeployment)).To(BeTrue())
+			Expect(isSchedulingDisabled(deploymentObject)).To(BeTrue())
 		})
 
 		Context("And Is Restored", func() {
 			BeforeEach(func() {
-				restoreScheduling(podControllerDeployment)
+				restoreScheduling(deploymentObject)
 			})
 
 			It("Removes the annotations", func() {
-				annotations := podControllerDeployment.GetAnnotations()
+				annotations := deploymentObject.GetAnnotations()
 				Expect(annotations).NotTo(HaveKey(SchedulingDisabledAnnotation))
 			})
 
 			It("Restores the scheduler", func() {
-				podTemplate := GetPodTemplate(podControllerDeployment)
+				podTemplate := GetPodTemplate(deploymentObject)
 				Expect(podTemplate.Spec.SchedulerName).To(Equal("default-scheduler"))
 			})
 
 			It("Is does not report as disabled", func() {
-				Expect(isSchedulingDisabled(podControllerDeployment)).To(BeFalse())
+				Expect(isSchedulingDisabled(deploymentObject)).To(BeFalse())
 			})
 
 		})

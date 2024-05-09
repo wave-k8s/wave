@@ -39,7 +39,6 @@ var _ = Describe("Wave owner references Suite", func() {
 	var h *Handler[*appsv1.Deployment]
 	var m utils.Matcher
 	var deploymentObject *appsv1.Deployment
-	var podControllerDeployment *appsv1.Deployment
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
@@ -83,7 +82,6 @@ var _ = Describe("Wave owner references Suite", func() {
 		m.Create(s3).Should(Succeed())
 
 		deploymentObject = utils.ExampleDeployment.DeepCopy()
-		podControllerDeployment = deploymentObject // TODO: remove
 
 		m.Create(deploymentObject).Should(Succeed())
 
@@ -121,7 +119,7 @@ var _ = Describe("Wave owner references Suite", func() {
 			}
 
 			children := []Object{cm1, s1}
-			err := h.removeOwnerReferences(podControllerDeployment, children)
+			err := h.removeOwnerReferences(deploymentObject, children)
 			Expect(err).NotTo(HaveOccurred())
 		})
 

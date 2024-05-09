@@ -326,15 +326,13 @@ var _ = Describe("Wave hash Suite", func() {
 
 	Context("setConfigHash", func() {
 		var deploymentObject *appsv1.Deployment
-		var podControllerDeployment *appsv1.Deployment // TODO: remove
 
 		BeforeEach(func() {
 			deploymentObject = utils.ExampleDeployment.DeepCopy()
-			podControllerDeployment = deploymentObject
 		})
 
 		It("sets the hash annotation to the provided value", func() {
-			setConfigHash(podControllerDeployment, "1234")
+			setConfigHash(deploymentObject, "1234")
 
 			podAnnotations := deploymentObject.Spec.Template.GetAnnotations()
 			Expect(podAnnotations).NotTo(BeNil())
@@ -354,7 +352,7 @@ var _ = Describe("Wave hash Suite", func() {
 			deploymentObject.Spec.Template.SetAnnotations(podAnnotations)
 
 			// Set the config hash
-			setConfigHash(podControllerDeployment, "1234")
+			setConfigHash(deploymentObject, "1234")
 
 			// Check the existing annotation is still in place
 			podAnnotations = deploymentObject.Spec.Template.GetAnnotations()

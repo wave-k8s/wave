@@ -25,11 +25,9 @@ import (
 
 var _ = Describe("Wave finalizer Suite", func() {
 	var deploymentObject *appsv1.Deployment
-	var podControllerDeployment *appsv1.Deployment
 
 	BeforeEach(func() {
 		deploymentObject = utils.ExampleDeployment.DeepCopy()
-		podControllerDeployment = deploymentObject // TODO: remove
 	})
 
 	Context("removeFinalizer", func() {
@@ -37,7 +35,7 @@ var _ = Describe("Wave finalizer Suite", func() {
 			f := deploymentObject.GetFinalizers()
 			f = append(f, FinalizerString)
 			deploymentObject.SetFinalizers(f)
-			removeFinalizer(podControllerDeployment)
+			removeFinalizer(deploymentObject)
 
 			Expect(deploymentObject.GetFinalizers()).NotTo(ContainElement(FinalizerString))
 		})
@@ -46,7 +44,7 @@ var _ = Describe("Wave finalizer Suite", func() {
 			f := deploymentObject.GetFinalizers()
 			f = append(f, "kubernetes")
 			deploymentObject.SetFinalizers(f)
-			removeFinalizer(podControllerDeployment)
+			removeFinalizer(deploymentObject)
 
 			Expect(deploymentObject.GetFinalizers()).To(ContainElement("kubernetes"))
 		})
@@ -58,18 +56,18 @@ var _ = Describe("Wave finalizer Suite", func() {
 			f = append(f, FinalizerString)
 			deploymentObject.SetFinalizers(f)
 
-			Expect(hasFinalizer(podControllerDeployment)).To(BeTrue())
+			Expect(hasFinalizer(deploymentObject)).To(BeTrue())
 		})
 
 		It("returns false if the deployment doesn't have the finalizer", func() {
 			// Test without any finalizers
-			Expect(hasFinalizer(podControllerDeployment)).To(BeFalse())
+			Expect(hasFinalizer(deploymentObject)).To(BeFalse())
 
 			// Test with a different finalizer
 			f := deploymentObject.GetFinalizers()
 			f = append(f, "kubernetes")
 			deploymentObject.SetFinalizers(f)
-			Expect(hasFinalizer(podControllerDeployment)).To(BeFalse())
+			Expect(hasFinalizer(deploymentObject)).To(BeFalse())
 		})
 	})
 })
