@@ -21,15 +21,9 @@ import (
 
 	"github.com/wave-k8s/wave/pkg/core"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;update;patch
@@ -54,30 +48,7 @@ func newReconciler(mgr manager.Manager) *ReconcileDaemonSet {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler, h *core.Handler[*appsv1.DaemonSet]) error {
-	// Create a new controller
-	c, err := controller.New("daemonset-controller", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(source.Kind(mgr.GetCache(), &appsv1.DaemonSet{}), &handler.EnqueueRequestForObject{}, predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}))
-	if err != nil {
-		return err
-	}
-
-	// Watch ConfigMaps owned by a DaemonSet
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), core.EnqueueRequestForWatcher(h.GetWatchedConfigmaps()))
-	if err != nil {
-		return err
-	}
-
-	// Watch Secrets owned by a DaemonSet
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}), core.EnqueueRequestForWatcher(h.GetWatchedSecrets()))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return core.AddController("daemonset-controller", &appsv1.DaemonSet{}, mgr, r, h)
 }
 
 var _ reconcile.Reconciler = &ReconcileDaemonSet{}
@@ -91,18 +62,5 @@ type ReconcileDaemonSet struct {
 // Reconcile reads that state of the cluster for a DaemonSet object and
 // updates its PodSpec based on mounted configuration
 func (r *ReconcileDaemonSet) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-	// Fetch the DaemonSet instance
-	instance := &appsv1.DaemonSet{}
-	err := r.handler.Get(ctx, request.NamespacedName, instance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			r.handler.RemoveWatches(request.NamespacedName)
-			// Object not found, return.  Created objects are automatically garbage collected.
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
-
-	return r.handler.Handle(instance)
+	return r.handler.Handle(ctx, request.NamespacedName, &appsv1.DaemonSet{})
 }

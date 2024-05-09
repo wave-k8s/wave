@@ -141,7 +141,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 		// Create a deployment and wait for it to be reconciled
 		m.Create(deployment).Should(Succeed())
-		_, err = h.Handle(deployment)
+		_, err = h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 		Expect(err).NotTo(HaveOccurred())
 
 		m.Get(deployment).Should(Succeed())
@@ -172,12 +172,12 @@ var _ = Describe("Wave controller Suite", func() {
 					obj.SetAnnotations(annotations)
 					return obj
 				}, timeout).Should(Succeed())
-				_, err := h.Handle(deployment)
+				_, err := h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Get the updated Deployment
 				m.Get(deployment, timeout).Should(Succeed())
-				_, err = h.Handle(deployment)
+				_, err = h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Get the updated Deployment
@@ -226,7 +226,7 @@ var _ = Describe("Wave controller Suite", func() {
 						dpl.Spec.Template.Spec.Containers = []corev1.Container{containers[0]}
 						return dpl
 					}).Should(Succeed())
-					_, err := h.Handle(deployment)
+					_, err := h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 					Expect(err).NotTo(HaveOccurred())
 
 					// Get the updated Deployment
@@ -265,7 +265,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return cm
 						}).Should(Succeed())
 
-						_, err := h.Handle(deployment)
+						_, err := h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -287,7 +287,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return cm
 						}, timeout).Should(Succeed())
 
-						_, err := h.Handle(deployment)
+						_, err := h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -310,7 +310,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return cm
 						}, timeout).Should(Succeed())
 
-						_, err := h.Handle(deployment)
+						_, err := h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -333,7 +333,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return cm
 						}, timeout).Should(Succeed())
 
-						_, err := h.Handle(deployment)
+						_, err := h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -357,7 +357,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return s
 						}, timeout).Should(Succeed())
 
-						_, err := h.Handle(deployment)
+						_, err := h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -383,7 +383,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return s
 						}, timeout).Should(Succeed())
 
-						_, err := h.Handle(deployment)
+						_, err := h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -409,7 +409,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return s
 						}, timeout).Should(Succeed())
 
-						_, err := h.Handle(deployment)
+						_, err := h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -435,7 +435,7 @@ var _ = Describe("Wave controller Suite", func() {
 							return s
 						}, timeout).Should(Succeed())
 
-						_, err := h.Handle(deployment)
+						_, err := h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 						Expect(err).NotTo(HaveOccurred())
 
 						// Get the updated Deployment
@@ -457,7 +457,7 @@ var _ = Describe("Wave controller Suite", func() {
 
 						return obj
 					}, timeout).Should(Succeed())
-					_, err := h.Handle(deployment)
+					_, err := h.Handle(context.TODO(), instanceName, &appsv1.Deployment{})
 					Expect(err).NotTo(HaveOccurred())
 
 					Eventually(deployment, timeout).ShouldNot(utils.WithAnnotations(HaveKey(RequiredAnnotation)))

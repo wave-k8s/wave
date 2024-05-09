@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,7 +57,18 @@ func (h *Handler[I]) HandleWebhook(instance I, dryRun *bool, isCreate bool) erro
 }
 
 // Handle is called by the controller to reconcile its object
-func (h *Handler[I]) Handle(instance I) (reconcile.Result, error) {
+func (h *Handler[I]) Handle(ctx context.Context, namespacesName types.NamespacedName, instance I) (reconcile.Result, error) {
+	err := h.Get(ctx, namespacesName, instance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			h.RemoveWatches(namespacesName)
+			// Object not found, return.  Created objects are automatically garbage collected.
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
 	return h.handlePodController(instance)
 }
 
