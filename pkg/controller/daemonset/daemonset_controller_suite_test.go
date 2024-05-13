@@ -24,13 +24,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	ctrl "sigs.k8s.io/controller-runtime"
-
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/wave-k8s/wave/pkg/core"
+	"github.com/wave-k8s/wave/test/utils"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +53,11 @@ func TestMain(t *testing.T) {
 var t *envtest.Environment
 
 var testCtx, testCancel = context.WithCancel(context.Background())
+
+var requestsStart <-chan reconcile.Request
+var requests <-chan reconcile.Request
+
+var m utils.Matcher
 
 var _ = BeforeSuite(func() {
 	failurePolicy := admissionv1.Ignore
@@ -101,30 +113,40 @@ var _ = BeforeSuite(func() {
 	if cfg, err = t.Start(); err != nil {
 		log.Fatal(err)
 	}
+
+	// Reset the Prometheus Registry before each test to avoid errors
+	metrics.Registry = prometheus.NewRegistry()
+
+	mgr, err := manager.New(cfg, manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Host:    (*t).WebhookInstallOptions.LocalServingHost,
+			Port:    (*t).WebhookInstallOptions.LocalServingPort,
+			CertDir: (*t).WebhookInstallOptions.LocalServingCertDir,
+		}),
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	c, cerr := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	Expect(cerr).NotTo(HaveOccurred())
+	m = utils.Matcher{Client: c}
+
+	var recFn reconcile.Reconciler
+	r := newReconciler(mgr)
+	recFn, requestsStart, requests = core.SetupControllerTestReconcile(r)
+	Expect(add(mgr, recFn, r.handler)).NotTo(HaveOccurred())
+
+	// register mutating pod webhook
+	err = AddDaemonSetWebhook(mgr)
+	Expect(err).ToNot(HaveOccurred())
+
+	testCtx, testCancel = context.WithCancel(context.Background())
+	go core.Run(testCtx, mgr)
 })
 
 var _ = AfterSuite(func() {
+	testCancel()
 	t.Stop()
 })
-
-// SetupTestReconcile returns a reconcile.Reconcile implementation that delegates to inner and
-// writes the request to requests after Reconcile is finished.
-func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan reconcile.Request, chan reconcile.Request) {
-	requestsStart := make(chan reconcile.Request)
-	requests := make(chan reconcile.Request)
-	fn := reconcile.Func(func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-		requestsStart <- req
-		result, err := inner.Reconcile(ctx, req)
-		requests <- req
-		return result, err
-	})
-	return fn, requestsStart, requests
-}
-
-// Run runs the webhook server.
-func Run(ctx context.Context, k8sManager ctrl.Manager) error {
-	if err := k8sManager.Start(ctx); err != nil {
-		return err
-	}
-	return nil
-}

@@ -17,36 +17,18 @@ limitations under the License.
 package statefulset
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/wave-k8s/wave/pkg/core"
 	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var _ = Describe("StatefulSet controller Suite", func() {
 	core.ControllerTestSuite(
-		&t, &cfg,
+		&t, &cfg, &m,
+		&requestsStart, &requests,
 		func() *appsv1.StatefulSet {
 			return utils.ExampleStatefulSet.DeepCopy()
-		},
-		func(mgr manager.Manager) (context.CancelFunc, chan reconcile.Request, chan reconcile.Request) {
-			var recFn reconcile.Reconciler
-			r := newReconciler(mgr)
-			recFn, requestsStart, requests := SetupTestReconcile(r)
-			Expect(add(mgr, recFn, r.handler)).NotTo(HaveOccurred())
-
-			// register mutating pod webhook
-			err := AddStatefulSetWebhook(mgr)
-			Expect(err).ToNot(HaveOccurred())
-
-			testCtx, testCancel = context.WithCancel(context.Background())
-			go Run(testCtx, mgr)
-			return testCancel, requestsStart, requests
 		},
 	)
 })

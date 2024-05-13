@@ -6,34 +6,56 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	webhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-func ControllerTestSuite[I InstanceType](
-	t **envtest.Environment, cfg **rest.Config,
-	makeObject func() I,
-	startController func(mgr manager.Manager) (context.CancelFunc, chan reconcile.Request, chan reconcile.Request)) {
-	var c client.Client
-	var m utils.Matcher
+// SetupControllerTestReconcile returns a reconcile.Reconcile implementation that delegates to inner and
+// writes the request to requests after Reconcile is finished.
+func SetupControllerTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan reconcile.Request, chan reconcile.Request) {
+	requestsStart := make(chan reconcile.Request)
+	requests := make(chan reconcile.Request)
+	fn := reconcile.Func(func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+		requestsStart <- req
+		result, err := inner.Reconcile(ctx, req)
+		requests <- req
+		return result, err
+	})
+	return fn, requestsStart, requests
+}
 
-	var testCancel context.CancelFunc
+// Run runs the webhook server.
+func Run(ctx context.Context, k8sManager ctrl.Manager) error {
+	defer GinkgoRecover()
+	if err := k8sManager.Start(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func withTimeout(ch <-chan reconcile.Request, timeout time.Duration) (ok bool) {
+	select {
+	case <-ch:
+		return true
+	case <-time.After(timeout):
+	}
+	return false
+}
+
+func ControllerTestSuite[I InstanceType](
+	t **envtest.Environment, cfg **rest.Config, mRef *utils.Matcher,
+	requestsStart *<-chan reconcile.Request, requests *<-chan reconcile.Request,
+	makeObject func() I) {
 
 	var instance I
-	var requestsStart <-chan reconcile.Request
-	var requests <-chan reconcile.Request
+	var m utils.Matcher
 
 	const timeout = time.Second * 5
 	const consistentlyTimeout = time.Second
@@ -53,16 +75,18 @@ func ControllerTestSuite[I InstanceType](
 
 	const modified = "modified"
 
-	var waitForInstanceReconciled = func(obj Object) {
+	var waitForInstanceReconciled = func(obj Object, times int) {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      obj.GetName(),
 				Namespace: obj.GetNamespace(),
 			},
 		}
-		// wait for reconcile for creating the DaemonSet
-		Eventually(requestsStart, timeout).Should(Receive(Equal(request)))
-		Eventually(requests, timeout).Should(Receive(Equal(request)))
+		for range times {
+			// wait for reconcile for creating the DaemonSet
+			Eventually(*requestsStart, timeout).Should(Receive(Equal(request)))
+			Eventually(*requests, timeout).Should(Receive(Equal(request)))
+		}
 	}
 
 	var consistentlyInstanceNotReconciled = func(obj Object) {
@@ -73,37 +97,15 @@ func ControllerTestSuite[I InstanceType](
 			},
 		}
 		// wait for reconcile for creating the DaemonSet
-		Consistently(requestsStart, consistentlyTimeout).ShouldNot(Receive(Equal(request)))
+		Consistently(*requestsStart, .1).ShouldNot(Receive(Equal(request)))
 	}
 
-	var clearReconciled = func() {
-		for len(requestsStart) > 0 {
-			<-requestsStart
-			<-requests
-		}
+	var expectNoReconciles = func() {
+		consistentlyInstanceNotReconciled(instance)
 	}
 
 	BeforeEach(func() {
-		// Reset the Prometheus Registry before each test to avoid errors
-		metrics.Registry = prometheus.NewRegistry()
-
-		mgr, err := manager.New(*cfg, manager.Options{
-			Metrics: metricsserver.Options{
-				BindAddress: "0",
-			},
-			WebhookServer: webhook.NewServer(webhook.Options{
-				Host:    (*t).WebhookInstallOptions.LocalServingHost,
-				Port:    (*t).WebhookInstallOptions.LocalServingPort,
-				CertDir: (*t).WebhookInstallOptions.LocalServingCertDir,
-			}),
-		})
-		Expect(err).NotTo(HaveOccurred())
-		var cerr error
-		c, cerr = client.New(*cfg, client.Options{Scheme: scheme.Scheme})
-		Expect(cerr).NotTo(HaveOccurred())
-		m = utils.Matcher{Client: c}
-
-		testCancel, requestsStart, requests = startController(mgr)
+		m = *mRef
 
 		// Create some configmaps and secrets
 		cm1 = utils.ExampleConfigMap1.DeepCopy()
@@ -148,7 +150,7 @@ func ControllerTestSuite[I InstanceType](
 	})
 
 	AfterEach(func() {
-		testCancel()
+		expectNoReconciles()
 
 		utils.DeleteAll(*cfg, timeout,
 			&appsv1.DaemonSetList{},
@@ -158,14 +160,22 @@ func ControllerTestSuite[I InstanceType](
 			&corev1.SecretList{},
 			&corev1.EventList{},
 		)
+		// Let cleanup happen
+		for {
+			if ok := withTimeout(*requestsStart, time.Millisecond*100); ok {
+				<-*requests
+			} else {
+				break
+			}
+		}
 	})
 
 	Context("When a instance with all children existing is reconciled", func() {
 		BeforeEach(func() {
 			// Create a instance and wait for it to be reconciled
-			clearReconciled()
+			expectNoReconciles()
 			m.Create(instance).Should(Succeed())
-			waitForInstanceReconciled(instance)
+			waitForInstanceReconciled(instance, 1)
 		})
 
 		Context("And it has the required annotation", func() {
@@ -179,9 +189,9 @@ func ControllerTestSuite[I InstanceType](
 					obj.SetAnnotations(annotations)
 					return obj
 				}
-				clearReconciled()
+				expectNoReconciles()
 				m.Update(instance, addAnnotation).Should(Succeed())
-				waitForInstanceReconciled(instance)
+				waitForInstanceReconciled(instance, 1)
 
 				// Get the updated instance
 				m.Get(instance, timeout).Should(Succeed())
@@ -219,14 +229,14 @@ func ControllerTestSuite[I InstanceType](
 
 					// Remove "container2" which references Secret example2 and ConfigMap
 					// example2
-					clearReconciled()
+					expectNoReconciles()
 					m.Get(instance, timeout).Should(Succeed())
 					podTemplate := GetPodTemplate(instance)
 					Expect(podTemplate.Spec.Containers[0].Name).To(Equal("container1"))
 					podTemplate.Spec.Containers = []corev1.Container{podTemplate.Spec.Containers[0]}
 					SetPodTemplate(instance, podTemplate)
 					Expect(m.Client.Update(context.TODO(), instance)).Should(Succeed())
-					waitForInstanceReconciled(instance)
+					waitForInstanceReconciled(instance, 1)
 
 					// Get the updated instance
 					m.Get(instance, timeout).Should(Succeed())
@@ -244,7 +254,7 @@ func ControllerTestSuite[I InstanceType](
 						cm.Data["key1"] = "modified"
 						return cm
 					}
-					clearReconciled()
+					expectNoReconciles()
 
 					m.Update(cm2, modifyCM).Should(Succeed())
 					consistentlyInstanceNotReconciled(instance)
@@ -267,10 +277,9 @@ func ControllerTestSuite[I InstanceType](
 							cm.Data["key1"] = modified
 							return cm
 						}
-						clearReconciled()
+						expectNoReconciles()
 						m.Update(cm1, modifyCM).Should(Succeed())
-						waitForInstanceReconciled(instance)
-						waitForInstanceReconciled(instance)
+						waitForInstanceReconciled(instance, 2)
 
 						// Get the updated instance
 						m.Get(instance, timeout).Should(Succeed())
@@ -290,10 +299,9 @@ func ControllerTestSuite[I InstanceType](
 							cm.Data["key1"] = modified
 							return cm
 						}
-						clearReconciled()
+						expectNoReconciles()
 						m.Update(cm2, modifyCM).Should(Succeed())
-						waitForInstanceReconciled(instance)
-						waitForInstanceReconciled(instance)
+						waitForInstanceReconciled(instance, 2)
 
 						// Get the updated instance
 						m.Get(instance, timeout).Should(Succeed())
@@ -316,10 +324,9 @@ func ControllerTestSuite[I InstanceType](
 							s.StringData["key1"] = modified
 							return s
 						}
-						clearReconciled()
+						expectNoReconciles()
 						m.Update(s1, modifyS).Should(Succeed())
-						waitForInstanceReconciled(instance)
-						waitForInstanceReconciled(instance)
+						waitForInstanceReconciled(instance, 2)
 
 						// Get the updated instance
 						m.Get(instance, timeout).Should(Succeed())
@@ -342,10 +349,9 @@ func ControllerTestSuite[I InstanceType](
 							s.StringData["key1"] = modified
 							return s
 						}
-						clearReconciled()
+						expectNoReconciles()
 						m.Update(s2, modifyS).Should(Succeed())
-						waitForInstanceReconciled(instance)
-						waitForInstanceReconciled(instance)
+						waitForInstanceReconciled(instance, 2)
 
 						// Get the updated instance
 						m.Get(instance, timeout).Should(Succeed())
@@ -365,9 +371,9 @@ func ControllerTestSuite[I InstanceType](
 						obj.SetAnnotations(make(map[string]string))
 						return obj
 					}
-					clearReconciled()
+					expectNoReconciles()
 					m.Update(instance, removeAnnotations).Should(Succeed())
-					waitForInstanceReconciled(instance)
+					waitForInstanceReconciled(instance, 1)
 					m.Get(instance).Should(Succeed())
 					Eventually(instance, timeout).ShouldNot(utils.WithAnnotations(HaveKey(RequiredAnnotation)))
 				})
@@ -382,7 +388,7 @@ func ControllerTestSuite[I InstanceType](
 						cm.Data["key1"] = "modified"
 						return cm
 					}
-					clearReconciled()
+					expectNoReconciles()
 
 					m.Update(cm1, modifyCM).Should(Succeed())
 					consistentlyInstanceNotReconciled(instance)
@@ -393,9 +399,9 @@ func ControllerTestSuite[I InstanceType](
 				BeforeEach(func() {
 					// Make sure the cache has synced before we run the test
 					Eventually(instance, timeout).Should(utils.WithPodTemplateAnnotations(HaveKey(ConfigHashAnnotation)))
-					clearReconciled()
+					expectNoReconciles()
 					m.Delete(instance).Should(Succeed())
-					waitForInstanceReconciled(instance)
+					waitForInstanceReconciled(instance, 1)
 				})
 				It("Not longer exists", func() {
 					m.Get(instance).Should(MatchError(MatchRegexp(`not found`)))
@@ -407,7 +413,7 @@ func ControllerTestSuite[I InstanceType](
 						cm.Data["key1"] = "modified"
 						return cm
 					}
-					clearReconciled()
+					expectNoReconciles()
 
 					m.Update(cm1, modifyCM).Should(Succeed())
 					consistentlyInstanceNotReconciled(instance)
@@ -431,7 +437,7 @@ func ControllerTestSuite[I InstanceType](
 					cm.Data["key1"] = "modified"
 					return cm
 				}
-				clearReconciled()
+				expectNoReconciles()
 
 				m.Update(cm1, modifyCM).Should(Succeed())
 				consistentlyInstanceNotReconciled(instance)
@@ -451,9 +457,9 @@ func ControllerTestSuite[I InstanceType](
 			instance.SetAnnotations(annotations)
 
 			// Create a instance and wait for it to be reconciled
-			clearReconciled()
+			expectNoReconciles()
 			m.Create(instance).Should(Succeed())
-			waitForInstanceReconciled(instance)
+			waitForInstanceReconciled(instance, 1)
 		})
 
 		It("Has scheduling disabled", func() {
@@ -464,10 +470,10 @@ func ControllerTestSuite[I InstanceType](
 
 		Context("And the missing child is created", func() {
 			BeforeEach(func() {
-				clearReconciled()
+				expectNoReconciles()
 				cm1 = utils.ExampleConfigMap1.DeepCopy()
 				m.Create(cm1).Should(Succeed())
-				waitForInstanceReconciled(instance)
+				waitForInstanceReconciled(instance, 2) // Two since updating the scheduler self-triggers
 			})
 
 			It("Has scheduling renabled", func() {
@@ -476,6 +482,7 @@ func ControllerTestSuite[I InstanceType](
 				Expect(instance.GetAnnotations()).NotTo(HaveKey(SchedulingDisabledAnnotation))
 			})
 		})
+
 	})
 
 }
