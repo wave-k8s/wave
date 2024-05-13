@@ -26,6 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/wave-k8s/wave/pkg/apis"
+	"github.com/wave-k8s/wave/pkg/core"
+
 	"github.com/wave-k8s/wave/pkg/controller"
 	"github.com/wave-k8s/wave/pkg/controller/daemonset"
 	"github.com/wave-k8s/wave/pkg/controller/deployment"
@@ -47,6 +49,7 @@ var (
 	syncPeriod              = flag.Duration("sync-period", 10*time.Hour, "Reconcile sync period")
 	showVersion             = flag.Bool("version", false, "Show version and exit")
 	enableWebhooks          = flag.Bool("enable-webhooks", false, "Enable webhooks")
+	namespaces              = flag.String("namespaces", "", "Comma-separated list of namespaces to watch. Defaults to all namespaces.")
 	setupLog                = ctrl.Log.WithName("setup")
 )
 
@@ -86,7 +89,8 @@ func main() {
 		LeaderElectionID:        *leaderElectionID,
 		LeaderElectionNamespace: *leaderElectionNamespace,
 		Cache: cache.Options{
-			SyncPeriod: syncPeriod,
+			SyncPeriod:        syncPeriod,
+			DefaultNamespaces: core.BuildCacheDefaultNamespaces(*namespaces),
 		},
 	})
 	if err != nil {

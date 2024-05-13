@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -107,6 +108,9 @@ var _ = Describe("Deployment controller Suite", func() {
 				Port:    t.WebhookInstallOptions.LocalServingPort,
 				CertDir: t.WebhookInstallOptions.LocalServingCertDir,
 			}),
+			Cache: cache.Options{
+				DefaultNamespaces: core.BuildCacheDefaultNamespaces(""),
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		var cerr error
