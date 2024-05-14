@@ -276,6 +276,8 @@ func (h *Handler[I]) getObject(objectName types.NamespacedName, metadata configM
 
 // getExistingChildren returns a list of all Secrets and ConfigMaps that are
 // owned by the Deployment instance
+//
+// Deprecated: Wave no longer uses OwnerReferences. Only used for migration.
 func (h *Handler[I]) getExistingChildren(obj I) ([]Object, error) {
 	inNamespace := client.InNamespace(obj.GetNamespace())
 
@@ -312,6 +314,8 @@ func (h *Handler[I]) getExistingChildren(obj I) ([]Object, error) {
 
 // isOwnedBy returns true if the child has an owner reference that points to
 // the owner object
+//
+// Deprecated: Wave no longer uses OwnerReferences. Only used for migration.
 func isOwnedBy(child, owner metav1.Object) bool {
 	for _, ref := range child.GetOwnerReferences() {
 		if ref.UID == owner.GetUID() {

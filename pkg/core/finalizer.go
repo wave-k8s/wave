@@ -17,6 +17,8 @@ limitations under the License.
 package core
 
 // removeFinalizer removes the wave finalizer from the given podController
+//
+// Deprecated: Wave no longer uses finalizers. Only used for migration.
 func removeFinalizer[I InstanceType](obj I) {
 	finalizers := obj.GetFinalizers()
 
@@ -33,6 +35,8 @@ func removeFinalizer[I InstanceType](obj I) {
 }
 
 // hasFinalizer checks for the presence of the Wave finalizer
+//
+// Deprecated: Wave no longer uses finalizers. Only used for migration.
 func hasFinalizer[I InstanceType](obj I) bool {
 	finalizers := obj.GetFinalizers()
 	for _, finalizer := range finalizers {

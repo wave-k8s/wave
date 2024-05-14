@@ -22,6 +22,8 @@ import (
 )
 
 // GetOwnerRefDeployment constructs an owner reference for the Deployment given
+//
+// Deprecated: Wave no longer uses OwnerReferences. Only used for migration.
 func GetOwnerRefDeployment(deployment *appsv1.Deployment) metav1.OwnerReference {
 	f := false
 	t := true
@@ -36,6 +38,8 @@ func GetOwnerRefDeployment(deployment *appsv1.Deployment) metav1.OwnerReference 
 }
 
 // GetOwnerRefStatefulSet constructs an owner reference for the StatefulSet given
+//
+// Deprecated: Wave no longer uses OwnerReferences. Only used for migration.
 func GetOwnerRefStatefulSet(sts *appsv1.StatefulSet) metav1.OwnerReference {
 	f := false
 	t := true
@@ -50,6 +54,8 @@ func GetOwnerRefStatefulSet(sts *appsv1.StatefulSet) metav1.OwnerReference {
 }
 
 // GetOwnerRefDaemonSet constructs an owner reference for the DaemonSet given
+//
+// Deprecated: Wave no longer uses OwnerReferences. Only used for migration.
 func GetOwnerRefDaemonSet(sts *appsv1.DaemonSet) metav1.OwnerReference {
 	f := false
 	t := true
