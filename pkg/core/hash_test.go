@@ -27,6 +27,7 @@ import (
 	"github.com/wave-k8s/wave/test/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -98,230 +99,229 @@ var _ = Describe("Wave hash Suite", func() {
 			)
 		})
 
-		It("returns a different hash when an allKeys child's configmap string data is updated", func() {
-			c := []configObject{
-				{object: cm1, allKeys: true},
-				{object: cm2, allKeys: true},
-				{object: s1, allKeys: true},
-				{object: s2, allKeys: true},
-			}
+		Context("all key children", func() {
+			var configMaps map[types.NamespacedName]*corev1.ConfigMap
+			var secrets map[types.NamespacedName]*corev1.Secret
+			var configMapsConfig []configMetadata
+			var secretsConfig []configMetadata
 
-			h1, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
+			BeforeEach(func() {
 
-			m.Update(cm1, func(obj client.Object) client.Object {
-				cm := obj.(*corev1.ConfigMap)
-				cm.Data["key1"] = modified
+				configMaps = map[types.NamespacedName]*corev1.ConfigMap{
+					GetNamespacedNameFromObject(cm1): cm1,
+					GetNamespacedNameFromObject(cm2): cm2,
+				}
 
-				return cm
-			}, timeout).Should(Succeed())
-			h2, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
+				secrets = map[types.NamespacedName]*corev1.Secret{
+					GetNamespacedNameFromObject(s1): s1,
+					GetNamespacedNameFromObject(s2): s2,
+				}
 
-			Expect(h2).NotTo(Equal(h1))
+				configMapsConfig = []configMetadata{
+					{name: GetNamespacedNameFromObject(cm1), allKeys: true},
+					{name: GetNamespacedNameFromObject(cm2), allKeys: true},
+				}
+
+				secretsConfig = []configMetadata{
+					{name: GetNamespacedNameFromObject(s1), allKeys: true},
+					{name: GetNamespacedNameFromObject(s2), allKeys: true},
+				}
+			})
+
+			It("returns a different hash when an allKeys child's configmap string data is updated", func() {
+				h1, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
+
+				cm1.Data["key1"] = modified
+
+				h2, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(h2).NotTo(Equal(h1))
+			})
+
+			It("returns a different hash when an allKeys child's configmap binary data is updated", func() {
+				h1, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
+
+				cm1.BinaryData["binary_key1"] = []byte(modified)
+
+				h2, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(h2).NotTo(Equal(h1))
+			})
+
+			It("returns a different hash when an allKeys child's secret data is updated", func() {
+				h1, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
+
+				s1.Data["key1"] = []byte("modified")
+
+				h2, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(h2).NotTo(Equal(h1))
+			})
+
+			It("returns the same hash when a child's metadata is updated", func() {
+				h1, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
+
+				s1.Annotations = map[string]string{"new": "annotations"}
+
+				h2, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(h2).To(Equal(h1))
+			})
 		})
 
-		It("returns a different hash when an allKeys child's configmap binary data is updated", func() {
-			c := []configObject{
-				{object: cm1, allKeys: true},
-				{object: cm2, allKeys: true},
-				{object: s1, allKeys: true},
-				{object: s2, allKeys: true},
-			}
+		Context("single-field children", func() {
+			var configMaps map[types.NamespacedName]*corev1.ConfigMap
+			var secrets map[types.NamespacedName]*corev1.Secret
+			var configMapsConfig []configMetadata
+			var secretsConfig []configMetadata
 
-			h1, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
+			BeforeEach(func() {
 
-			m.Update(cm1, func(obj client.Object) client.Object {
-				cm := obj.(*corev1.ConfigMap)
-				cm.BinaryData["binary_key1"] = []byte(modified)
+				configMaps = map[types.NamespacedName]*corev1.ConfigMap{
+					GetNamespacedNameFromObject(cm1): cm1,
+					GetNamespacedNameFromObject(cm2): cm2,
+				}
 
-				return cm
-			}, timeout).Should(Succeed())
-			h2, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
+				secrets = map[types.NamespacedName]*corev1.Secret{
+					GetNamespacedNameFromObject(s1): s1,
+					GetNamespacedNameFromObject(s2): s2,
+				}
 
-			Expect(h2).NotTo(Equal(h1))
-		})
+				configMapsConfig = []configMetadata{
+					{name: GetNamespacedNameFromObject(cm1), allKeys: false, keys: map[string]struct{}{
+						"key1":        {},
+						"binary_key1": {},
+					},
+					},
+					{name: GetNamespacedNameFromObject(cm2), allKeys: true},
+				}
 
-		It("returns a different hash when an allKeys child's secret data is updated", func() {
-			c := []configObject{
-				{object: cm1, allKeys: true},
-				{object: cm2, allKeys: true},
-				{object: s1, allKeys: true},
-				{object: s2, allKeys: true},
-			}
+				secretsConfig = []configMetadata{
+					{name: GetNamespacedNameFromObject(s1), allKeys: false, keys: map[string]struct{}{
+						"key1": {},
+					},
+					},
+					{name: GetNamespacedNameFromObject(s2), allKeys: true},
+				}
+			})
 
-			h1, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
+			It("returns a different hash when a single-field child's data is updated", func() {
 
-			m.Update(s1, func(obj client.Object) client.Object {
-				cm := obj.(*corev1.Secret)
-				cm.Data["key1"] = []byte("modified")
+				h1, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
 
-				return cm
-			}, timeout).Should(Succeed())
-			h2, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
+				cm1.Data["key1"] = modified
 
-			Expect(h2).NotTo(Equal(h1))
-		})
+				h2, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
 
-		It("returns a different hash when a single-field child's data is updated", func() {
-			c := []configObject{
-				{object: cm1, allKeys: false, keys: map[string]struct{}{
-					"key1":        {},
-					"binary_key1": {},
-				},
-				},
-				{object: cm2, allKeys: true},
-				{object: s1, allKeys: false, keys: map[string]struct{}{
-					"key1": {},
-				},
-				},
-				{object: s2, allKeys: true},
-			}
+				cm1.BinaryData["binary_key1"] = []byte(modified)
 
-			h1, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
+				h3, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
 
-			m.Update(cm1, func(obj client.Object) client.Object {
-				cm := obj.(*corev1.ConfigMap)
-				cm.Data["key1"] = modified
+				s1.Data["key1"] = []byte("modified")
 
-				return cm
-			}, timeout).Should(Succeed())
-			h2, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
+				h4, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
 
-			m.Update(cm1, func(obj client.Object) client.Object {
-				cm := obj.(*corev1.ConfigMap)
-				cm.BinaryData["binary_key1"] = []byte(modified)
+				Expect(h2).NotTo(Equal(h1))
+				Expect(h3).NotTo(Equal(h1))
+				Expect(h3).NotTo(Equal(h2))
+				Expect(h4).NotTo(Equal(h1))
+				Expect(h4).NotTo(Equal(h2))
+				Expect(h4).NotTo(Equal(h3))
+			})
 
-				return cm
-			}, timeout).Should(Succeed())
-			h3, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
+			It("returns the same hash when a single-field child's data is updated but not for that field", func() {
 
-			m.Update(s1, func(obj client.Object) client.Object {
-				s := obj.(*corev1.Secret)
-				s.Data["key1"] = []byte("modified")
+				h1, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
 
-				return s
-			}, timeout).Should(Succeed())
-			h4, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(h2).NotTo(Equal(h1))
-			Expect(h3).NotTo(Equal(h1))
-			Expect(h3).NotTo(Equal(h2))
-			Expect(h4).NotTo(Equal(h1))
-			Expect(h4).NotTo(Equal(h2))
-			Expect(h4).NotTo(Equal(h3))
-		})
-
-		It("returns the same hash when a single-field child's data is updated but not for that field", func() {
-			c := []configObject{
-				{object: cm1, allKeys: false, keys: map[string]struct{}{
-					"key1":        {},
-					"binary_key1": {},
-				},
-				},
-				{object: cm2, allKeys: true},
-				{object: s1, allKeys: false, keys: map[string]struct{}{
-					"key1": {},
-				},
-				},
-				{object: s2, allKeys: true},
-			}
-
-			h1, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
-
-			m.Update(cm1, func(obj client.Object) client.Object {
-				cm := obj.(*corev1.ConfigMap)
-				cm.Data["key3"] = modified
-				cm.BinaryData["binary_key3"] = []byte("modified")
-
-				return cm
-			}, timeout).Should(Succeed())
-
-			m.Update(s1, func(obj client.Object) client.Object {
-				s1 := obj.(*corev1.Secret)
+				cm1.Data["key3"] = modified
+				cm1.BinaryData["binary_key3"] = []byte("modified")
 				s1.Data["key3"] = []byte("modified")
 
-				return s1
-			}, timeout).Should(Succeed())
-			h2, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
+				h2, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
+				Expect(err).NotTo(HaveOccurred())
 
-			Expect(h2).To(Equal(h1))
-		})
-
-		It("returns the same hash when a child's metadata is updated", func() {
-			c := []configObject{
-				{object: cm1, allKeys: true},
-				{object: cm2, allKeys: true},
-				{object: s1, allKeys: true},
-				{object: s2, allKeys: true},
-			}
-
-			h1, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
-
-			m.Update(s1, func(obj client.Object) client.Object {
-				s := obj.(*corev1.Secret)
-				s.Annotations = map[string]string{"new": "annotations"}
-
-				return s
-			}, timeout).Should(Succeed())
-			h2, err := calculateConfigHash(c)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(h2).To(Equal(h1))
+				Expect(h2).To(Equal(h1))
+			})
 		})
 
 		It("returns the same hash independent of child ordering", func() {
-			c1 := []configObject{
-				{object: cm1, allKeys: true},
-				{object: cm2, allKeys: true},
-				{object: cm3, allKeys: false, keys: map[string]struct{}{
-					"key1": {},
-					"key2": {},
-				},
-				},
-				{object: s1, allKeys: true},
-				{object: s2, allKeys: true},
-				{object: s3, allKeys: false, keys: map[string]struct{}{
+			configMaps := map[types.NamespacedName]*corev1.ConfigMap{
+				GetNamespacedNameFromObject(cm1): cm1,
+				GetNamespacedNameFromObject(cm2): cm2,
+				GetNamespacedNameFromObject(cm3): cm3,
+			}
+
+			secrets := map[types.NamespacedName]*corev1.Secret{
+				GetNamespacedNameFromObject(s1): s1,
+				GetNamespacedNameFromObject(s2): s2,
+				GetNamespacedNameFromObject(s3): s3,
+			}
+
+			configMapsConfig1 := []configMetadata{
+				{name: GetNamespacedNameFromObject(cm1), allKeys: true},
+				{name: GetNamespacedNameFromObject(cm2), allKeys: true},
+				{name: GetNamespacedNameFromObject(cm3), allKeys: false, keys: map[string]struct{}{
 					"key1": {},
 					"key2": {},
 				},
 				},
 			}
-			c2 := []configObject{
-				{object: cm1, allKeys: true},
-				{object: s2, allKeys: true},
-				{object: s3, allKeys: false, keys: map[string]struct{}{
+
+			secretsConfig1 := []configMetadata{
+				{name: GetNamespacedNameFromObject(s1), allKeys: true},
+				{name: GetNamespacedNameFromObject(s2), allKeys: true},
+				{name: GetNamespacedNameFromObject(s3), allKeys: false, keys: map[string]struct{}{
 					"key1": {},
 					"key2": {},
 				},
 				},
-				{object: cm2, allKeys: true},
-				{object: s1, allKeys: true},
-				{object: cm3, allKeys: false, keys: map[string]struct{}{
+			}
+
+			configMapsConfig2 := []configMetadata{
+				{name: GetNamespacedNameFromObject(cm1), allKeys: true},
+				{name: GetNamespacedNameFromObject(cm2), allKeys: true},
+				{name: GetNamespacedNameFromObject(cm3), allKeys: false, keys: map[string]struct{}{
+					"key1": {},
 					"key2": {},
+				},
+				},
+				{name: GetNamespacedNameFromObject(cm1), allKeys: true},
+			}
+
+			secretsConfig2 := []configMetadata{
+				{name: GetNamespacedNameFromObject(s3), allKeys: false, keys: map[string]struct{}{
+					"key2": {},
+				},
+				},
+				{name: GetNamespacedNameFromObject(s2), allKeys: true},
+				{name: GetNamespacedNameFromObject(s1), allKeys: true},
+				{name: GetNamespacedNameFromObject(s3), allKeys: false, keys: map[string]struct{}{
 					"key1": {},
 				},
 				},
 			}
 
-			h1, err := calculateConfigHash(c1)
+			h1, err := calculateConfigHash(configMaps, secrets, configMapsConfig1, secretsConfig1)
 			Expect(err).NotTo(HaveOccurred())
-			h2, err := calculateConfigHash(c2)
+			h2, err := calculateConfigHash(configMaps, secrets, configMapsConfig2, secretsConfig2)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(h2).To(Equal(h1))
 		})
+
 	})
 
 	Context("setConfigHash", func() {
@@ -363,4 +363,5 @@ var _ = Describe("Wave hash Suite", func() {
 			Expect(hash).To(Equal("annotation"))
 		})
 	})
+
 })

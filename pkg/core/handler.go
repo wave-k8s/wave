@@ -91,21 +91,22 @@ func (h *Handler[I]) handlePodController(instance I) (reconcile.Result, error) {
 	log.V(5).Info("Reconciling")
 
 	// Get all children and add watches
-	configMaps, secrets := getChildNamesByType(instance)
-	h.removeWatchesForInstance(instance)
-	h.watchChildrenForInstance(instance, configMaps, secrets)
+	configMapsConfig, secretsConfig := getChildNamesByType(instance)
+	h.watchChildrenForInstance(instance, configMapsConfig, secretsConfig)
 
 	// Get content of children
-	current, err := h.getCurrentChildren(configMaps, secrets)
+	configMaps, secrets, err := h.getCurrentChildren(configMapsConfig, secretsConfig)
 	if err != nil {
-		if _, ok := err.(*NotFoundError); ok {
-			// We are missing children but we added watchers for all children so we are done
-			return reconcile.Result{}, nil
-		}
 		return reconcile.Result{}, fmt.Errorf("error fetching current children: %v", err)
 	}
 
-	hash, err := calculateConfigHash(current)
+	err = h.checkRequiredChildren(configMaps, secrets, configMapsConfig, secretsConfig)
+	if err != nil {
+		// We are missing children but we added watchers for all children so we are done
+		return reconcile.Result{}, nil
+	}
+
+	hash, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("error calculating configuration hash: %v", err)
 	}
@@ -116,6 +117,8 @@ func (h *Handler[I]) handlePodController(instance I) (reconcile.Result, error) {
 
 	schedulingChange := false
 	if isSchedulingDisabled(instance) {
+		log.V(0).Info("Enabled scheduling since all children became available.")
+		h.recorder.Eventf(instance, corev1.EventTypeNormal, "SchedulingEnabled", "Enabled scheduling since all children became available.")
 		restoreScheduling(instance)
 		schedulingChange = true
 	}
@@ -144,23 +147,27 @@ func (h *Handler[I]) updatePodController(instance I, dryRun bool, isCreate bool)
 	}
 
 	// Get all children that the instance currently references
-	configMaps, secrets := getChildNamesByType(instance)
-	current, err := h.getCurrentChildren(configMaps, secrets)
+	configMapsConfig, secretsConfig := getChildNamesByType(instance)
+	configMaps, secrets, err := h.getCurrentChildren(configMapsConfig, secretsConfig)
 	if err != nil {
-		if _, ok := err.(*NotFoundError); ok {
-			if isCreate {
-				log.V(0).Info("Not all required children found yet. Disabling scheduling!", "err", err)
-				disableScheduling(instance)
-			} else {
-				log.V(0).Info("Not all required children found yet. Skipping mutation!", "err", err)
-			}
-			return nil
-		} else {
-			return fmt.Errorf("error fetching current children: %v", err)
-		}
+		return fmt.Errorf("error fetching current children: %v", err)
 	}
 
-	hash, err := calculateConfigHash(current)
+	err = h.checkRequiredChildren(configMaps, secrets, configMapsConfig, secretsConfig)
+	if err != nil {
+		if isCreate {
+			if !dryRun {
+				log.V(0).Info("Not all required children found yet. Disabling scheduling!", "err", err)
+				h.recorder.Eventf(instance, corev1.EventTypeNormal, "SchedulingDisabled", "Disabled scheduling due to missing children: %s", err)
+			}
+			disableScheduling(instance)
+		} else {
+			log.V(0).Info("Not all required children found yet. Skipping mutation!", "err", err)
+		}
+		return nil
+	}
+
+	hash, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
 	if err != nil {
 		return fmt.Errorf("error calculating configuration hash: %v", err)
 	}
