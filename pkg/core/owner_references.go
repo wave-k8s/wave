@@ -21,13 +21,14 @@ import (
 	"fmt"
 	"reflect"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // removeOwnerReferences iterates over a list of children and removes the owner
 // reference from the child before updating it
-func (h *Handler) removeOwnerReferences(obj podController, children []Object) error {
+func (h *Handler[I]) removeOwnerReferences(obj I, children []Object) error {
 	for _, child := range children {
 		// Filter the existing ownerReferences
 		ownerRefs := []metav1.OwnerReference{}
@@ -57,11 +58,11 @@ func kindOf(obj Object) string {
 		return "ConfigMap"
 	case *corev1.Secret:
 		return "Secret"
-	case *deployment:
+	case *appsv1.Deployment:
 		return "Deployment"
-	case *statefulset:
+	case *appsv1.StatefulSet:
 		return "StatefulSet"
-	case *daemonset:
+	case *appsv1.DaemonSet:
 		return "DaemonSet"
 	default:
 		return "Unknown"

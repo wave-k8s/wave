@@ -1,7 +1,7 @@
 package core
 
 // disableScheduling sets an invalid scheduler and adds an annotation with the original scheduler
-func disableScheduling(obj podController) {
+func disableScheduling[I InstanceType](obj I) {
 	if isSchedulingDisabled(obj) {
 		return
 	}
@@ -13,18 +13,18 @@ func disableScheduling(obj podController) {
 	}
 
 	// Store previous scheduler in annotation
-	schedulerName := obj.GetPodTemplate().Spec.SchedulerName
+	schedulerName := GetPodTemplate(obj).Spec.SchedulerName
 	annotations[SchedulingDisabledAnnotation] = schedulerName
 	obj.SetAnnotations(annotations)
 
 	// Set invalid scheduler
-	podTemplate := obj.GetPodTemplate()
+	podTemplate := GetPodTemplate(obj)
 	podTemplate.Spec.SchedulerName = SchedulingDisabledSchedulerName
-	obj.SetPodTemplate(podTemplate)
+	SetPodTemplate(obj, podTemplate)
 }
 
 // isSchedulingDisabled returns true if scheduling has been disabled by wave
-func isSchedulingDisabled(obj podController) bool {
+func isSchedulingDisabled[I InstanceType](obj I) bool {
 	// Get the existing annotations
 	annotations := obj.GetAnnotations()
 	if annotations == nil {
@@ -35,7 +35,7 @@ func isSchedulingDisabled(obj podController) bool {
 }
 
 // enableScheduling restore scheduling if it has been disabled by wave
-func restoreScheduling(obj podController) {
+func restoreScheduling[I InstanceType](obj I) {
 	// Get the existing annotations
 	annotations := obj.GetAnnotations()
 	if annotations == nil {
@@ -50,7 +50,7 @@ func restoreScheduling(obj podController) {
 	obj.SetAnnotations(annotations)
 
 	// Restore scheduler
-	podTemplate := obj.GetPodTemplate()
+	podTemplate := GetPodTemplate(obj)
 	podTemplate.Spec.SchedulerName = schedulerName
-	obj.SetPodTemplate(podTemplate)
+	SetPodTemplate(obj, podTemplate)
 }

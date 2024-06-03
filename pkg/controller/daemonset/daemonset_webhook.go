@@ -16,7 +16,7 @@ import (
 
 type DaemonSetWebhook struct {
 	client.Client
-	Handler *core.Handler
+	Handler *core.Handler[*appsv1.DaemonSet]
 }
 
 func (a *DaemonSetWebhook) Default(ctx context.Context, obj runtime.Object) error {
@@ -24,7 +24,7 @@ func (a *DaemonSetWebhook) Default(ctx context.Context, obj runtime.Object) erro
 	if err != nil {
 		return err
 	}
-	err = a.Handler.HandleDaemonSetWebhook(obj.(*appsv1.DaemonSet), request.DryRun, request.Operation == "CREATE")
+	err = a.Handler.HandleWebhook(obj.(*appsv1.DaemonSet), request.DryRun, request.Operation == "CREATE")
 	return err
 }
 
@@ -32,7 +32,7 @@ func AddDaemonSetWebhook(mgr manager.Manager) error {
 	err := builder.WebhookManagedBy(mgr).For(&appsv1.DaemonSet{}).WithDefaulter(
 		&DaemonSetWebhook{
 			Client:  mgr.GetClient(),
-			Handler: core.NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+			Handler: core.NewHandler[*appsv1.DaemonSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
 		}).Complete()
 
 	return err

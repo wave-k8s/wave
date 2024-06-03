@@ -35,10 +35,9 @@ import (
 
 var _ = Describe("Wave children Suite", func() {
 	var c client.Client
-	var h *Handler
+	var h *Handler[*appsv1.Deployment]
 	var m utils.Matcher
 	var deploymentObject *appsv1.Deployment
-	var podControllerDeployment podController
 	var currentChildren []configObject
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
@@ -70,7 +69,7 @@ var _ = Describe("Wave children Suite", func() {
 		Expect(cerr).NotTo(HaveOccurred())
 		c = mgr.GetClient()
 		//		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
-		h = NewHandler(mgr.GetClient(), mgr.GetEventRecorderFor("wave"))
+		h = NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave"))
 
 		m = utils.Matcher{Client: c}
 
@@ -102,7 +101,6 @@ var _ = Describe("Wave children Suite", func() {
 		m.Create(s6).Should(Succeed())
 
 		deploymentObject = utils.ExampleDeployment.DeepCopy()
-		podControllerDeployment = &deployment{deploymentObject}
 
 		m.Create(deploymentObject).Should(Succeed())
 
@@ -138,7 +136,7 @@ var _ = Describe("Wave children Suite", func() {
 	Context("getCurrentChildren", func() {
 		BeforeEach(func() {
 			var err error
-			configMaps, secrets := getChildNamesByType(podControllerDeployment)
+			configMaps, secrets := getChildNamesByType(deploymentObject)
 			currentChildren, err = h.getCurrentChildren(configMaps, secrets)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -260,7 +258,7 @@ var _ = Describe("Wave children Suite", func() {
 			m.Delete(s2).Should(Succeed())
 			m.Get(s2, timeout).ShouldNot(Succeed())
 
-			configMaps, secrets := getChildNamesByType(podControllerDeployment)
+			configMaps, secrets := getChildNamesByType(deploymentObject)
 			current, err := h.getCurrentChildren(configMaps, secrets)
 			Expect(err).To(HaveOccurred())
 			Expect(current).To(BeEmpty())
@@ -272,7 +270,7 @@ var _ = Describe("Wave children Suite", func() {
 		var secrets configMetadataMap
 
 		BeforeEach(func() {
-			configMaps, secrets = getChildNamesByType(podControllerDeployment)
+			configMaps, secrets = getChildNamesByType(deploymentObject)
 		})
 
 		It("returns ConfigMaps referenced in extra-configmaps annotations", func() {
@@ -280,7 +278,7 @@ var _ = Describe("Wave children Suite", func() {
 				configMetadata{required: false, allKeys: true}))
 			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("test-cm2", "ns2"),
 				configMetadata{required: false, allKeys: true}))
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("local-cm1", podControllerDeployment.GetNamespace()),
+			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("local-cm1", deploymentObject.GetNamespace()),
 				configMetadata{required: false, allKeys: true}))
 		})
 
@@ -289,37 +287,37 @@ var _ = Describe("Wave children Suite", func() {
 				configMetadata{required: false, allKeys: true}))
 			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("test-secret2", "ns2"),
 				configMetadata{required: false, allKeys: true}))
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("local-secret1", podControllerDeployment.GetNamespace()),
+			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("local-secret1", deploymentObject.GetNamespace()),
 				configMetadata{required: false, allKeys: true}))
 		})
 
 		It("returns ConfigMaps referenced in Volumes", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName(cm1.GetName(), podControllerDeployment.GetNamespace()),
+			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName(cm1.GetName(), deploymentObject.GetNamespace()),
 				configMetadata{required: true, allKeys: true}))
 		})
 
 		It("optional ConfigMaps referenced in Volumes are returned as optional", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("volume-optional", podControllerDeployment.GetNamespace()),
+			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("volume-optional", deploymentObject.GetNamespace()),
 				configMetadata{required: false, allKeys: true}))
 		})
 
 		It("optional Secrets referenced in Volumes are returned as optional", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("volume-optional", podControllerDeployment.GetNamespace()),
+			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("volume-optional", deploymentObject.GetNamespace()),
 				configMetadata{required: false, allKeys: true}))
 		})
 
 		It("returns ConfigMaps referenced in EnvFrom", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName(cm2.GetName(), podControllerDeployment.GetNamespace()),
+			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName(cm2.GetName(), deploymentObject.GetNamespace()),
 				configMetadata{required: true, allKeys: true}))
 		})
 
 		It("optional ConfigMaps referenced in EnvFrom are returned as optional", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("envfrom-optional", podControllerDeployment.GetNamespace()),
+			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("envfrom-optional", deploymentObject.GetNamespace()),
 				configMetadata{required: false, allKeys: true}))
 		})
 
 		It("returns ConfigMaps referenced in Env", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName(cm3.GetName(), podControllerDeployment.GetNamespace()),
+			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName(cm3.GetName(), deploymentObject.GetNamespace()),
 				configMetadata{
 					required: true,
 					allKeys:  false,
@@ -332,7 +330,7 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns ConfigMaps referenced in Env as optional correctly", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("env-optional", podControllerDeployment.GetNamespace()),
+			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("env-optional", deploymentObject.GetNamespace()),
 				configMetadata{
 					required: false,
 					allKeys:  false,
@@ -343,22 +341,22 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns Secrets referenced in Volumes", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName(s1.GetName(), podControllerDeployment.GetNamespace()),
+			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName(s1.GetName(), deploymentObject.GetNamespace()),
 				configMetadata{required: true, allKeys: true}))
 		})
 
 		It("returns Secrets referenced in EnvFrom", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName(s2.GetName(), podControllerDeployment.GetNamespace()),
+			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName(s2.GetName(), deploymentObject.GetNamespace()),
 				configMetadata{required: true, allKeys: true}))
 		})
 
 		It("optional Secrets referenced in EnvFrom are returned as optional", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("envfrom-optional", podControllerDeployment.GetNamespace()),
+			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("envfrom-optional", deploymentObject.GetNamespace()),
 				configMetadata{required: false, allKeys: true}))
 		})
 
 		It("returns Secrets referenced in Env", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName(s3.GetName(), podControllerDeployment.GetNamespace()),
+			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName(s3.GetName(), deploymentObject.GetNamespace()),
 				configMetadata{
 					required: true,
 					allKeys:  false,
@@ -371,7 +369,7 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns secrets referenced in Env as optional correctly", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("env-optional", podControllerDeployment.GetNamespace()),
+			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("env-optional", deploymentObject.GetNamespace()),
 				configMetadata{
 					required: false,
 					allKeys:  false,
@@ -401,12 +399,12 @@ var _ = Describe("Wave children Suite", func() {
 			}
 
 			var err error
-			_, err = h.getExistingChildren(podControllerDeployment)
+			_, err = h.getExistingChildren(deploymentObject)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		existingChildrenFn := func() ([]Object, error) {
-			return h.getExistingChildren(podControllerDeployment)
+			return h.getExistingChildren(deploymentObject)
 		}
 
 		It("returns ConfigMaps with the correct OwnerReference", func() {
