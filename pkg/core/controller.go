@@ -39,7 +39,7 @@ func AddController[I InstanceType](name string, typeInstance I, mgr manager.Mana
 		return err
 	}
 
-	// Watch ConfigMaps owned by a DaemonSet
+	// Watch ConfigMaps owned by Resource
 	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), EnqueueRequestForWatcher(h.GetWatchedConfigmaps()))
 	if err != nil {
 		return err
