@@ -45,7 +45,7 @@ func AddController[I InstanceType](name string, typeInstance I, mgr manager.Mana
 		return err
 	}
 
-	// Watch Secrets owned by a DaemonSet
+	// Watch Secrets owned by Resource
 	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}), EnqueueRequestForWatcher(h.GetWatchedSecrets()))
 	if err != nil {
 		return err
