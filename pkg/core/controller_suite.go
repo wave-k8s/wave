@@ -213,7 +213,7 @@ func ControllerTestSuite[I InstanceType](
 				eventMessage := func(event *corev1.Event) string {
 					return event.Message
 				}
-				hashMessage := "Configuration hash updated to 421778c325761f51dbf7a23a20eb9c1bc516ffd4aa7362ebec03175d427d7557"
+				hashMessage := "Configuration hash updated to 318d4a3c6b9f6471f054001ea3103b2abb3693fe41922c733df45b53266d5216"
 				Eventually(func() *corev1.EventList {
 					events := &corev1.EventList{}
 					Expect(m.Client.List(context.TODO(), events)).To(Succeed())
@@ -279,7 +279,7 @@ func ControllerTestSuite[I InstanceType](
 						}
 						expectNoReconciles()
 						m.Update(cm1, modifyCM).Should(Succeed())
-						waitForInstanceReconciled(instance, 2)
+						waitForInstanceReconciled(instance, 2) // Reschedules once since we update the hash
 
 						// Get the updated instance
 						m.Get(instance, timeout).Should(Succeed())
@@ -301,7 +301,7 @@ func ControllerTestSuite[I InstanceType](
 						}
 						expectNoReconciles()
 						m.Update(cm2, modifyCM).Should(Succeed())
-						waitForInstanceReconciled(instance, 2)
+						waitForInstanceReconciled(instance, 2) // Reschedules once since we update the hash
 
 						// Get the updated instance
 						m.Get(instance, timeout).Should(Succeed())
@@ -326,7 +326,7 @@ func ControllerTestSuite[I InstanceType](
 						}
 						expectNoReconciles()
 						m.Update(s1, modifyS).Should(Succeed())
-						waitForInstanceReconciled(instance, 2)
+						waitForInstanceReconciled(instance, 2) // Reschedules once since we update the hash
 
 						// Get the updated instance
 						m.Get(instance, timeout).Should(Succeed())
@@ -351,7 +351,7 @@ func ControllerTestSuite[I InstanceType](
 						}
 						expectNoReconciles()
 						m.Update(s2, modifyS).Should(Succeed())
-						waitForInstanceReconciled(instance, 2)
+						waitForInstanceReconciled(instance, 2) // Reschedules once since we update the hash
 
 						// Get the updated instance
 						m.Get(instance, timeout).Should(Succeed())
@@ -483,6 +483,61 @@ func ControllerTestSuite[I InstanceType](
 			})
 		})
 
+	})
+
+	Context("When a instance with missing children in projection is reconciled", func() {
+		BeforeEach(func() {
+			m.Delete(cm6).Should(Succeed())
+
+			annotations := instance.GetAnnotations()
+			if annotations == nil {
+				annotations = make(map[string]string)
+			}
+			annotations[RequiredAnnotation] = "true"
+			instance.SetAnnotations(annotations)
+
+			// Create a instance and wait for it to be reconciled
+			expectNoReconciles()
+			m.Create(instance).Should(Succeed())
+			waitForInstanceReconciled(instance, 1)
+		})
+
+		It("Has scheduling disabled", func() {
+			m.Get(instance, timeout).Should(Succeed())
+			Expect(GetPodTemplate(instance).Spec.SchedulerName).To(Equal(SchedulingDisabledSchedulerName))
+			Expect(instance.GetAnnotations()[SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
+		})
+
+		Context("And the missing child is created with a missing field", func() {
+			BeforeEach(func() {
+				expectNoReconciles()
+				cm6Alt := utils.ExampleConfigMap6WithoutKey3.DeepCopy()
+				m.Create(cm6Alt).Should(Succeed())
+				waitForInstanceReconciled(instance, 1)
+			})
+			It("Has Scheduling still disabled", func() {
+				m.Get(instance, timeout).Should(Succeed())
+				Expect(GetPodTemplate(instance).Spec.SchedulerName).To(Equal(SchedulingDisabledSchedulerName))
+				Expect(instance.GetAnnotations()[SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
+			})
+			Context("And the missing field is added", func() {
+				BeforeEach(func() {
+					expectNoReconciles()
+					m.Get(cm6, timeout).Should(Succeed())
+					cm6Copy := utils.ExampleConfigMap6.DeepCopy()
+					cm6.Data = cm6Copy.Data
+					Expect(m.Client.Update(context.TODO(), cm6)).Should(Succeed())
+					waitForInstanceReconciled(instance, 2) // Reschedules once since we update the hash + reenables scheduling
+				})
+
+				It("Has scheduling renabled", func() {
+					m.Get(instance, timeout).Should(Succeed())
+					Expect(GetPodTemplate(instance).Spec.SchedulerName).To(Equal("default-scheduler"))
+					Expect(instance.GetAnnotations()).NotTo(HaveKey(SchedulingDisabledAnnotation))
+				})
+			})
+
+		})
 	})
 
 }

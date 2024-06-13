@@ -17,6 +17,7 @@ limitations under the License.
 package core
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -38,7 +40,6 @@ var _ = Describe("Wave children Suite", func() {
 	var h *Handler[*appsv1.Deployment]
 	var m utils.Matcher
 	var deploymentObject *appsv1.Deployment
-	var currentChildren []configObject
 	var mgrStopped *sync.WaitGroup
 	var stopMgr chan struct{}
 
@@ -133,60 +134,89 @@ var _ = Describe("Wave children Suite", func() {
 		)
 	})
 
-	Context("getCurrentChildren", func() {
+	Context("getChildNamesByType and getCurrentChildren", func() {
+		var configMaps map[types.NamespacedName]*corev1.ConfigMap
+		var secrets map[types.NamespacedName]*corev1.Secret
+		var configMapsConfig configMetadataList
+		var secretsConfig configMetadataList
+
 		BeforeEach(func() {
 			var err error
-			configMaps, secrets := getChildNamesByType(deploymentObject)
-			currentChildren, err = h.getCurrentChildren(configMaps, secrets)
+			configMapsConfig, secretsConfig = getChildNamesByType(deploymentObject)
+			configMaps, secrets, err = h.getCurrentChildren(configMapsConfig, secretsConfig)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should validate", func() {
+			Expect(h.checkRequiredChildren(configMaps, secrets, configMapsConfig, secretsConfig)).To(Succeed())
+		})
+
 		It("returns ConfigMaps referenced in Volumes", func() {
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   cm1,
+			Expect(configMaps[GetNamespacedNameFromObject(cm1)]).To(Equal(cm1))
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(cm1),
 				required: true,
 				allKeys:  true,
 			}))
 		})
 
 		It("returns ConfigMaps referenced in Volume Projections", func() {
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   cm6,
+			Expect(configMaps[GetNamespacedNameFromObject(cm6)]).To(Equal(cm6))
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(cm6),
 				required: true,
 				allKeys:  false,
 				keys: map[string]struct{}{
-					"example6_key1": {},
-					"example6_key3": {},
+					"key1": {},
+					"key3": {},
 				},
 			}))
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   cm5,
+			Expect(configMaps[GetNamespacedNameFromObject(cm5)]).To(Equal(cm5))
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(cm5),
 				required: false,
 				allKeys:  true,
 			}))
 		})
 
 		It("returns ConfigMaps referenced in EnvFrom", func() {
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   cm2,
+			Expect(configMaps[GetNamespacedNameFromObject(cm2)]).To(Equal(cm2))
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(cm2),
 				required: true,
 				allKeys:  true,
 			}))
 		})
 
 		It("returns ConfigMaps referenced in Env", func() {
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   cm3,
+			Expect(configMaps[GetNamespacedNameFromObject(cm3)]).To(Equal(cm3))
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(cm3),
 				required: true,
 				allKeys:  false,
 				keys: map[string]struct{}{
 					"key1": {},
+				},
+			}))
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(cm3),
+				required: true,
+				allKeys:  false,
+				keys: map[string]struct{}{
 					"key2": {},
+				},
+			}))
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(cm3),
+				required: false,
+				allKeys:  false,
+				keys: map[string]struct{}{
 					"key4": {},
 				},
 			}))
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   cm4,
+			Expect(configMaps[GetNamespacedNameFromObject(cm4)]).To(Equal(cm4))
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(cm4),
 				required: false,
 				allKeys:  false,
 				keys: map[string]struct{}{
@@ -196,196 +226,217 @@ var _ = Describe("Wave children Suite", func() {
 		})
 
 		It("returns Secrets referenced in Volumes", func() {
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   s1,
+			Expect(secrets[GetNamespacedNameFromObject(s1)]).To(Equal(s1))
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(s1),
 				required: true,
 				allKeys:  true,
 			}))
 		})
 
 		It("returns Secrets referenced in Volume Projections", func() {
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   s6,
+			Expect(secrets[GetNamespacedNameFromObject(s6)]).To(Equal(s6))
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(s6),
 				required: true,
 				allKeys:  false,
 				keys: map[string]struct{}{
-					"example6_key1": {},
-					"example6_key3": {},
+					"key1": {},
+					"key3": {},
 				},
 			}))
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   s5,
+			Expect(secrets[GetNamespacedNameFromObject(s5)]).To(Equal(s5))
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(s5),
 				required: false,
 				allKeys:  true,
 			}))
 		})
 
 		It("returns Secrets referenced in EnvFrom", func() {
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   s2,
+			Expect(secrets[GetNamespacedNameFromObject(s2)]).To(Equal(s2))
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(s2),
 				required: true,
 				allKeys:  true,
 			}))
 		})
 
 		It("returns Secrets referenced in Env", func() {
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   s3,
+			Expect(secrets[GetNamespacedNameFromObject(s3)]).To(Equal(s3))
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(s3),
 				required: true,
 				allKeys:  false,
 				keys: map[string]struct{}{
 					"key1": {},
+				},
+			}))
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(s3),
+				required: true,
+				allKeys:  false,
+				keys: map[string]struct{}{
 					"key2": {},
+				},
+			}))
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(s3),
+				required: false,
+				allKeys:  false,
+				keys: map[string]struct{}{
 					"key4": {},
 				},
 			}))
-			Expect(currentChildren).To(ContainElement(configObject{
-				object:   s4,
+			Expect(secrets[GetNamespacedNameFromObject(s4)]).To(Equal(s4))
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedNameFromObject(s4),
 				required: false,
 				allKeys:  false,
 				keys: map[string]struct{}{
 					"key1": {},
+				},
+			}))
+		})
+
+		It("returns ConfigMaps referenced in extra-configmaps annotations", func() {
+			Expect(configMaps[GetNamespacedName("test-cm1", "ns1")]).To(BeNil())
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("test-cm1", "ns1"),
+				required: false,
+				allKeys:  true,
+			}))
+			Expect(configMaps[GetNamespacedName("test-cm2", "ns2")]).To(BeNil())
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("test-cm2", "ns2"),
+				required: false,
+				allKeys:  true,
+			}))
+			Expect(configMaps[GetNamespacedName("local-cm1", deploymentObject.GetNamespace())]).To(BeNil())
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("local-cm1", deploymentObject.GetNamespace()),
+				required: false,
+				allKeys:  true,
+			}))
+		})
+
+		It("returns Secrets referenced in extra-secrets annotations", func() {
+			Expect(secrets[GetNamespacedName("test-secret1", "ns1")]).To(BeNil())
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("test-secret1", "ns1"),
+				required: false,
+				allKeys:  true,
+			}))
+			Expect(secrets[GetNamespacedName("test-secret2", "ns2")]).To(BeNil())
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("test-secret2", "ns2"),
+				required: false,
+				allKeys:  true,
+			}))
+			Expect(secrets[GetNamespacedName("local-secret1", deploymentObject.GetNamespace())]).To(BeNil())
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("local-secret1", deploymentObject.GetNamespace()),
+				required: false,
+				allKeys:  true,
+			}))
+		})
+
+		It("optional ConfigMaps referenced in Volumes are returned as optional", func() {
+			Expect(configMaps[GetNamespacedName("volume-optional", deploymentObject.GetNamespace())]).To(BeNil())
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("volume-optional", deploymentObject.GetNamespace()),
+				required: false,
+				allKeys:  true,
+			}))
+		})
+
+		It("optional Secrets referenced in Volumes are returned as optional", func() {
+			Expect(secrets[GetNamespacedName("volume-optional", deploymentObject.GetNamespace())]).To(BeNil())
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("volume-optional", deploymentObject.GetNamespace()),
+				required: false,
+				allKeys:  true,
+			}))
+		})
+
+		It("optional ConfigMaps referenced in EnvFrom are returned as optional", func() {
+			Expect(configMaps[GetNamespacedName("envfrom-optional", deploymentObject.GetNamespace())]).To(BeNil())
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("envfrom-optional", deploymentObject.GetNamespace()),
+				required: false,
+				allKeys:  true,
+			}))
+		})
+
+		It("returns ConfigMaps referenced in Env as optional correctly", func() {
+			Expect(configMaps[GetNamespacedName("env-optional", deploymentObject.GetNamespace())]).To(BeNil())
+			Expect(configMapsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("env-optional", deploymentObject.GetNamespace()),
+				required: false,
+				allKeys:  false,
+				keys: map[string]struct{}{
+					"key2": {},
+				},
+			}))
+		})
+
+		It("optional Secrets referenced in EnvFrom are returned as optional", func() {
+			Expect(secrets[GetNamespacedName("envfrom-optional", deploymentObject.GetNamespace())]).To(BeNil())
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("envfrom-optional", deploymentObject.GetNamespace()),
+				required: false,
+				allKeys:  true,
+			}))
+		})
+
+		It("returns secrets referenced in Env as optional correctly", func() {
+			Expect(secrets[GetNamespacedName("env-optional", deploymentObject.GetNamespace())]).To(BeNil())
+			Expect(secretsConfig).To(ContainElement(configMetadata{
+				name:     GetNamespacedName("env-optional", deploymentObject.GetNamespace()),
+				required: false,
+				allKeys:  false,
+				keys: map[string]struct{}{
+					"key2": {},
 				},
 			}))
 		})
 
 		It("does not return duplicate children", func() {
-			Expect(currentChildren).To(HaveLen(12))
+			Expect(secrets).To(HaveLen(6))
+			Expect(configMaps).To(HaveLen(6))
 		})
 
-		It("returns an error if one of the referenced children is missing", func() {
+		It("should fail validation if a children is missing", func() {
 			// Delete s2 and wait for the cache to sync
 			m.Delete(s2).Should(Succeed())
 			m.Get(s2, timeout).ShouldNot(Succeed())
 
-			configMaps, secrets := getChildNamesByType(deploymentObject)
-			current, err := h.getCurrentChildren(configMaps, secrets)
-			Expect(err).To(HaveOccurred())
-			Expect(current).To(BeEmpty())
+			configMapsConfig, secretsConfig = getChildNamesByType(deploymentObject)
+			configMaps, secrets, err := h.getCurrentChildren(configMapsConfig, secretsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secrets).To(HaveLen(5))
+			Expect(configMaps).To(HaveLen(6))
+			Expect(h.checkRequiredChildren(configMaps, secrets, configMapsConfig, secretsConfig)).To(MatchError("not all required children exist: missing required secret default/example2"))
+		})
+
+		It("should fail validation if a children is missing a required key", func() {
+			// Delete s2 and wait for the cache to sync
+			cm6WithoutKey3 := utils.ExampleConfigMap6WithoutKey3.DeepCopy()
+
+			m.Get(cm6, timeout).Should(Succeed())
+			cm6.Data = cm6WithoutKey3.Data
+			Expect(m.Client.Update(context.TODO(), cm6)).Should(Succeed())
+
+			configMapsConfig, secretsConfig = getChildNamesByType(deploymentObject)
+			configMaps, secrets, err := h.getCurrentChildren(configMapsConfig, secretsConfig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secrets).To(HaveLen(6))
+			Expect(configMaps).To(HaveLen(6))
+			Expect(h.checkRequiredChildren(configMaps, secrets, configMapsConfig, secretsConfig)).To(MatchError("not all required children exist: missing required key key3 in configmap default/example6"))
 		})
 	})
 
-	Context("getChildNamesByType", func() {
-		var configMaps configMetadataMap
-		var secrets configMetadataMap
-
-		BeforeEach(func() {
-			configMaps, secrets = getChildNamesByType(deploymentObject)
-		})
-
-		It("returns ConfigMaps referenced in extra-configmaps annotations", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("test-cm1", "ns1"),
-				configMetadata{required: false, allKeys: true}))
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("test-cm2", "ns2"),
-				configMetadata{required: false, allKeys: true}))
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("local-cm1", deploymentObject.GetNamespace()),
-				configMetadata{required: false, allKeys: true}))
-		})
-
-		It("returns Secrets referenced in extra-secrets annotations", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("test-secret1", "ns1"),
-				configMetadata{required: false, allKeys: true}))
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("test-secret2", "ns2"),
-				configMetadata{required: false, allKeys: true}))
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("local-secret1", deploymentObject.GetNamespace()),
-				configMetadata{required: false, allKeys: true}))
-		})
-
-		It("returns ConfigMaps referenced in Volumes", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName(cm1.GetName(), deploymentObject.GetNamespace()),
-				configMetadata{required: true, allKeys: true}))
-		})
-
-		It("optional ConfigMaps referenced in Volumes are returned as optional", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("volume-optional", deploymentObject.GetNamespace()),
-				configMetadata{required: false, allKeys: true}))
-		})
-
-		It("optional Secrets referenced in Volumes are returned as optional", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("volume-optional", deploymentObject.GetNamespace()),
-				configMetadata{required: false, allKeys: true}))
-		})
-
-		It("returns ConfigMaps referenced in EnvFrom", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName(cm2.GetName(), deploymentObject.GetNamespace()),
-				configMetadata{required: true, allKeys: true}))
-		})
-
-		It("optional ConfigMaps referenced in EnvFrom are returned as optional", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("envfrom-optional", deploymentObject.GetNamespace()),
-				configMetadata{required: false, allKeys: true}))
-		})
-
-		It("returns ConfigMaps referenced in Env", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName(cm3.GetName(), deploymentObject.GetNamespace()),
-				configMetadata{
-					required: true,
-					allKeys:  false,
-					keys: map[string]struct{}{
-						"key1": {},
-						"key2": {},
-						"key4": {},
-					},
-				}))
-		})
-
-		It("returns ConfigMaps referenced in Env as optional correctly", func() {
-			Expect(configMaps).To(HaveKeyWithValue(GetNamespacedName("env-optional", deploymentObject.GetNamespace()),
-				configMetadata{
-					required: false,
-					allKeys:  false,
-					keys: map[string]struct{}{
-						"key2": {},
-					},
-				}))
-		})
-
-		It("returns Secrets referenced in Volumes", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName(s1.GetName(), deploymentObject.GetNamespace()),
-				configMetadata{required: true, allKeys: true}))
-		})
-
-		It("returns Secrets referenced in EnvFrom", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName(s2.GetName(), deploymentObject.GetNamespace()),
-				configMetadata{required: true, allKeys: true}))
-		})
-
-		It("optional Secrets referenced in EnvFrom are returned as optional", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("envfrom-optional", deploymentObject.GetNamespace()),
-				configMetadata{required: false, allKeys: true}))
-		})
-
-		It("returns Secrets referenced in Env", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName(s3.GetName(), deploymentObject.GetNamespace()),
-				configMetadata{
-					required: true,
-					allKeys:  false,
-					keys: map[string]struct{}{
-						"key1": {},
-						"key2": {},
-						"key4": {},
-					},
-				}))
-		})
-
-		It("returns secrets referenced in Env as optional correctly", func() {
-			Expect(secrets).To(HaveKeyWithValue(GetNamespacedName("env-optional", deploymentObject.GetNamespace()),
-				configMetadata{
-					required: false,
-					allKeys:  false,
-					keys: map[string]struct{}{
-						"key2": {},
-					},
-				}))
-		})
-
-		It("does not return extra children", func() {
-			Expect(configMaps).To(HaveLen(12))
-			Expect(secrets).To(HaveLen(12))
-		})
-	})
-
-	Context("getExistingChildren", func() {
+	Context("getExistingChildren (deprecated)", func() {
 		BeforeEach(func() {
 			m.Get(deploymentObject, timeout).Should(Succeed())
 			ownerRef := utils.GetOwnerRefDeployment(deploymentObject)
@@ -432,7 +483,7 @@ var _ = Describe("Wave children Suite", func() {
 		})
 	})
 
-	Context("isOwnedBy", func() {
+	Context("isOwnedBy (deprecated)", func() {
 		var ownerRef metav1.OwnerReference
 		BeforeEach(func() {
 			m.Get(deploymentObject, timeout).Should(Succeed())

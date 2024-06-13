@@ -20,14 +20,14 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // calculateConfigHash uses sha256 to hash the configuration within the child
 // objects and returns a hash as a string
-func calculateConfigHash(children []configObject) (string, error) {
+func calculateConfigHash(configMaps map[types.NamespacedName]*corev1.ConfigMap, secrets map[types.NamespacedName]*corev1.Secret, configMapsConfig configMetadataList, secretsConfig configMetadataList) (string, error) {
 	// hashSource contains all the data to be hashed
 	hashSource := struct {
 		ConfigMaps map[string]map[string][]byte `json:"configMaps"`
@@ -40,17 +40,26 @@ func calculateConfigHash(children []configObject) (string, error) {
 	// Add the data from each child to the hashSource
 	// All children should be in the same namespace so each one should have a
 	// unique name
-	for _, child := range children {
-		if child.object != nil {
-			switch child.object.(type) {
-			case *corev1.ConfigMap:
-				hashSource.ConfigMaps[child.object.GetName()] = getConfigMapData(child)
-			case *corev1.Secret:
-				hashSource.Secrets[child.object.GetName()] = getSecretData(child)
-			default:
-				return "", fmt.Errorf("passed unknown type: %v", reflect.TypeOf(child))
-			}
+	for _, childConfig := range configMapsConfig {
+		cm, ok := configMaps[childConfig.name]
+		if !ok {
+			continue
 		}
+		if _, ok := hashSource.ConfigMaps[childConfig.name.Name]; !ok {
+			hashSource.ConfigMaps[childConfig.name.Name] = make(map[string][]byte)
+		}
+		hashSource.ConfigMaps[childConfig.name.Name] = addConfigMapData(hashSource.ConfigMaps[childConfig.name.Name], childConfig, cm)
+	}
+
+	for _, childConfig := range secretsConfig {
+		s, ok := secrets[childConfig.name]
+		if !ok {
+			continue
+		}
+		if _, ok := hashSource.Secrets[childConfig.name.Name]; !ok {
+			hashSource.Secrets[childConfig.name.Name] = make(map[string][]byte)
+		}
+		hashSource.Secrets[childConfig.name.Name] = addSecretData(hashSource.Secrets[childConfig.name.Name], childConfig, s)
 	}
 
 	// Convert the hashSource to a byte slice so that it can be hashed
@@ -63,46 +72,44 @@ func calculateConfigHash(children []configObject) (string, error) {
 	return fmt.Sprintf("%x", hashBytes), nil
 }
 
-// getConfigMapData extracts all the relevant data from the ConfigMap, whether that is
+// addConfigMapData extracts all the relevant data from the ConfigMap, whether that is
 // the whole ConfigMap or only the specified keys.
-func getConfigMapData(child configObject) map[string][]byte {
-	cm := *child.object.(*corev1.ConfigMap)
-	if child.allKeys {
-		data := make(map[string][]byte)
+func addConfigMapData(data map[string][]byte, childConfig configMetadata, cm *corev1.ConfigMap) map[string][]byte {
+	if childConfig.allKeys {
 		for key := range cm.Data {
 			data[key] = []byte(cm.Data[key])
 		}
-		for key := range cm.BinaryData {
-			data[key] = cm.BinaryData[key]
+		for key, value := range cm.BinaryData {
+			data[key] = value
 		}
 		return data
 	}
-	keyData := make(map[string][]byte)
-	for key := range child.keys {
+	for key := range childConfig.keys {
 		if value, exists := cm.Data[key]; exists {
-			keyData[key] = []byte(value)
+			data[key] = []byte(value)
 		}
 		if value, exists := cm.BinaryData[key]; exists {
-			keyData[key] = value
+			data[key] = value
 		}
 	}
-	return keyData
+	return data
 }
 
 // getSecretData extracts all the relevant data from the Secret, whether that is
 // the whole Secret or only the specified keys.
-func getSecretData(child configObject) map[string][]byte {
-	s := *child.object.(*corev1.Secret)
-	if child.allKeys {
-		return s.Data
+func addSecretData(data map[string][]byte, childConfig configMetadata, s *corev1.Secret) map[string][]byte {
+	if childConfig.allKeys {
+		for key, value := range s.Data {
+			data[key] = value
+		}
+		return data
 	}
-	keyData := make(map[string][]byte)
-	for key := range child.keys {
+	for key := range childConfig.keys {
 		if value, exists := s.Data[key]; exists {
-			keyData[key] = value
+			data[key] = value
 		}
 	}
-	return keyData
+	return data
 }
 
 // setConfigHash updates the configuration hash of the given Deployment to the

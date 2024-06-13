@@ -73,22 +73,24 @@ func (h *Handler[I]) GetWatchedSecrets() WatcherList {
 	return h.watchedSecrets
 }
 
-func (h *Handler[I]) watchChildrenForInstance(instance I, configMaps configMetadataMap, secrets configMetadataMap) {
+func (h *Handler[I]) watchChildrenForInstance(instance I, configMaps configMetadataList, secrets configMetadataList) {
 	instanceName := GetNamespacedNameFromObject(instance)
 	h.watchedConfigmaps.watchersMutex.Lock()
-	for childName := range configMaps {
-		if _, ok := h.watchedConfigmaps.watchers[childName]; !ok {
-			h.watchedConfigmaps.watchers[childName] = map[types.NamespacedName]bool{}
+	h.removeWatchedConfigmapsInternal(instanceName)
+	for _, child := range configMaps {
+		if _, ok := h.watchedConfigmaps.watchers[child.name]; !ok {
+			h.watchedConfigmaps.watchers[child.name] = map[types.NamespacedName]bool{}
 		}
-		h.watchedConfigmaps.watchers[childName][instanceName] = true
+		h.watchedConfigmaps.watchers[child.name][instanceName] = true
 	}
 	h.watchedConfigmaps.watchersMutex.Unlock()
 	h.watchedSecrets.watchersMutex.Lock()
-	for childName := range secrets {
-		if _, ok := h.watchedSecrets.watchers[childName]; !ok {
-			h.watchedSecrets.watchers[childName] = map[types.NamespacedName]bool{}
+	h.removeWatchedSecretsInternal(instanceName)
+	for _, child := range secrets {
+		if _, ok := h.watchedSecrets.watchers[child.name]; !ok {
+			h.watchedSecrets.watchers[child.name] = map[types.NamespacedName]bool{}
 		}
-		h.watchedSecrets.watchers[childName][instanceName] = true
+		h.watchedSecrets.watchers[child.name][instanceName] = true
 	}
 	h.watchedSecrets.watchersMutex.Unlock()
 }
@@ -99,19 +101,28 @@ func (h *Handler[I]) removeWatchesForInstance(instance I) {
 
 func (h *Handler[I]) RemoveWatches(instanceName types.NamespacedName) {
 	h.watchedConfigmaps.watchersMutex.Lock()
+	h.removeWatchedConfigmapsInternal(instanceName)
+	h.watchedConfigmaps.watchersMutex.Unlock()
+
+	h.watchedSecrets.watchersMutex.Lock()
+	h.removeWatchedSecretsInternal(instanceName)
+	h.watchedSecrets.watchersMutex.Unlock()
+}
+
+func (h *Handler[I]) removeWatchedConfigmapsInternal(instanceName types.NamespacedName) {
 	for child, watchers := range h.watchedConfigmaps.watchers {
 		delete(watchers, instanceName)
 		if len(watchers) == 0 {
 			delete(h.watchedConfigmaps.watchers, child)
 		}
 	}
-	h.watchedConfigmaps.watchersMutex.Unlock()
-	h.watchedSecrets.watchersMutex.Lock()
+}
+
+func (h *Handler[I]) removeWatchedSecretsInternal(instanceName types.NamespacedName) {
 	for child, watchers := range h.watchedSecrets.watchers {
 		delete(watchers, instanceName)
 		if len(watchers) == 0 {
 			delete(h.watchedSecrets.watchers, child)
 		}
 	}
-	h.watchedSecrets.watchersMutex.Unlock()
 }

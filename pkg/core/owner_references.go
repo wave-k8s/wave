@@ -28,6 +28,8 @@ import (
 
 // removeOwnerReferences iterates over a list of children and removes the owner
 // reference from the child before updating it
+//
+// Deprecated: Wave no longer uses OwnerReferences. Only used for migration.
 func (h *Handler[I]) removeOwnerReferences(obj I, children []Object) error {
 	for _, child := range children {
 		// Filter the existing ownerReferences

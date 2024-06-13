@@ -119,11 +119,11 @@ var podTemplate = &corev1.PodTemplateSpec{
 								},
 								Items: []corev1.KeyToPath{
 									{
-										Key:  "example6_key1",
+										Key:  "key1",
 										Path: "example6_key1.txt",
 									},
 									{
-										Key:  "example6_key3",
+										Key:  "key3",
 										Path: "example6_key3.txt",
 									},
 								},
@@ -143,11 +143,11 @@ var podTemplate = &corev1.PodTemplateSpec{
 								},
 								Items: []corev1.KeyToPath{
 									{
-										Key:  "example6_key1",
+										Key:  "key1",
 										Path: "example6_key1.txt",
 									},
 									{
-										Key:  "example6_key3",
+										Key:  "key3",
 										Path: "example6_key3.txt",
 									},
 								},
@@ -505,6 +505,19 @@ var ExampleConfigMap6 = &corev1.ConfigMap{
 		"key1": "example6:key1",
 		"key2": "example6:key2",
 		"key3": "example6:key3",
+	},
+}
+
+// ExampleConfigMap6 is an example ConfigMap object for use within test suites
+var ExampleConfigMap6WithoutKey3 = &corev1.ConfigMap{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "example6",
+		Namespace: "default",
+		Labels:    labels,
+	},
+	Data: map[string]string{
+		"key1": "example6:key1",
+		"key2": "example6:key2",
 	},
 }
 

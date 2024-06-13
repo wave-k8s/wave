@@ -52,15 +52,6 @@ type Object interface {
 	metav1.Object
 }
 
-// configObject is used as a container of an "Object" along with metadata
-// that Wave uses to determine what to use from that Object.
-type configObject struct {
-	object   Object
-	required bool
-	allKeys  bool
-	keys     map[string]struct{}
-}
-
 type InstanceType interface {
 	*appsv1.Deployment | *appsv1.StatefulSet | *appsv1.DaemonSet
 	client.Object
@@ -72,6 +63,20 @@ type DeplyomentInterface interface {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 }
+
+// configMetadata contains information about ConfigMaps/Secrets referenced
+// within PodTemplates
+//
+// maps of configMetadata are return from the getChildNamesByType method
+// configMetadata is also used to pass info through the getObject methods
+type configMetadata struct {
+	name     types.NamespacedName
+	required bool
+	allKeys  bool
+	keys     map[string]struct{}
+}
+
+type configMetadataList []configMetadata
 
 func GetPodTemplate[I InstanceType](instance I) *corev1.PodTemplateSpec {
 	if deployment, ok := any(instance).(*appsv1.Deployment); ok {
