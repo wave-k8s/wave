@@ -13,6 +13,15 @@ kubectl --help > /dev/null 2>&1 || {
   exit 1
 }
 
+if [[ "$1" == "clean" ]]; then
+  helm uninstall wave || true
+  kubectl delete configmap test test-completed  || true
+  kubectl delete role test  || true
+  kubectl delete rolebinding test  || true
+  kubectl delete deployment test  || true
+  exit 0
+fi
+
 MINIKUBE_ALREADY_RUNNING=0
 kubectl get node minikube >/dev/null 2>&1 && MINIKUBE_ALREADY_RUNNING=1
 
@@ -88,6 +97,8 @@ metadata:
   name: test
   annotations:
     wave.pusher.com/update-on-config-change: "true"
+    wave.pusher.com/extra-configmaps: "test/test"
+    wave.pusher.com/extra-secrets: "test/test"
 spec:
   replicas: 1
   selector:
