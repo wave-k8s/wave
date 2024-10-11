@@ -103,8 +103,11 @@ func (h *Handler[I]) handlePodController(instance I) (reconcile.Result, error) {
 	err = h.checkRequiredChildren(configMaps, secrets, configMapsConfig, secretsConfig)
 	if err != nil {
 		// We are missing children but we added watchers for all children so we are done
+		log.V(0).Info("Waiting for children...", "error", err)
 		return reconcile.Result{}, nil
 	}
+
+	log.V(0).Info("All children found", "configMaps", fmt.Sprint(configMaps), "secrets", fmt.Sprint(secrets))
 
 	hash, err := calculateConfigHash(configMaps, secrets, configMapsConfig, secretsConfig)
 	if err != nil {
