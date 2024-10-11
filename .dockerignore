@@ -2,3 +2,4 @@ vendor/
 release/
 .git/
 wave
+**/*.swp
