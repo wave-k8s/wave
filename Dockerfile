@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.22 as builder
+FROM golang:1.23 as builder
 
 ARG VERSION=undefined
 
@@ -19,7 +19,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o wave -ldflags="-X main.VERSION=${VERSION}" ./cmd/manager
 
 # Copy the controller-manager into a thin image
-FROM alpine:3.11
+FROM alpine:3.20
 RUN apk --no-cache add ca-certificates
 WORKDIR /bin
 COPY --from=builder /go/src/github.com/wave-k8s/wave/wave .
