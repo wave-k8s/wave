@@ -31,29 +31,29 @@ func EnqueueRequestForWatcher(watcherList WatcherList) handler.EventHandler {
 }
 
 // Create implements EventHandler.
-func (e *enqueueRequestForWatcher) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForWatcher) Create(ctx context.Context, evt event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	e.queueOwnerReconcileRequest(evt.Object, q)
 }
 
 // Update implements EventHandler.
-func (e *enqueueRequestForWatcher) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForWatcher) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	e.queueOwnerReconcileRequest(evt.ObjectOld, q)
 	e.queueOwnerReconcileRequest(evt.ObjectNew, q)
 }
 
 // Delete implements EventHandler.
-func (e *enqueueRequestForWatcher) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForWatcher) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	e.queueOwnerReconcileRequest(evt.Object, q)
 }
 
 // Generic implements EventHandler.
-func (e *enqueueRequestForWatcher) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForWatcher) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	e.queueOwnerReconcileRequest(evt.Object, q)
 }
 
 // queueOwnerReconcileRequest looks the object up in our watchList and queues reconcile.Request to reconcile
 // all owners of object
-func (e *enqueueRequestForWatcher) queueOwnerReconcileRequest(object metav1.Object, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForWatcher) queueOwnerReconcileRequest(object metav1.Object, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	name := GetNamespacedNameFromObject(object)
 	e.watchersMutex.Lock()
 	if watchers, ok := e.watchers[name]; ok {
