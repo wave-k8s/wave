@@ -53,7 +53,8 @@ You can find supported versions in the following table:
 | Wave Version | API Client | Maximum Supported Kubernetes Versions | E2E Tested Versions |
 |--------------|------------|---------------------------------------|---------------------|
 | 0.5          | 1.14       | 1.15                                  |                     |
-| 0.6+         | 1.29       | 1.30                                  | 1.21, 1.30          |
+| 0.6 - 0.9    | 1.29       | 1.30                                  | 1.21, 1.30          |
+| 0.10+        | 1.31       | 1.31                                  | 1.21, 1.31          |
 |              |            |                                       |                     |
 
 

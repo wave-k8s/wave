@@ -18,38 +18,16 @@ package core
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func AddController[I InstanceType](name string, typeInstance I, mgr manager.Manager, r reconcile.Reconciler, h *Handler[I]) error {
-	// Create a new controller
-	c, err := controller.New(name, mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(source.Kind(mgr.GetCache(), typeInstance), &handler.EnqueueRequestForObject{}, predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}))
-	if err != nil {
-		return err
-	}
-
-	// Watch ConfigMaps owned by Resource
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ConfigMap{}), EnqueueRequestForWatcher(h.GetWatchedConfigmaps()))
-	if err != nil {
-		return err
-	}
-
-	// Watch Secrets owned by Resource
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}), EnqueueRequestForWatcher(h.GetWatchedSecrets()))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ctrl.NewControllerManagedBy(mgr).
+		For(typeInstance).
+		Watches(&corev1.ConfigMap{}, EnqueueRequestForWatcher(h.GetWatchedConfigmaps())).
+		Watches(&corev1.Secret{}, EnqueueRequestForWatcher(h.GetWatchedSecrets())).
+		Complete(r)
 }
