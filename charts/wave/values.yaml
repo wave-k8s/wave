@@ -76,3 +76,4 @@ topologySpreadConstraints: []
 
 # extra annotations for wave pods
 podAnnotations: {}
+podLabels: {}
