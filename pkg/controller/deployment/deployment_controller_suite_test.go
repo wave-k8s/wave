@@ -141,7 +141,7 @@ var _ = BeforeSuite(func() {
 	Expect(add(mgr, recFn, r.handler)).NotTo(HaveOccurred())
 
 	// register mutating pod webhook
-	err = AddDeploymentWebhook(mgr)
+	err = AddDeploymentWebhook(mgr, 10*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 
 	testCtx, testCancel = context.WithCancel(context.Background())

@@ -70,7 +70,7 @@ var _ = Describe("Wave children Suite", func() {
 		Expect(cerr).NotTo(HaveOccurred())
 		c = mgr.GetClient()
 		//		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
-		h = NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave"))
+		h = NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave"), 10*time.Second)
 
 		m = utils.Matcher{Client: c}
 

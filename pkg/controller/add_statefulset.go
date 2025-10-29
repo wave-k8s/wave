@@ -18,9 +18,12 @@ package controller
 
 import (
 	"github.com/wave-k8s/wave/pkg/controller/statefulset"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerFuncs = append(AddToManagerFuncs, statefulset.Add)
+	AddToManagerFuncs = append(AddToManagerFuncs, func(mgr manager.Manager, cfg Config) error {
+		return statefulset.Add(mgr, cfg.MinUpdateInterval)
+	})
 }

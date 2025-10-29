@@ -2,6 +2,7 @@ package daemonset
 
 import (
 	"context"
+	"time"
 
 	"github.com/wave-k8s/wave/pkg/core"
 	appsv1 "k8s.io/api/apps/v1"
@@ -28,11 +29,11 @@ func (a *DaemonSetWebhook) Default(ctx context.Context, obj runtime.Object) erro
 	return err
 }
 
-func AddDaemonSetWebhook(mgr manager.Manager) error {
+func AddDaemonSetWebhook(mgr manager.Manager, minUpdateInterval time.Duration) error {
 	err := builder.WebhookManagedBy(mgr).For(&appsv1.DaemonSet{}).WithDefaulter(
 		&DaemonSetWebhook{
 			Client:  mgr.GetClient(),
-			Handler: core.NewHandler[*appsv1.DaemonSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+			Handler: core.NewHandler[*appsv1.DaemonSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave"), minUpdateInterval),
 		}).Complete()
 
 	return err

@@ -76,7 +76,7 @@ var _ = Describe("Wave controller Suite", func() {
 		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 		Expect(cerr).NotTo(HaveOccurred())
 
-		h = NewHandler[*appsv1.Deployment](c, mgr.GetEventRecorderFor("wave"))
+		h = NewHandler[*appsv1.Deployment](c, mgr.GetEventRecorderFor("wave"), 10*time.Second)
 		m = utils.Matcher{Client: c}
 
 		stopMgr, mgrStopped = StartTestManager(mgr)

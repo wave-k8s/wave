@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -36,10 +37,11 @@ type Handler[I InstanceType] struct {
 	recorder          record.EventRecorder
 	watchedConfigmaps WatcherList
 	watchedSecrets    WatcherList
+	updateThrottler   *UpdateThrottler
 }
 
 // NewHandler constructs a new instance of Handler
-func NewHandler[I InstanceType](c client.Client, r record.EventRecorder) *Handler[I] {
+func NewHandler[I InstanceType](c client.Client, r record.EventRecorder, minUpdateInterval time.Duration) *Handler[I] {
 	return &Handler[I]{Client: c, recorder: r,
 		watchedConfigmaps: WatcherList{
 			watchers:      make(map[types.NamespacedName]map[types.NamespacedName]bool),
@@ -48,7 +50,9 @@ func NewHandler[I InstanceType](c client.Client, r record.EventRecorder) *Handle
 		watchedSecrets: WatcherList{
 			watchers:      make(map[types.NamespacedName]map[types.NamespacedName]bool),
 			watchersMutex: &sync.RWMutex{},
-		}}
+		},
+		updateThrottler: NewUpdateThrottler(minUpdateInterval),
+	}
 }
 
 // HandleWebhook is called by the webhook
@@ -125,6 +129,16 @@ func (h *Handler[I]) handlePodController(instance I) (reconcile.Result, error) {
 
 	// If the desired state doesn't match the existing state, update it
 	if hash != oldHash || schedulingChange {
+		instanceName := GetNamespacedNameFromObject(instance)
+
+		// Check throttling before updating
+		shouldUpdate, requeueAfter := h.updateThrottler.ShouldUpdate(instanceName)
+
+		if !shouldUpdate {
+			log.V(0).Info("Update delayed due to throttling", "hash", hash, "requeueAfter", requeueAfter)
+			return reconcile.Result{RequeueAfter: requeueAfter}, nil
+		}
+
 		log.V(0).Info("Updating instance hash", "hash", hash)
 		h.recorder.Eventf(instance, corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
 
@@ -132,6 +146,9 @@ func (h *Handler[I]) handlePodController(instance I) (reconcile.Result, error) {
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("error updating instance %s/%s: %v", instance.GetNamespace(), instance.GetName(), err)
 		}
+
+		// Record successful update
+		h.updateThrottler.RecordUpdate(instanceName)
 	}
 	return reconcile.Result{}, nil
 }

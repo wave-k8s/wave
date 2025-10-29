@@ -2,6 +2,7 @@ package statefulset
 
 import (
 	"context"
+	"time"
 
 	"github.com/wave-k8s/wave/pkg/core"
 	appsv1 "k8s.io/api/apps/v1"
@@ -28,11 +29,11 @@ func (a *StatefulSetWebhook) Default(ctx context.Context, obj runtime.Object) er
 	return err
 }
 
-func AddStatefulSetWebhook(mgr manager.Manager) error {
+func AddStatefulSetWebhook(mgr manager.Manager, minUpdateInterval time.Duration) error {
 	err := builder.WebhookManagedBy(mgr).For(&appsv1.StatefulSet{}).WithDefaulter(
 		&StatefulSetWebhook{
 			Client:  mgr.GetClient(),
-			Handler: core.NewHandler[*appsv1.StatefulSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+			Handler: core.NewHandler[*appsv1.StatefulSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave"), minUpdateInterval),
 		}).Complete()
 
 	return err

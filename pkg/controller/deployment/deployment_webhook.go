@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"time"
 
 	"github.com/wave-k8s/wave/pkg/core"
 	appsv1 "k8s.io/api/apps/v1"
@@ -28,11 +29,11 @@ func (a *DeploymentWebhook) Default(ctx context.Context, obj runtime.Object) err
 	return err
 }
 
-func AddDeploymentWebhook(mgr manager.Manager) error {
+func AddDeploymentWebhook(mgr manager.Manager, minUpdateInterval time.Duration) error {
 	err := builder.WebhookManagedBy(mgr).For(&appsv1.Deployment{}).WithDefaulter(
 		&DeploymentWebhook{
 			Client:  mgr.GetClient(),
-			Handler: core.NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+			Handler: core.NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave"), minUpdateInterval),
 		}).Complete()
 
 	return err

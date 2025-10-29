@@ -18,6 +18,7 @@ package deployment
 
 import (
 	"context"
+	"time"
 
 	"github.com/wave-k8s/wave/pkg/core"
 	appsv1 "k8s.io/api/apps/v1"
@@ -33,16 +34,16 @@ import (
 
 // Add creates a new Deployment Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	r := newReconciler(mgr)
+func Add(mgr manager.Manager, minUpdateInterval time.Duration) error {
+	r := newReconciler(mgr, minUpdateInterval)
 	return add(mgr, r, r.handler)
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) *ReconcileDeployment {
+func newReconciler(mgr manager.Manager, minUpdateInterval time.Duration) *ReconcileDeployment {
 	return &ReconcileDeployment{
 		scheme:  mgr.GetScheme(),
-		handler: core.NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+		handler: core.NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave"), minUpdateInterval),
 	}
 }
 

@@ -47,6 +47,7 @@ var (
 	leaderElectionID        = flag.String("leader-election-id", "", "Name of the configmap used by the leader election system")
 	leaderElectionNamespace = flag.String("leader-election-namespace", "", "Namespace for the configmap used by the leader election system")
 	syncPeriod              = flag.Duration("sync-period", 10*time.Hour, "Reconcile sync period")
+	minUpdateInterval       = flag.Duration("min-update-interval", core.DefaultMinUpdateInterval, "Minimum time between updates to prevent rapid deployment churn")
 	showVersion             = flag.Bool("version", false, "Show version and exit")
 	enableWebhooks          = flag.Bool("enable-webhooks", false, "Enable webhooks")
 	namespaces              = flag.String("namespaces", "", "Comma-separated list of namespaces to watch. Defaults to all namespaces.")
@@ -109,22 +110,25 @@ func main() {
 
 	// Setup all Controllers
 	setupLog.Info("Setting up controller")
-	if err := controller.AddToManager(mgr); err != nil {
+	controllerConfig := controller.Config{
+		MinUpdateInterval: *minUpdateInterval,
+	}
+	if err := controller.AddToManager(mgr, controllerConfig); err != nil {
 		setupLog.Error(err, "unable to register controllers to the manager")
 		os.Exit(1)
 	}
 	if *enableWebhooks {
-		if err := deployment.AddDeploymentWebhook(mgr); err != nil {
+		if err := deployment.AddDeploymentWebhook(mgr, *minUpdateInterval); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Deployment")
 			os.Exit(1)
 		}
 
-		if err := statefulset.AddStatefulSetWebhook(mgr); err != nil {
+		if err := statefulset.AddStatefulSetWebhook(mgr, *minUpdateInterval); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "StatefulSet")
 			os.Exit(1)
 		}
 
-		if err := daemonset.AddDaemonSetWebhook(mgr); err != nil {
+		if err := daemonset.AddDaemonSetWebhook(mgr, *minUpdateInterval); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "DaemonSet")
 			os.Exit(1)
 		}
