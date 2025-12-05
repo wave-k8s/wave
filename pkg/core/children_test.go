@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	"math"
 	"sync"
 	"time"
 
@@ -70,7 +71,7 @@ var _ = Describe("Wave children Suite", func() {
 		Expect(cerr).NotTo(HaveOccurred())
 		c = mgr.GetClient()
 		//		h = NewHandler(c, mgr.GetEventRecorderFor("wave"))
-		h = NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave"))
+		h = NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave"), math.Inf(1), 1)
 
 		m = utils.Matcher{Client: c}
 

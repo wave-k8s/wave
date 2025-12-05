@@ -28,11 +28,11 @@ func (a *DaemonSetWebhook) Default(ctx context.Context, obj runtime.Object) erro
 	return err
 }
 
-func AddDaemonSetWebhook(mgr manager.Manager) error {
+func AddDaemonSetWebhook(mgr manager.Manager, updateRate float64, updateBurst int) error {
 	err := builder.WebhookManagedBy(mgr).For(&appsv1.DaemonSet{}).WithDefaulter(
 		&DaemonSetWebhook{
 			Client:  mgr.GetClient(),
-			Handler: core.NewHandler[*appsv1.DaemonSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+			Handler: core.NewHandler[*appsv1.DaemonSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave"), updateRate, updateBurst),
 		}).Complete()
 
 	return err

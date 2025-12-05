@@ -19,6 +19,7 @@ package daemonset
 import (
 	"context"
 	"log"
+	"math"
 	"path/filepath"
 	"testing"
 
@@ -134,12 +135,12 @@ var _ = BeforeSuite(func() {
 	m = utils.Matcher{Client: c}
 
 	var recFn reconcile.Reconciler
-	r := newReconciler(mgr)
+	r := newReconciler(mgr, math.Inf(1), 1)
 	recFn, requestsStart, requests = core.SetupControllerTestReconcile(r)
 	Expect(add(mgr, recFn, r.handler)).NotTo(HaveOccurred())
 
 	// register mutating pod webhook
-	err = AddDaemonSetWebhook(mgr)
+	err = AddDaemonSetWebhook(mgr, math.Inf(1), 1)
 	Expect(err).ToNot(HaveOccurred())
 
 	testCtx, testCancel = context.WithCancel(context.Background())

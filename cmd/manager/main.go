@@ -47,6 +47,8 @@ var (
 	leaderElectionID        = flag.String("leader-election-id", "", "Name of the configmap used by the leader election system")
 	leaderElectionNamespace = flag.String("leader-election-namespace", "", "Namespace for the configmap used by the leader election system")
 	syncPeriod              = flag.Duration("sync-period", 10*time.Hour, "Reconcile sync period")
+	updateRate              = flag.Float64("update-rate", core.DefaultUpdateRate, "Global maximum update rate per second (default: 1.0 = 1 update per second)")
+	updateBurst             = flag.Int("update-burst", core.DefaultUpdateBurst, "Global maximum burst size for updates (default: 100 immediate updates allowed)")
 	showVersion             = flag.Bool("version", false, "Show version and exit")
 	enableWebhooks          = flag.Bool("enable-webhooks", false, "Enable webhooks")
 	namespaces              = flag.String("namespaces", "", "Comma-separated list of namespaces to watch. Defaults to all namespaces.")
@@ -109,22 +111,26 @@ func main() {
 
 	// Setup all Controllers
 	setupLog.Info("Setting up controller")
-	if err := controller.AddToManager(mgr); err != nil {
+	controllerConfig := controller.Config{
+		UpdateRate:  *updateRate,
+		UpdateBurst: *updateBurst,
+	}
+	if err := controller.AddToManager(mgr, controllerConfig); err != nil {
 		setupLog.Error(err, "unable to register controllers to the manager")
 		os.Exit(1)
 	}
 	if *enableWebhooks {
-		if err := deployment.AddDeploymentWebhook(mgr); err != nil {
+		if err := deployment.AddDeploymentWebhook(mgr, *updateRate, *updateBurst); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Deployment")
 			os.Exit(1)
 		}
 
-		if err := statefulset.AddStatefulSetWebhook(mgr); err != nil {
+		if err := statefulset.AddStatefulSetWebhook(mgr, *updateRate, *updateBurst); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "StatefulSet")
 			os.Exit(1)
 		}
 
-		if err := daemonset.AddDaemonSetWebhook(mgr); err != nil {
+		if err := daemonset.AddDaemonSetWebhook(mgr, *updateRate, *updateBurst); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "DaemonSet")
 			os.Exit(1)
 		}
