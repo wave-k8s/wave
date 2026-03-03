@@ -1,8 +1,8 @@
 apiVersion: v2
 name: wave
 description: wave chart that runs on kubernetes
-version: 4.4.1
-appVersion: v0.10.0
+version: 4.5.0
+appVersion: v0.11.0
 keywords:
   - wave
   - kubernetes
