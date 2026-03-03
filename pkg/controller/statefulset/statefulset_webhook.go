@@ -28,11 +28,11 @@ func (a *StatefulSetWebhook) Default(ctx context.Context, obj runtime.Object) er
 	return err
 }
 
-func AddStatefulSetWebhook(mgr manager.Manager) error {
+func AddStatefulSetWebhook(mgr manager.Manager, updateRate float64, updateBurst int) error {
 	err := builder.WebhookManagedBy(mgr).For(&appsv1.StatefulSet{}).WithDefaulter(
 		&StatefulSetWebhook{
 			Client:  mgr.GetClient(),
-			Handler: core.NewHandler[*appsv1.StatefulSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+			Handler: core.NewHandler[*appsv1.StatefulSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave"), updateRate, updateBurst),
 		}).Complete()
 
 	return err

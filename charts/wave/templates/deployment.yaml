@@ -35,6 +35,12 @@ spec:
           {{- if .Values.syncPeriod }}
             - --sync-period={{ .Values.syncPeriod }}
           {{- end }}
+          {{- if .Values.updateRate }}
+            - --update-rate={{ .Values.updateRate }}
+          {{- end }}
+          {{- if .Values.updateBurst }}
+            - --update-burst={{ .Values.updateBurst }}
+          {{- end }}
           {{- if .Values.webhooks.enabled }}
             - --enable-webhooks=true
           {{- end }}

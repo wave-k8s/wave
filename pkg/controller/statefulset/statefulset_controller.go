@@ -33,16 +33,16 @@ import (
 
 // Add creates a new StatefulSet Controller and adds it to the Manager with default RBAC. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	r := newReconciler(mgr)
+func Add(mgr manager.Manager, updateRate float64, updateBurst int) error {
+	r := newReconciler(mgr, updateRate, updateBurst)
 	return add(mgr, r, r.handler)
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) *ReconcileStatefulSet {
+func newReconciler(mgr manager.Manager, updateRate float64, updateBurst int) *ReconcileStatefulSet {
 	return &ReconcileStatefulSet{
 		scheme:  mgr.GetScheme(),
-		handler: core.NewHandler[*appsv1.StatefulSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+		handler: core.NewHandler[*appsv1.StatefulSet](mgr.GetClient(), mgr.GetEventRecorderFor("wave"), updateRate, updateBurst),
 	}
 }
 

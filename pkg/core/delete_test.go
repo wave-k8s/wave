@@ -17,6 +17,8 @@ limitations under the License.
 package core
 
 import (
+	"context"
+	"math"
 	"sync"
 	"time"
 
@@ -55,7 +57,7 @@ var _ = Describe("Wave migration Suite", func() {
 		var cerr error
 		c, cerr = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 		Expect(cerr).NotTo(HaveOccurred())
-		h = NewHandler[*appsv1.Deployment](c, mgr.GetEventRecorderFor("wave"))
+		h = NewHandler[*appsv1.Deployment](c, mgr.GetEventRecorderFor("wave"), math.Inf(1), 1)
 		m = utils.Matcher{Client: c}
 
 		// Create some configmaps and secrets
@@ -111,7 +113,7 @@ var _ = Describe("Wave migration Suite", func() {
 				return obj
 			}, timeout).Should(Succeed())
 
-			_, err := h.handlePodController(deploymentObject)
+			_, err := h.handlePodController(context.TODO(), deploymentObject)
 			Expect(err).NotTo(HaveOccurred())
 		})
 

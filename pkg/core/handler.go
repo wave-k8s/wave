@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 
+	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,10 +37,11 @@ type Handler[I InstanceType] struct {
 	recorder          record.EventRecorder
 	watchedConfigmaps WatcherList
 	watchedSecrets    WatcherList
+	updateThrottler   *UpdateThrottler
 }
 
 // NewHandler constructs a new instance of Handler
-func NewHandler[I InstanceType](c client.Client, r record.EventRecorder) *Handler[I] {
+func NewHandler[I InstanceType](c client.Client, r record.EventRecorder, updateRate float64, updateBurst int) *Handler[I] {
 	return &Handler[I]{Client: c, recorder: r,
 		watchedConfigmaps: WatcherList{
 			watchers:      make(map[types.NamespacedName]map[types.NamespacedName]bool),
@@ -48,7 +50,9 @@ func NewHandler[I InstanceType](c client.Client, r record.EventRecorder) *Handle
 		watchedSecrets: WatcherList{
 			watchers:      make(map[types.NamespacedName]map[types.NamespacedName]bool),
 			watchersMutex: &sync.RWMutex{},
-		}}
+		},
+		updateThrottler: NewUpdateThrottler(rate.Limit(updateRate), updateBurst),
+	}
 }
 
 // HandleWebhook is called by the webhook
@@ -69,11 +73,11 @@ func (h *Handler[I]) Handle(ctx context.Context, namespacesName types.Namespaced
 		return reconcile.Result{}, err
 	}
 
-	return h.handlePodController(instance)
+	return h.handlePodController(ctx, instance)
 }
 
 // handlePodController reconciles the state of a podController
-func (h *Handler[I]) handlePodController(instance I) (reconcile.Result, error) {
+func (h *Handler[I]) handlePodController(ctx context.Context, instance I) (reconcile.Result, error) {
 	log := logf.Log.WithName("wave").WithValues("namespace", instance.GetNamespace(), "name", instance.GetName())
 
 	// To cleanup legacy ownerReferences and finalizer
@@ -125,6 +129,13 @@ func (h *Handler[I]) handlePodController(instance I) (reconcile.Result, error) {
 
 	// If the desired state doesn't match the existing state, update it
 	if hash != oldHash || schedulingChange {
+		instanceName := GetNamespacedNameFromObject(instance)
+
+		// Wait for rate limiter (stalls the pipeline until allowed)
+		if err := h.updateThrottler.Wait(ctx, instanceName); err != nil {
+			return reconcile.Result{}, fmt.Errorf("error waiting for rate limit: %v", err)
+		}
+
 		log.V(0).Info("Updating instance hash", "hash", hash)
 		h.recorder.Eventf(instance, corev1.EventTypeNormal, "ConfigChanged", "Configuration hash updated to %s", hash)
 

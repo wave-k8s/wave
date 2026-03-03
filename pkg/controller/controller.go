@@ -20,13 +20,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-// AddToManagerFuncs is a list of functions to add all Controllers to the Manager
-var AddToManagerFuncs []func(manager.Manager) error
+// Config holds configuration options for controllers
+type Config struct {
+	UpdateRate  float64 // updates per second
+	UpdateBurst int     // maximum burst size
+}
 
-// AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager) error {
+// AddToManagerFuncs is a list of functions to add all Controllers to the Manager
+var AddToManagerFuncs []func(manager.Manager, Config) error
+
+// AddToManager adds all Controllers to the Manager with the given configuration
+func AddToManager(m manager.Manager, cfg Config) error {
 	for _, f := range AddToManagerFuncs {
-		if err := f(m); err != nil {
+		if err := f(m, cfg); err != nil {
 			return err
 		}
 	}

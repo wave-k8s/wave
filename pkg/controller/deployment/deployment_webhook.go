@@ -28,11 +28,11 @@ func (a *DeploymentWebhook) Default(ctx context.Context, obj runtime.Object) err
 	return err
 }
 
-func AddDeploymentWebhook(mgr manager.Manager) error {
+func AddDeploymentWebhook(mgr manager.Manager, updateRate float64, updateBurst int) error {
 	err := builder.WebhookManagedBy(mgr).For(&appsv1.Deployment{}).WithDefaulter(
 		&DeploymentWebhook{
 			Client:  mgr.GetClient(),
-			Handler: core.NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave")),
+			Handler: core.NewHandler[*appsv1.Deployment](mgr.GetClient(), mgr.GetEventRecorderFor("wave"), updateRate, updateBurst),
 		}).Complete()
 
 	return err
