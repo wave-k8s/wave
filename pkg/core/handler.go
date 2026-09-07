@@ -112,6 +112,7 @@ func (h *Handler[I]) handlePodController(ctx context.Context, instance I) (recon
 	err = h.checkRequiredChildren(configMaps, secrets, configMapsConfig, secretsConfig)
 	if err != nil {
 		// We are missing children but we added watchers for all children so we are done
+		h.recorder.Eventf(instance, corev1.EventTypeWarning, "MissingChildren", "Scheduling blocked due to missing children: %s", err)
 		return reconcile.Result{}, nil
 	}
 
@@ -191,7 +192,7 @@ func (h *Handler[I]) updatePodController(instance I, dryRun bool, isCreate bool)
 		if isCreate {
 			if !dryRun {
 				log.V(0).Info("Not all required children found yet. Disabling scheduling!", "err", err)
-				h.recorder.Eventf(instance, corev1.EventTypeNormal, "SchedulingDisabled", "Disabled scheduling due to missing children: %s", err)
+				h.recorder.Eventf(instance, corev1.EventTypeWarning, "SchedulingDisabled", "Disabled scheduling due to missing children: %s", err)
 			}
 			disableScheduling(instance)
 		} else {

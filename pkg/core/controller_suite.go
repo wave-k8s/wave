@@ -458,6 +458,25 @@ func ControllerTestSuite[I InstanceType](
 			Expect(instance.GetAnnotations()[SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
 		})
 
+		It("Emits a MissingChildren warning event", func() {
+			eventReason := func(event *corev1.Event) string {
+				return event.Reason
+			}
+			eventType := func(event *corev1.Event) string {
+				return event.Type
+			}
+			Eventually(func() *corev1.EventList {
+				events := &corev1.EventList{}
+				Expect(m.Client.List(context.TODO(), events)).To(Succeed())
+				return events
+			}, timeout).Should(utils.WithItems(ContainElement(
+				SatisfyAll(
+					WithTransform(eventReason, Equal("MissingChildren")),
+					WithTransform(eventType, Equal(corev1.EventTypeWarning)),
+				),
+			)))
+		})
+
 		Context("And the missing child is created", func() {
 			JustBeforeEach(func() {
 				expectNoReconciles()
@@ -557,6 +576,25 @@ func ControllerTestSuite[I InstanceType](
 			m.Get(instance, timeout).Should(Succeed())
 			Expect(GetPodTemplate(instance).Spec.SchedulerName).To(Equal(SchedulingDisabledSchedulerName))
 			Expect(instance.GetAnnotations()[SchedulingDisabledAnnotation]).To(Equal("default-scheduler"))
+		})
+
+		It("Emits a MissingChildren warning event", func() {
+			eventReason := func(event *corev1.Event) string {
+				return event.Reason
+			}
+			eventType := func(event *corev1.Event) string {
+				return event.Type
+			}
+			Eventually(func() *corev1.EventList {
+				events := &corev1.EventList{}
+				Expect(m.Client.List(context.TODO(), events)).To(Succeed())
+				return events
+			}, timeout).Should(utils.WithItems(ContainElement(
+				SatisfyAll(
+					WithTransform(eventReason, Equal("MissingChildren")),
+					WithTransform(eventType, Equal(corev1.EventTypeWarning)),
+				),
+			)))
 		})
 
 		Context("And the missing child is created with a missing field", func() {
