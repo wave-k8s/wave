@@ -2,6 +2,21 @@ apiVersion: v1
 entries:
   wave:
   - apiVersion: v2
+    appVersion: v0.12.0
+    created: "2026-09-09T10:29:55.571852811Z"
+    description: wave chart that runs on kubernetes
+    digest: 147d0624f22b28e793bb24bacc698acc702891d4b150e4835d620f7d2d0a375f
+    home: https://github.com/wave-k8s/wave
+    keywords:
+    - wave
+    - kubernetes
+    name: wave
+    sources:
+    - https://github.com/wave-k8s/wave
+    urls:
+    - https://github.com/wave-k8s/wave/releases/download/wave-4.6.0/wave-4.6.0.tgz
+    version: 4.6.0
+  - apiVersion: v2
     appVersion: v0.11.0
     created: "2026-03-03T07:40:56.875588209Z"
     description: wave chart that runs on kubernetes
@@ -196,4 +211,4 @@ entries:
     urls:
     - https://github.com/wave-k8s/wave/releases/download/wave-1.0.0/wave-1.0.0.tgz
     version: 1.0.0
-generated: "2026-03-03T07:40:56.875732462Z"
+generated: "2026-09-09T10:29:55.57194857Z"
